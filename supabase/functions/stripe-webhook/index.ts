@@ -19,8 +19,9 @@ Deno.serve(async (req) => {
     try { event = await stripe.webhooks.constructEventAsync(raw, sig, secret, undefined, crypto); break; } catch { /* try next */ }
   }
   if (!event) return new Response('bad signature', { status: 400 });
-  const { error: dup } = await admin.from('stripe_events').insert({ id: event.id, type: event.type });
-  if (dup) return new Response('duplicate', { status: 200 });
+  const { error: insErr } = await admin.from('stripe_events').insert({ id: event.id, type: event.type });
+  if (insErr?.code === '23505') return new Response('duplicate', { status: 200 }); // already processed
+  if (insErr) { console.error('stripe_events insert', insErr); return new Response('error', { status: 500 }); } // Stripe retries
 
   try {
     if (event.type === 'setup_intent.succeeded') {
