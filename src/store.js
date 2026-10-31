@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import { fetchLiveListings } from './backend/listings';
+import { useAuth } from './backend/auth';
 import { CFIS, PLANES, SCHOOLS, SAMPLE_REQUESTS, PILOT, TRAINING, WALLET, THREADS, SYLLABUS, AFFILIATIONS } from './data';
 import { quote, scanMessage, hoursUntil, FEES, r2 } from './logic';
 import { extract, runChecks, decide, expiryOf, fmt, addMonths, DOC_TYPES } from './verification';
@@ -93,6 +95,18 @@ export function StoreProvider({ children }) {
   const [affiliations, setAffiliations] = useState(AFFILIATIONS);
   const [queue, setQueue] = useState(seedQueue);
   const [automation, setAutomation] = useState({ autoApproved: 412, reviewed: 97, rejected: 14 });
+
+  // Live listings from the database go first; the sample listings stay for browsing.
+  const auth = useAuth();
+  useEffect(() => {
+    let alive = true;
+    fetchLiveListings().then(({ cfis: lc, planes: lp }) => {
+      if (!alive) return;
+      setCfis((prev) => [...lc, ...prev.filter((c) => !c.live)]);
+      setPlanes((prev) => [...lp, ...prev.filter((p) => !p.live)]);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [auth?.session?.user?.id]);
 
   const getCfi = (id) => cfis.find((c) => c.id === id);
   const getPlane = (id) => planes.find((p) => p.id === id);
