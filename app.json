@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "RightSeat",
-    "slug": "rightseat",
+    "slug": "right-seat-aviation",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -38,6 +38,18 @@
         }
       ]
     ],
-    "scheme": "rightseat"
+    "scheme": "rightseat",
+    "owner": "rightseat-aviation",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/37f99b48-0f43-4273-b1d2-fd84e925532b"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "37f99b48-0f43-4273-b1d2-fd84e925532b"
+      }
+    }
   }
 }

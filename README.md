@@ -79,3 +79,11 @@ Browser-based back office: overview, bookings, payments, disputes, users, listin
 
 ## Next steps for production
 Backend + accounts (e.g. Supabase/Firebase), photo uploads, payments (Stripe Connect for CFI/owner payouts), messaging, calendar sync, CFI certificate verification, then build with `eas build` and submit to the App Store / Play Store.
+
+## Try it on your phone (Expo Go)
+
+1. Install **Expo Go** from the App Store / Google Play and sign in as `rightseat-aviation`.
+2. Every push to `main` publishes the app to the `preview` channel (GitHub Action "Phone preview").
+3. Open this link on the phone: `exp://u.expo.dev/37f99b48-0f43-4273-b1d2-fd84e925532b?channel-name=preview&runtime-version=exposdk:54.0.0`
+
+Payments are in Stripe **test mode** — use card `4242 4242 4242 4242`, any future date, any CVC/ZIP.
