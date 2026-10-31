@@ -52,7 +52,10 @@ export function serve(handler: (req: Request, body: any) => Promise<Response>) {
       const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
       return await handler(req, body);
     } catch (e) {
-      if (e instanceof HttpError) return json({ error: e.message }, e.status);
+      if (e instanceof HttpError) {
+        console.warn(`${new URL(req.url).pathname} ${e.status}: ${e.message}`); // shows in Supabase logs
+        return json({ error: e.message }, e.status);
+      }
       if (e?.type?.startsWith?.('Stripe')) {
         console.error('stripe', e.type, e.code, e.message);
         const msg = e.code === 'card_declined' || e.type === 'StripeCardError' ? 'The card was declined. Update your payment method and try again.' : 'Payment service error. Try again in a moment.';

@@ -77,7 +77,8 @@ export function slotStatus({ cfi, plane, day, hour, requests, ignoreId }) {
   if (plane && clash.some((r) => r.planeId === plane.id)) return 'plane';
   if (cfi && hash(cfi.id + k + hour) % 10 < 3) return 'cfi';
   if (plane && hash(plane.id + k + hour) % 10 < 2) return 'plane';
-  if (new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour) < new Date()) return 'off';
+  // Bookings need at least an hour's notice (the server enforces the same rule).
+  if (new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour).getTime() < Date.now() + 60 * 60 * 1000) return 'off';
   return 'free';
 }
 

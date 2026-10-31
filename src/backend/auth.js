@@ -41,11 +41,13 @@ export function AuthProvider({ children }) {
     },
     // Save onboarding answers to the account.
     saveProfile: async ({ name, roles = [], airport }) => {
-      if (!session) return;
+      // Read the user fresh: right after verifyCode the session state above hasn't re-rendered yet.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       const dbRoles = [...new Set(roles.map((r) => ROLE_MAP[r]).filter(Boolean))];
       const patch = { onboarded: true, roles: dbRoles.length ? dbRoles : ['student'], home_airport: airport };
       if (name) patch.full_name = name;
-      const { data, error } = await supabase.from('profiles').update(patch).eq('id', session.user.id).select().single();
+      const { data, error } = await supabase.from('profiles').update(patch).eq('id', user.id).select().single();
       if (error) throw error;
       setAccount(data);
     },
