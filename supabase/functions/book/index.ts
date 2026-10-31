@@ -20,6 +20,11 @@ serve(async (req, body) => {
   if (plane && !cfi && plane.owner_id === user.id) throw new HttpError(400, 'You can’t rent your own plane.');
   if (plane && !cfi && plane.details?.soloRental === false) throw new HttpError(400, 'This plane is dual-only. Add an instructor.');
 
+  // Retrying? Drop this student's own earlier requests for an overlapping time whose card never saved.
+  await admin.from('bookings').update({ status: 'cancelled', cancelled_by: user.id, cancel_reason: 'Replaced by a new request' })
+    .eq('student_id', user.id).eq('status', 'requested').eq('card_ready', false)
+    .lt('starts_at', r.endsAt.toISOString()).gt('ends_at', r.startsAt.toISOString());
+
   // Double-booking check (instructor and plane), including turnaround buffer.
   const overlap = async (col: string, id: string) => {
     const { count } = await admin.from('bookings').select('id', { count: 'exact', head: true })
@@ -53,7 +58,7 @@ serve(async (req, body) => {
 
   // Save the card now; it's charged for the actual Hobbs time at close-out.
   const si = await stripe.setupIntents.create({
-    customer, usage: 'off_session', automatic_payment_methods: { enabled: true },
+    customer, usage: 'off_session', payment_method_types: ['card'],
     metadata: { booking_id: booking.id, user_id: user.id },
   }, { idempotencyKey: 'si-' + booking.id });
   const ek = await stripe.ephemeralKeys.create({ customer }, { apiVersion: '2024-12-18.acacia' });

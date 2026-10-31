@@ -63,6 +63,19 @@ serve(async (req, body) => {
   const { b, plane, schoolId, schoolPct } = await load(String(body.bookingId || ''));
   const role = roleIn(b, user.id, { planeOwnerId: plane?.owner_id, schoolAdmin: await isSchoolAdmin(user.id, schoolId) });
   const action = String(body.action || '');
+
+  // The student's app asks this right after Stripe's card sheet closes: we check with
+  // Stripe directly instead of trusting the sheet, so a request is only "sent" with a saved card.
+  if (action === 'card') {
+    if (role !== 'student') throw new HttpError(403, 'This isn’t your booking.');
+    if (b.card_ready) return json({ cardReady: true });
+    if (!b.setup_intent_id) return json({ cardReady: false });
+    const si = await stripe.setupIntents.retrieve(b.setup_intent_id);
+    const ready = si.status === 'succeeded' && !!si.payment_method;
+    if (ready) await admin.from('bookings').update({ card_ready: true }).eq('id', b.id);
+    return json({ cardReady: ready, status: si.status });
+  }
+
   assertTransition(action, b, role);
 
   if (action === 'confirm') {

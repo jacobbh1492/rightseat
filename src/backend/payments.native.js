@@ -41,6 +41,13 @@ export function useBookingPayment() {
       if (error.code === 'Canceled') return { cancelled: true, bookingId: res.booking.id };
       throw new Error(error.message);
     }
+    // Don't trust the sheet alone — confirm with the server that Stripe saved the card.
+    let check = { cardReady: false };
+    for (let i = 0; i < 3 && !check.cardReady; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 1500));
+      check = await callFn('booking-action', { bookingId: res.booking.id, action: 'card' });
+    }
+    if (!check.cardReady) throw new Error('Stripe didn’t save your card, so the request wasn’t sent. Tap Send request to try again.');
     return { booking: res.booking, quote: res.quote };
   };
 }
