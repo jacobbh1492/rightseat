@@ -84,6 +84,6 @@ Backend + accounts (e.g. Supabase/Firebase), photo uploads, payments (Stripe Con
 
 1. Install **Expo Go** from the App Store / Google Play and sign in as `rightseat-aviation`.
 2. Every push to `main` publishes the app to the `preview` channel (GitHub Action "Phone preview").
-3. Open this link on the phone: `exp://u.expo.dev/37f99b48-0f43-4273-b1d2-fd84e925532b?channel-name=preview&runtime-version=exposdk:54.0.0`
+3. Open this link on the phone: `exp://u.expo.dev/37f99b48-0f43-4273-b1d2-fd84e925532b?channel-name=preview&runtime-version=exposdk:58.0.0`
 
 Payments are in Stripe **test mode** — use card `4242 4242 4242 4242`, any future date, any CVC/ZIP.
