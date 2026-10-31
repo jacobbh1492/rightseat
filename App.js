@@ -6,6 +6,7 @@ import { StoreProvider, useStore } from './src/store';
 import Welcome from './src/screens/Welcome';
 import SignIn from './src/screens/SignIn';
 import { AuthProvider, useAuth, appRolesFrom } from './src/backend/auth';
+import { PaymentsProvider } from './src/backend/payments';
 import { Icon } from './src/icons';
 import { C } from './src/ui';
 import Explore from './src/screens/Explore';
@@ -109,11 +110,13 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <StoreProvider>
-          <View style={st.webFrame}>
-            <Shell />
-          </View>
-        </StoreProvider>
+        <PaymentsProvider>
+          <StoreProvider>
+            <View style={st.webFrame}>
+              <Shell />
+            </View>
+          </StoreProvider>
+        </PaymentsProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

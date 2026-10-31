@@ -14,6 +14,11 @@ function Step({ n, title, done }) {
   );
 }
 import { PlaneImage } from '../art';
+import { useAuth } from '../backend/auth';
+import { useBookingPayment, CARD_PAYMENTS_SUPPORTED } from '../backend/payments';
+
+// Listings stored in the live database have UUID ids; the built-in sample listings don't.
+const isLive = (id) => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(id);
 import { Header } from './Details';
 import { planeVerified } from './Verify';
 import { ALL_LESSONS, lessonState, hasPrior, upcomingEndorsements } from '../progress';
@@ -82,8 +87,29 @@ export function RequestLesson({ nav, params }) {
     : planes.filter((p) => p.soloRental);
   const cfiOptions = plane ? [...cfis.filter((c) => c.aircraftIds.includes(plane.id)), ...cfis.filter((c) => !c.aircraftIds.includes(plane.id))] : cfis;
 
-  const submit = () => {
+  const auth = useAuth();
+  const payForBooking = useBookingPayment();
+  const [busy, setBusy] = useState(false);
+  const [payErr, setPayErr] = useState('');
+  const live = isLive(cfi?.id) || isLive(plane?.id);
+
+  const submit = async () => {
     const when = new Date(day.getFullYear(), day.getMonth(), day.getDate(), slot).toISOString();
+    if (live) {
+      // Real booking: server prices it, then the student saves a card (charged after the flight).
+      if (!auth?.session) { nav.push('SignIn', { reason: 'Sign in to book. We’ll email you a 6-digit code.' }); return; }
+      if (!CARD_PAYMENTS_SUPPORTED) { setPayErr('Book from the RightSeat iPhone or Android app.'); return; }
+      setBusy(true); setPayErr('');
+      try {
+        const res = await payForBooking({ cfiId: cfi?.id || null, planeId: plane?.id || null, startsAt: when, goal: cfi ? goal : 'Solo rental', flightHours, groundHours: cfi ? groundHours : 0, prepaid });
+        setBusy(false);
+        if (res.cancelled) { setPayErr('Card not saved, so the request wasn’t sent. Tap Send request to try again.'); return; }
+        const r = { id: res.booking.id, cfiId: cfi?.id || null, planeId: plane?.id || null, when, date: dateLabel(when), time: timeLabel(when), goal: cfi ? goal : 'Solo rental', flightHours, groundHours: cfi ? groundHours : 0, total: res.quote.total, repeat, prepaid, method: 'card', deposit: res.quote.deposit, status: 'Pending', live: true };
+        addRequest(r);
+        setSent(r);
+      } catch (e) { setBusy(false); setPayErr(e.message || 'Something went wrong. Try again.'); }
+      return;
+    }
     const r = {
       id: 'r' + Date.now(),
       cfiId: cfi?.id || null,
@@ -313,15 +339,16 @@ export function RequestLesson({ nav, params }) {
           </View>
         </View>
       </ScrollView>
+      {!!payErr && <Text style={{ color: '#B91C1C', fontWeight: '600', paddingHorizontal: 16, paddingBottom: 6, backgroundColor: '#fff' }} accessibilityLiveRegion="polite">{payErr}</Text>}
       <View style={bs.cta}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontWeight: '900', fontSize: 20, color: C.navy }}>{money2(q.total)}</Text>
           <Text style={{ color: C.sub, fontSize: 12 }}>{slot ? `${dateLabel(day.toISOString())} · ${SLOTS.find((s) => s.h === slot).label}` : 'Pick a time'}</Text>
         </View>
         <Button
-          title={blocked ? 'Checks not met' : !slot ? 'Pick a time' : 'Send request'}
+          title={busy ? 'Sending…' : blocked ? 'Checks not met' : !slot ? 'Pick a time' : 'Send request'}
           style={{ paddingHorizontal: 22 }}
-          disabled={blocked || !slot || (!cfi && !plane) || walletShort}
+          disabled={busy || blocked || !slot || (!cfi && !plane) || (!live && walletShort)}
           onPress={submit}
         />
       </View>
