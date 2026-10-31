@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StoreProvider, useStore } from './src/store';
 import Welcome from './src/screens/Welcome';
+import SignIn from './src/screens/SignIn';
+import { AuthProvider, useAuth, appRolesFrom } from './src/backend/auth';
 import { Icon } from './src/icons';
 import { C } from './src/ui';
 import Explore from './src/screens/Explore';
@@ -26,10 +28,18 @@ const TABS = [
   { key: 'Me', icon: 'user', label: 'Account' },
 ];
 const TAB_SCREENS = { Explore, Lessons, Training, Inbox, Me };
-const STACK_SCREENS = { Cfi: CfiDetail, Plane: PlaneDetail, School: SchoolDetail, Review: LeaveReview, Request: RequestLesson, CfiForm, PlaneForm, SchoolForm, Cancel: CancelLesson, CloseOut, Receipt, Chat, Wallet, CfiDashboard, OwnerDashboard, Plans, Credentials, Insights, Verification: VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, Automation: AutomationMonitor, PriorExperience, PriorReview, Debrief: DebriefView, Debriefs: DebriefList, EditDebrief, StudentFile, AmendDebrief, SchoolDashboard, AffiliationReview, JoinSchool };
+const SignInScreen = ({ nav, params }) => <SignIn askName={false} title="Sign in" subtitle={params?.reason || 'We’ll email you a 6-digit code. No password needed.'} onCancel={nav.pop} onDone={() => nav.pop()} />;
+const STACK_SCREENS = { SignIn: SignInScreen, Cfi: CfiDetail, Plane: PlaneDetail, School: SchoolDetail, Review: LeaveReview, Request: RequestLesson, CfiForm, PlaneForm, SchoolForm, Cancel: CancelLesson, CloseOut, Receipt, Chat, Wallet, CfiDashboard, OwnerDashboard, Plans, Credentials, Insights, Verification: VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, Automation: AutomationMonitor, PriorExperience, PriorReview, Debrief: DebriefView, Debriefs: DebriefList, EditDebrief, StudentFile, AmendDebrief, SchoolDashboard, AffiliationReview, JoinSchool };
 
 function Shell() {
-  const { profile, training, requests } = useStore();
+  const { profile, setProfile, training, requests } = useStore();
+  const auth = useAuth();
+  // A returning, signed-in user skips onboarding: load their saved answers.
+  useEffect(() => {
+    const a = auth.account;
+    if (a?.onboarded && !profile.onboarded) setProfile({ onboarded: true, guest: false, roles: appRolesFrom(a.roles), airport: a.home_airport || 'KPIE', name: a.full_name });
+    if (!auth.session && profile.onboarded && !profile.guest) setProfile({ onboarded: false });
+  }, [auth.account?.id, auth.session?.user?.id]);
   const [tab, setTab] = useState('Explore');
   const badges = {
     Training: training.debriefs.filter((d) => !d.pending && (!d.acknowledged || (d.amendments || []).some((a) => !a.read))).length,
@@ -53,6 +63,7 @@ function Shell() {
   }, [stack.length]);
 
   const top = stack[stack.length - 1];
+  if (!auth.ready) return <View style={{ flex: 1, backgroundColor: C.navy }} />;
   if (!profile.onboarded) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: C.navy }} edges={['top']}>
@@ -97,11 +108,13 @@ function Shell() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <StoreProvider>
-        <View style={st.webFrame}>
-          <Shell />
-        </View>
-      </StoreProvider>
+      <AuthProvider>
+        <StoreProvider>
+          <View style={st.webFrame}>
+            <Shell />
+          </View>
+        </StoreProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

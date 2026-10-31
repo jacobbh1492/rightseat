@@ -1,0 +1,7 @@
+project_id = "velhvzupamhlhbriyreq"
+
+[functions.connect-return]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false

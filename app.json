@@ -28,6 +28,16 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "name": "RightSeat"
-    }
+    },
+    "plugins": [
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.rightseat.app",
+          "enableGooglePay": true
+        }
+      ]
+    ],
+    "scheme": "rightseat"
   }
 }

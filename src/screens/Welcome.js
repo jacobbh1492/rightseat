@@ -4,6 +4,8 @@ import { useStore } from '../store';
 import { AIRPORTS } from '../data';
 import { C, Button, Icon } from '../ui';
 import { AircraftArt } from '../art';
+import { useAuth } from '../backend/auth';
+import SignIn from './SignIn';
 
 const ROLES = [
   { key: 'learn', icon: 'grad', title: 'Learn to fly', sub: 'Find an instructor and a plane' },
@@ -27,7 +29,29 @@ export default function Welcome() {
   const [airport, setAirport] = useState('KPIE');
   const learner = roles.includes('learn') || roles.includes('rent');
   const steps = learner ? 4 : 3;
-  const finish = () => setProfile({ onboarded: true, roles, stage, airport });
+  const auth = useAuth();
+  const [signin, setSignin] = useState(null); // 'new' | 'existing'
+  const local = () => setProfile({ onboarded: true, roles, stage, airport });
+  // Signed in already? Save answers to the account. Otherwise create the account first.
+  const finish = async () => {
+    if (auth?.session) { try { await auth.saveProfile({ roles, airport }); } catch {} local(); }
+    else setSignin('new');
+  };
+
+  if (signin) {
+    return (
+      <SignIn
+        title={signin === 'existing' ? 'Welcome back' : 'Create your account'}
+        subtitle={signin === 'existing' ? 'Enter your email and we’ll send you a 6-digit code.' : 'Last step. We’ll email you a 6-digit code. No password needed.'}
+        askName={signin === 'new'}
+        onCancel={() => setSignin(null)}
+        onDone={async ({ name }) => {
+          if (signin === 'new') { try { await auth.saveProfile({ name, roles, airport }); } catch {} local(); }
+          // returning users are routed by App once their profile loads
+        }}
+      />
+    );
+  }
   const toggle = (k) => setRoles(roles.includes(k) ? roles.filter((x) => x !== k) : [...roles, k]);
 
   if (step === 0) {
@@ -53,7 +77,10 @@ export default function Welcome() {
             </View>
           ))}
           <Button title="Get started" style={{ marginTop: 24 }} onPress={() => setStep(1)} />
-          <Pressable onPress={() => setProfile({ onboarded: true, roles: ['learn', 'rent', 'teach', 'own', 'school'], stage: 'student' })} style={{ alignItems: 'center', marginTop: 16 }} accessibilityRole="button">
+          <Pressable onPress={() => setSignin('existing')} style={{ alignItems: 'center', marginTop: 16 }} accessibilityRole="button">
+            <Text style={{ color: '#fff', fontWeight: '800' }}>I already have an account</Text>
+          </Pressable>
+          <Pressable onPress={() => setProfile({ onboarded: true, guest: true, roles: ['learn', 'rent', 'teach', 'own', 'school'], stage: 'student' })} style={{ alignItems: 'center', marginTop: 12 }} accessibilityRole="button">
             <Text style={{ color: '#9FB3D1', fontWeight: '700' }}>Skip, just browse</Text>
           </Pressable>
         </ScrollView>
@@ -66,7 +93,7 @@ export default function Welcome() {
       <View style={w.top}>
         <Pressable onPress={() => setStep(step - 1)} hitSlop={12} accessibilityLabel="Back"><Icon name="back" size={24} color={C.text} /></Pressable>
         <View style={w.dots}>{Array.from({ length: steps - 1 }, (_, i) => <View key={i} style={[w.dot, i < step && { backgroundColor: C.blue, width: 22 }]} />)}</View>
-        <Pressable onPress={finish} hitSlop={12}><Text style={{ color: C.sub, fontWeight: '700' }}>Skip</Text></Pressable>
+        <View style={{ width: 24 }} />
       </View>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
         {step === 1 && (

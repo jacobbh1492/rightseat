@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useStore, money } from '../store';
 import { money2 } from '../logic';
 import { AIRPORTS, CERTS, SPECIALTIES, DAYS, TIMES, AVIONICS, OWNER_TYPES } from '../data';
+import { useAuth } from '../backend/auth';
 import { C, Card, Field, MultiSelect, Toggle, Button, SectionTitle, Avatar, pickImages, ListRow, Icon } from '../ui';
 import { Header } from './Details';
 import { CfiCard, PlaneCard, SchoolCard } from './Explore';
@@ -21,6 +22,8 @@ export function Me({ nav }) {
   const myDocs = Object.values(docs.me || {});
   const verified = myDocs.filter((d) => d.status === 'approved').length;
   const pendingQueue = queue.filter((x) => x.state === 'pending').length;
+  const auth = useAuth();
+  const displayName = auth?.account?.full_name || pilot.name;
 
   const sections = [
     {
@@ -60,9 +63,10 @@ export function Me({ nav }) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
       <View style={ms.profile}>
-        <Avatar initials={pilot.name.split(' ').map((w) => w[0]).join('')} color="#0891B2" size={60} photo={me?.photo} />
+        <Avatar initials={displayName.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2)} color="#0891B2" size={60} photo={me?.photo} />
         <View style={{ flex: 1, marginLeft: 14 }}>
-          <Text style={{ fontSize: 22, fontWeight: '900', color: C.text }}>{pilot.name}</Text>
+          <Text style={{ fontSize: 22, fontWeight: '900', color: C.text }}>{displayName}</Text>
+          {auth?.user && <Text style={{ color: C.sub, marginTop: 2 }}>{auth.user.email}</Text>}
           <Text style={{ color: C.sub, marginTop: 2 }}>{pilot.certificate} pilot · {profile.airport}</Text>
           <Pressable onPress={() => nav.push('Verification')} style={ms.verifiedPill} accessibilityRole="button">
             <Icon name="shieldCheck" size={14} color={C.green} />
@@ -70,6 +74,14 @@ export function Me({ nav }) {
           </Pressable>
         </View>
       </View>
+
+      {!auth?.session && (
+        <Card style={{ marginBottom: 12, borderWidth: 1.5, borderColor: C.blue }}>
+          <Text style={{ fontWeight: '900', fontSize: 16, color: C.text }}>You’re browsing as a guest</Text>
+          <Text style={{ color: C.sub, marginTop: 4 }}>Sign in to book lessons, message instructors and keep your training record.</Text>
+          <Button title="Sign in or create account" style={{ marginTop: 12 }} onPress={() => nav.push('SignIn')} />
+        </Card>
+      )}
 
       <Pressable onPress={() => nav.push('Wallet')} style={ms.wallet} accessibilityRole="button" accessibilityLabel={`Wallet, ${money2(available)} available`}>
         <View style={ms.walletIcon}><Icon name="wallet" size={22} color="#fff" /></View>
@@ -114,9 +126,15 @@ export function Me({ nav }) {
         <ListRow icon="chart" iconColor="#7C3AED" iconBg="#F3E8FF" title="Founder metrics" subtitle="Rebooking rate & leakage watchlist" onPress={() => nav.push('Insights')} />
       </Card>
 
-      <Pressable onPress={() => setProfile({ onboarded: false })} style={{ alignItems: 'center', marginTop: 18 }} accessibilityRole="button">
-        <Text style={{ color: C.sub, fontWeight: '700' }}>Replay welcome & setup</Text>
-      </Pressable>
+      {auth?.session ? (
+        <Pressable onPress={() => auth.signOut()} style={{ alignItems: 'center', marginTop: 18 }} accessibilityRole="button">
+          <Text style={{ color: '#B91C1C', fontWeight: '800' }}>Sign out</Text>
+        </Pressable>
+      ) : (
+        <Pressable onPress={() => setProfile({ onboarded: false })} style={{ alignItems: 'center', marginTop: 18 }} accessibilityRole="button">
+          <Text style={{ color: C.sub, fontWeight: '700' }}>Replay welcome & setup</Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
