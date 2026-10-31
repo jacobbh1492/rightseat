@@ -1,0 +1,4 @@
+CODE,MFR,MODEL,TYPE-ACFT,TYPE-ENG,AC-CAT,BUILD-CERT-IND,NO-ENG,NO-SEATS,AC-WEIGHT,SPEED,TC-DATA-SHEET,TC-DATA-HOLDER,
+7102804,PIPER                         ,PA-28-161           ,4,1 ,1,0,01,004,CLASS 1,0000,2A13                ,PIPER AIRCRAFT INC                                ,
+1152040,CIRRUS DESIGN CORP            ,SR20                ,4,1 ,1,0,01,004,CLASS 1,0000,A00009CH            ,CIRRUS DESIGN CORP                                ,
+7100100,PIPER                         ,J3C-65              ,4,1 ,1,0,01,002,CLASS 1,0000,A-691               ,PIPER AIRCRAFT INC                                ,
