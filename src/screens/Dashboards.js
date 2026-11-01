@@ -212,7 +212,6 @@ export function OwnerDashboard({ nav }) {
         <SectionTitle>Renter protection</SectionTitle>
         <Card>
           <Text style={k.line}>✓ Every renter’s ID, certificate, medical, solo endorsement, checkout and insurance minimum ({p.insuranceMinHours} hrs) are checked before booking.</Text>
-          <Text style={k.line}>✓ Rental protection on every RightSeat booking.</Text>
           <Text style={k.line}>✓ {money(FEES.deposit)} damage-deposit hold on every solo rental.</Text>
           <Text style={k.line}>✓ Paid by Hobbs automatically. No cash, no chasing.</Text>
           <Text style={[k.line, { color: '#B45309' }]}>Rentals arranged off the app aren’t covered.</Text>
@@ -246,7 +245,7 @@ export function Plans({ nav }) {
         <Card style={{ backgroundColor: C.sky }}>
           <Text style={{ fontWeight: '900', color: C.navy }}>How RightSeat fees work</Text>
           <Text style={k.line}>Students: 6% booking fee on the first lesson with a new CFI. $0 on every repeat lesson.</Text>
-          <Text style={k.line}>Owners: 8% of rental revenue. Renters add {money(FEES.protectionPerHr)}/hr rental protection.</Text>
+          <Text style={k.line}>Owners: 8% of rental revenue.</Text>
           <Text style={k.line}>Wallet: prepaid balances get block rates and bonus credit.</Text>
         </Card>
         <SectionTitle>For instructors {!myCfiId ? '(demo: Marcus)' : ''}</SectionTitle>

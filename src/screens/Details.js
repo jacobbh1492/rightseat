@@ -198,7 +198,6 @@ export function PlaneDetail({ nav, params }) {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
             <Tag label={`100-hr in ${Math.max(0, Math.round((p.next100At - p.hobbsTotal) * 10) / 10)} hrs`} color={p.next100At - p.hobbsTotal < 10 ? '#B45309' : C.green} bg={p.next100At - p.hobbsTotal < 10 ? '#FEF3C7' : '#E3F7EF'} />
             <Tag label={`${(p.squawks || []).filter((q) => q.status === 'open').length} open squawks`} color={C.sub} bg="#EEF1F5" />
-            <Tag label="Rental protection on app bookings" />
           </View>
 
           <SectionTitle>Verified by RightSeat</SectionTitle>

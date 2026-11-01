@@ -17,7 +17,7 @@ const DAY = 864e5;
 const now = Date.now();
 const daysAgo = (d, h = 9) => { const x = new Date(now - d * DAY); x.setHours(h, 0, 0, 0); return x.toISOString(); };
 
-export const FEES = { studentNew: 0.06, cfiNew: 0.05, owner: 0.08, protectionPerHr: 9, deposit: 500, instantPayout: 0.015, lateCancel: 0.5, autoApproveConfidence: 0.9, renterLiability: 1000000, ownerLiability: 1000000 };
+export const FEES = { studentNew: 0.06, cfiNew: 0.05, owner: 0.08, protectionPerHr: 0, deposit: 500, instantPayout: 0.015, lateCancel: 0.5, autoApproveConfidence: 0.9, renterLiability: 1000000, ownerLiability: 1000000 };
 
 const CFIS = [
   ['c1', 'Marcus Reyes', 'KPIE', 75, 4.9, 47, 1180, true, 'Gulf Coast Flight Academy'],

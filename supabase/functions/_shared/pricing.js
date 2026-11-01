@@ -7,7 +7,7 @@ export const FEES = {
   studentNew: 0.06, // booking fee on the FIRST booking with a new CFI (or new plane for solo rentals)
   cfiNew: 0.05, // CFI host fee on new-student bookings only (0 for CFI Pro)
   owner: 0.08, // aircraft owner host fee on rentals
-  protectionPerHr: 9, // renter's rental protection, only on app bookings
+  protectionPerHr: 0, // rental protection is off until it's backed by real coverage (see V2.md)
   deposit: 500, // damage deposit hold on solo rentals (released at close-out)
   instantPayout: 0.015, // instant payout fee (free on CFI Pro)
   lateCancel: 0.5, // share of instruction charged for <24 hr personal cancellations

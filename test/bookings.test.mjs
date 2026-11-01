@@ -31,7 +31,7 @@ test('booking request validation', () => {
 test('server price = app price; employee rate overrides CFI rate', () => {
   const q = priceBooking({ cfi, plane, affiliation: null, flightHours: 1.5, groundHours: 0.5, repeat: false });
   assert.equal(q.instruction, 112.5); assert.equal(q.aircraft, 247.5);
-  assert.equal(q.total, Math.round((112.5 + 27.5 + 247.5 + 13.5 + (112.5 + 27.5 + 247.5) * 0.06) * 100) / 100);
+  assert.equal(q.total, Math.round((112.5 + 27.5 + 247.5 + (112.5 + 27.5 + 247.5) * 0.06) * 100) / 100);
   const emp = quoteInputs({ cfi, plane, affiliation: { model: 'employee', set_rate: 60, school_pct: 0.4 } });
   assert.equal(emp.cfi.flightRate, 60); assert.equal(emp.affiliation.schoolPct, 0.4);
   const split = priceBooking({ cfi, plane, affiliation: { model: 'split', school_pct: 0.3 }, flightHours: 1, groundHours: 0, repeat: true }).split;

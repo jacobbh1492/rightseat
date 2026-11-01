@@ -85,7 +85,7 @@ export function Chat({ nav, params }) {
           <View style={s.nudge}>
             <Text style={{ fontWeight: '800', color: '#92400E' }}>{notice === 'masked' ? 'We hid that contact info' : 'Heads up'}</Text>
             <Text style={{ color: '#92400E', fontSize: 13, marginTop: 4, lineHeight: 18 }}>
-              Lessons and rentals paid outside RightSeat aren’t covered by payment protection, rental protection, free weather cancellations or your automatic training record.
+              Lessons and rentals paid outside RightSeat aren’t covered by payment protection, free weather cancellations or your automatic training record.
             </Text>
           </View>
         )}

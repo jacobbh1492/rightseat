@@ -313,7 +313,7 @@ export function RequestLesson({ nav, params }) {
           {cfi && groundHours > 0 && <Row label={`Ground · ${groundHours} hr × ${money(cfi.groundRate)}`} value={money2(q.ground)} />}
           {plane && <Row label={`${plane.tail} ${prepaid ? 'prepaid block' : 'wet'} · ${flightHours} hr × ${money(q.rate)}`} value={money2(q.aircraft)} />}
           {ownPlane && <Row label="Your aircraft" value="$0.00" />}
-          {plane && <Row label={`Rental protection · ${money(FEES.protectionPerHr)}/hr`} value={money2(q.protection)} />}
+          {plane && FEES.protectionPerHr > 0 && <Row label={`Rental protection · ${money(FEES.protectionPerHr)}/hr`} value={money2(q.protection)} />}
           {repeat ? (
             <View style={bs.repeat}>
               <Text style={{ color: C.green, fontWeight: '800', flex: 1 }}>Repeat booking · no booking fee</Text>
@@ -334,7 +334,7 @@ export function RequestLesson({ nav, params }) {
           <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={{ fontWeight: '800', color: C.navy }}>Protected booking</Text>
             <Text style={{ color: C.navy, fontSize: 13, marginTop: 2, lineHeight: 18 }}>
-              Payment protection, free weather cancellations{plane ? ', rental protection' : ''}{cfi ? ', and it’s logged to your training record' : ''}. You’re only charged after the flight.
+              Payment protection, free weather cancellations{cfi ? ', and it’s logged to your training record' : ''}. You’re only charged after the flight.
             </Text>
           </View>
         </View>
