@@ -25,6 +25,12 @@ serve(async (req, body) => {
     const released = st.ready ? await releaseHeld(account, schoolId ? { schoolId } : { partyId: id }) : 0;
     return json({ ready: st.ready, started: true, status: st.status, needs: st.needs, released });
   }
+  // Stripe's legacy test mode can't open onboarding for Accounts v2 recipients (Stripe
+  // asks for a sandbox instead). We test everything else in test mode and run payout
+  // setup for the first time with live keys, so say that plainly instead of erroring.
+  if ((Deno.env.get('STRIPE_SECRET_KEY') || '').startsWith('sk_test_')) {
+    throw new HttpError(409, 'Payout setup can’t be tested yet. It turns on when RightSeat goes live. Until then your pay is held safely and sent as soon as you set up payouts.');
+  }
   if (!account) {
     // Recipient account: receives transfers from RightSeat; Stripe hosts onboarding and the
     // Express dashboard; RightSeat pays Stripe fees and covers negative balances.
