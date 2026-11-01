@@ -35,12 +35,12 @@ export class AircraftIndex {
   static fromFiles(files) {
     const idx = new AircraftIndex();
     if (files['ACFTREF.TXT']) {
-      for (const r of parseFaaCsv(files['ACFTREF.TXT'])) {
+      for (const r of parseFaaCsv(files['ACFTREF.TXT'], { quoted: false })) {
         idx.models.set(col(r, 'CODE'), { make: col(r, 'MFR'), model: col(r, 'MODEL'), engines: +col(r, 'NO-ENG') || null, seats: +col(r, 'NO-SEATS') || null });
       }
     }
     if (files['MASTER.TXT']) {
-      for (const r of parseFaaCsv(files['MASTER.TXT'])) {
+      for (const r of parseFaaCsv(files['MASTER.TXT'], { quoted: false })) {
         const n = col(r, 'N-NUMBER').toUpperCase();
         if (n) idx.byTail.set(n, r);
       }

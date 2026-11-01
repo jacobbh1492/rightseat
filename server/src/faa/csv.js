@@ -2,8 +2,9 @@ import { parse } from 'csv-parse/sync';
 
 // FAA files are comma-delimited with padded values, trailing commas and occasionally
 // inconsistent header spacing. Normalize headers to UPPERCASE single-spaced keys and trim values.
-export function parseFaaCsv(text) {
-  const rows = parse(text, { columns: (h) => h.map(normHeader), skip_empty_lines: true, relax_column_count: true, relax_quotes: true, trim: true, bom: true });
+// The aircraft registry isn't quoted at all and has stray " inside names, so it parses with quoting off.
+export function parseFaaCsv(text, { quoted = true } = {}) {
+  const rows = parse(text, { columns: (h) => h.map(normHeader), skip_empty_lines: true, relax_column_count: true, relax_quotes: true, trim: true, bom: true, ...(quoted ? {} : { quote: false }) });
   return rows.map((r) => {
     const out = {};
     for (const [k, v] of Object.entries(r)) if (k) out[k] = typeof v === 'string' ? v.trim() : v;
