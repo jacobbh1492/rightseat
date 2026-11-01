@@ -1,7 +1,7 @@
 // POST /connect { for?: 'me' | schoolId } — start or resume payout setup (Stripe Connect Express).
 // Returns a Stripe-hosted onboarding link. Instructors and owners set up their own;
 // a school admin sets up the school's account.
-import { serve, json, admin, stripe, requireUser } from '../_shared/server.ts';
+import { serve, json, admin, stripe, requireUser, releaseHeld } from '../_shared/server.ts';
 import { HttpError } from '../_shared/bookings.js';
 
 serve(async (req, body) => {
@@ -22,7 +22,8 @@ serve(async (req, body) => {
     const a = await stripe.accounts.retrieve(account);
     const ready = !!(a.details_submitted && a.payouts_enabled && a.capabilities?.transfers === 'active');
     await admin.from(table).update({ payouts_ready: ready }).eq('id', id);
-    return json({ ready, started: true, needs: a.requirements?.currently_due?.length || 0 });
+    const released = ready ? await releaseHeld(account, schoolId ? { schoolId } : { partyId: id }) : 0;
+    return json({ ready, started: true, needs: a.requirements?.currently_due?.length || 0, released });
   }
   if (!account) {
     const a = await stripe.accounts.create({

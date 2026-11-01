@@ -51,6 +51,13 @@ export function AuthProvider({ children }) {
       if (error) throw error;
       setAccount(data);
     },
+    // Re-read the profile (e.g. after payout setup changes payouts_ready).
+    refreshAccount: async () => {
+      if (!session) return null;
+      const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      if (data) setAccount(data);
+      return data;
+    },
     signOut: () => supabase.auth.signOut(),
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

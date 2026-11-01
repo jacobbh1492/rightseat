@@ -16,6 +16,7 @@ function Step({ n, title, done }) {
 import { PlaneImage } from '../art';
 import { useAuth } from '../backend/auth';
 import { useBookingPayment, CARD_PAYMENTS_SUPPORTED } from '../backend/payments';
+import { bookingAction } from '../backend/bookings';
 
 // Listings stored in the live database have UUID ids; the built-in sample listings don't.
 const isLive = (id) => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(id);
@@ -407,12 +408,14 @@ export function Lessons({ nav }) {
           )}
         </View>
 
-        {r.status === 'Pending' && (
+        {r.live && r.status === 'Pending' && <Text style={[bs.hint, { marginTop: 8 }]}>Waiting for {c ? c.name.split(' ')[0] : 'the owner'} to confirm. Your card is saved and charged only after the flight.</Text>}
+        {r.live && r.status === 'Completed' && <Text style={[bs.hint, { marginTop: 8 }]}>Charged {money2(r.total)}{r.actualHobbs ? ` for ${r.actualHobbs} hr on the Hobbs` : ''}.</Text>}
+        {!r.live && r.status === 'Pending' && (
           <Pressable onPress={() => updateRequest(r.id, { status: 'Confirmed' })} style={bs.demo}>
             <Text style={bs.demoText}>Demo: {c ? 'CFI' : 'owner'} confirms ›</Text>
           </Pressable>
         )}
-        {r.status === 'Confirmed' && (
+        {!r.live && r.status === 'Confirmed' && (
           <Pressable onPress={() => nav.push('CloseOut', { id: r.id })} style={bs.demo}>
             <Text style={bs.demoText}>Demo: {c ? 'CFI closes out flight (Hobbs, lesson, endorsements)' : 'close out rental (Hobbs, squawks)'} ›</Text>
           </Pressable>
@@ -455,14 +458,29 @@ export function Lessons({ nav }) {
 const CANCEL_REASONS = ['Weather', 'Aircraft maintenance / squawk', 'Instructor unavailable', 'Personal / schedule change'];
 
 export function CancelLesson({ nav, params }) {
-  const { getRequest, getCfi, cancelRequest } = useStore();
+  const { getRequest, getCfi, cancelRequest, refreshLive } = useStore();
   const r = getRequest(params.id);
   const [reason, setReason] = useState('Weather');
   const [done, setDone] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   if (!r) return null;
   const cfi = getCfi(r.cfiId);
   const late = hoursUntil(r.when) < 24;
-  const fee = reason === 'Personal / schedule change' && late && cfi ? r2(cfi.flightRate * r.flightHours * FEES.lateCancel) : 0;
+  // Live bookings follow the server's rule: cancelling a confirmed lesson yourself inside
+  // 24 hours costs half the instruction. For weather or maintenance, the instructor cancels (free).
+  const liveFee = r.live && r.status === 'Confirmed' && r.cfiId && late ? r2(((r.quote?.instruction || 0) + (r.quote?.ground || 0)) * FEES.lateCancel) : 0;
+  const fee = r.live ? liveFee : reason === 'Personal / schedule change' && late && cfi ? r2(cfi.flightRate * r.flightHours * FEES.lateCancel) : 0;
+  const cancel = async () => {
+    if (!r.live) { setDone(cancelRequest(r.id, reason)); return; }
+    setErr(''); setBusy(true);
+    try {
+      const res = await bookingAction(r.id, 'cancel', { reason });
+      await refreshLive().catch(() => {});
+      setDone(res.feeCharged || 0);
+    } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -486,13 +504,14 @@ export function CancelLesson({ nav, params }) {
             {CANCEL_REASONS.map((x) => (
               <Pressable key={x} onPress={() => setReason(x)} style={[bs.pay, reason === x && bs.pickOn]}>
                 <Text style={{ flex: 1, fontWeight: '700', color: C.text }}>{x}</Text>
-                <Text style={{ color: x === 'Personal / schedule change' && late ? '#B45309' : C.green, fontWeight: '800', fontSize: 12 }}>
-                  {x === 'Personal / schedule change' ? (late ? 'Late fee' : 'Free') : 'Always free'}
+                <Text style={{ color: (r.live ? liveFee > 0 : x === 'Personal / schedule change' && late) ? '#B45309' : C.green, fontWeight: '800', fontSize: 12 }}>
+                  {r.live ? (liveFee > 0 ? 'Late fee' : 'Free') : x === 'Personal / schedule change' ? (late ? 'Late fee' : 'Free') : 'Always free'}
                 </Text>
               </Pressable>
             ))}
             <Card style={{ marginTop: 8 }}>
               <Row bold label="Cancellation charge" value={money2(fee)} />
+              {r.live && liveFee > 0 && <Text style={[bs.warn, { marginTop: 6 }]}>Cancelling for weather or a plane problem? Message {cfi ? cfi.name.split(' ')[0] : 'your instructor'} and ask them to cancel. When they cancel, it’s free.</Text>}
               <Text style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>
                 Policy: weather, maintenance and instructor cancellations are always free. Personal cancellations are free until 24 hrs before; after that, 50% of instruction goes to your CFI.
               </Text>
@@ -502,7 +521,8 @@ export function CancelLesson({ nav, params }) {
       </ScrollView>
       {done === null && (
         <View style={bs.cta}>
-          <Button title={fee ? `Cancel & pay ${money2(fee)}` : 'Cancel lesson — no charge'} style={{ flex: 1, backgroundColor: '#DC2626' }} onPress={() => setDone(cancelRequest(r.id, reason))} />
+          {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', position: 'absolute', top: -24, left: 16 }}>{err}</Text>}
+          <Button title={busy ? 'Cancelling…' : fee ? `Cancel & pay ${money2(fee)}` : 'Cancel lesson — no charge'} style={{ flex: 1, backgroundColor: '#DC2626' }} disabled={busy} onPress={cancel} />
         </View>
       )}
     </View>

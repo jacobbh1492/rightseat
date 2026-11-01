@@ -13,7 +13,7 @@ const PALETTE = ['#1F6FEB', '#0E9F6E', '#9333EA', '#F59E0B', '#DC2626', '#0891B2
 const num = (v) => (v === '' || isNaN(+v) ? 0 : +v);
 
 export function Me({ nav }) {
-  const { myCfiId, myPlaneIds, getCfi, getPlane, favorites, mySchoolId, getSchool, available, pilot, profile, setProfile, docs, training, queue, affiliationFor } = useStore();
+  const { myCfiId, myPlaneIds, getCfi, getPlane, favorites, mySchoolId, getSchool, available, pilot, profile, setProfile, docs, training, queue, affiliationFor, teaching } = useStore();
   const me = getCfi(myCfiId);
   const mySchool = mySchoolId ? getSchool(mySchoolId) : null;
   const myPlanes = myPlaneIds.map(getPlane).filter(Boolean);
@@ -35,8 +35,9 @@ export function Me({ nav }) {
       ],
     },
     {
-      key: 'teach', show: roles.includes('teach'), title: 'Teaching',
+      key: 'teach', show: roles.includes('teach') || teaching.length > 0, title: 'Teaching',
       rows: [
+        { icon: 'calendar', title: 'Lesson requests', subtitle: teaching.some((r) => r.status === 'Pending') ? `${teaching.filter((r) => r.status === 'Pending').length} waiting for you · confirm, close out, get paid` : 'Confirm, close out, get paid', go: 'Teaching' },
         { icon: 'user', title: me ? 'Edit CFI profile' : 'Create your CFI profile', subtitle: me ? `${me.name} · ${me.certs.join(', ')}` : 'Hours, pass rate, pricing and planes you fly', go: 'CfiForm', params: { id: myCfiId } },
         { icon: 'chart', title: 'Instructor dashboard', subtitle: 'Earnings, payouts, students, debriefs', go: 'CfiDashboard' },
         { icon: 'school', title: 'Flight school', subtitle: me && affiliationFor(me.id) ? `Teaching for ${getSchool(affiliationFor(me.id).schoolId)?.name}` : 'Join a school or see your arrangement', go: 'JoinSchool', params: { cfiId: myCfiId } },

@@ -3,7 +3,7 @@
 //  account.updated         → mark an instructor/owner/school ready (or not) for payouts.
 //  payment_intent.payment_failed → record it for follow-up.
 import Stripe from 'npm:stripe@17';
-import { admin, stripe } from '../_shared/server.ts';
+import { admin, stripe, releaseHeld } from '../_shared/server.ts';
 
 const crypto = Stripe.createSubtleCryptoProvider();
 
@@ -32,6 +32,12 @@ Deno.serve(async (req) => {
       const ready = !!(a.details_submitted && a.payouts_enabled && a.capabilities?.transfers === 'active');
       await admin.from('profiles').update({ payouts_ready: ready }).eq('stripe_account_id', a.id);
       await admin.from('schools').update({ payouts_ready: ready }).eq('stripe_account_id', a.id);
+      if (ready) {
+        const { data: p } = await admin.from('profiles').select('id').eq('stripe_account_id', a.id).maybeSingle();
+        if (p) await releaseHeld(a.id, { partyId: p.id });
+        const { data: s } = await admin.from('schools').select('id').eq('stripe_account_id', a.id).maybeSingle();
+        if (s) await releaseHeld(a.id, { schoolId: s.id });
+      }
     } else if (event.type === 'payment_intent.payment_failed') {
       const pi = event.data.object as Stripe.PaymentIntent;
       await admin.from('audit_log').insert({ action: 'payment.failed', target: pi.metadata?.booking_id || pi.id, detail: { code: pi.last_payment_error?.code, message: pi.last_payment_error?.message } });

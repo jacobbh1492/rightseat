@@ -122,7 +122,7 @@ serve(async (req, body) => {
   const q = finalPrice(b.quote, actual);
   const pi = await charge(b, q.total, `Lesson ${new Date(b.starts_at).toDateString()}`, 'final-' + b.id);
   const chargeId = String(pi.latest_charge);
-  await admin.from('bookings').update({ status: 'completed', actual_hobbs: actual.flightHours, final_split: q.split, payment_intent_id: pi.id, charge_id: chargeId }).eq('id', b.id);
+  await admin.from('bookings').update({ status: 'completed', actual_hobbs: actual.flightHours, final_split: { ...q.split, final: { total: q.total, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft, bookingFee: q.bookingFee, protection: q.protection, flightHours: actual.flightHours, groundHours: actual.groundHours } }, payment_intent_id: pi.id, charge_id: chargeId }).eq('id', b.id);
   await admin.from('ledger').insert({ booking_id: b.id, party_id: b.student_id, kind: 'charge', amount: q.total, stripe_ref: pi.id });
   if (q.split.platform) await admin.from('ledger').insert({ booking_id: b.id, kind: 'fee', amount: q.split.platform });
   const plan = await payout(b, q.split, chargeId, plane, schoolId, 'final');

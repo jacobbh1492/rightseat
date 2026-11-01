@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import { fetchMyBookings } from './backend/bookings';
 import { fetchLiveListings } from './backend/listings';
 import { useAuth } from './backend/auth';
 import { CFIS, PLANES, SCHOOLS, SAMPLE_REQUESTS, PILOT, TRAINING, WALLET, THREADS, SYLLABUS, AFFILIATIONS } from './data';
@@ -108,6 +109,18 @@ export function StoreProvider({ children }) {
     return () => { alive = false; };
   }, [auth?.session?.user?.id]);
 
+  // Live bookings: the student's go into `requests` (Lessons tab), the instructor's
+  // and owner's into `teaching` (Lesson requests screen).
+  const [teaching, setTeaching] = useState([]);
+  const refreshLive = async () => {
+    const uid = auth?.session?.user?.id;
+    if (!uid) { setTeaching([]); setRequests((prev) => prev.filter((r) => !r.live)); return; }
+    const rows = await fetchMyBookings(uid);
+    setRequests((prev) => [...rows.filter((r) => r.role === 'student'), ...prev.filter((r) => !r.live)]);
+    setTeaching(rows.filter((r) => r.role !== 'student'));
+  };
+  useEffect(() => { refreshLive().catch(() => {}); }, [auth?.session?.user?.id]);
+
   const getCfi = (id) => cfis.find((c) => c.id === id);
   const getPlane = (id) => planes.find((p) => p.id === id);
   const getSchool = (id) => schools.find((x) => x.id === id);
@@ -127,6 +140,7 @@ export function StoreProvider({ children }) {
   const bumpCfiEarnings = (id, amt) => setCfis((prev) => prev.map((c) => (c.id === id ? { ...c, monthEarnings: r2((c.monthEarnings || 0) + amt) } : c)));
 
   const value = {
+    teaching, refreshLive,
     cfis, planes, schools, requests, myCfiId, myPlaneIds, mySchoolId, favorites, pilot: { ...pilot, totalHours: allHours(training).total },
     training, wallet, held, available: r2(wallet.balance - held), threads, plans, payouts,
     getCfi, getPlane, getSchool, hasBookingWith,
