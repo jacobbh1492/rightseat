@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, Image, StyleSheet } from 'react-native';
 import { useStore } from '../store';
+import { useAuth } from '../backend/auth';
 import { SYLLABUS } from '../data';
 import { PPL_MINIMUMS, r2 } from '../logic';
 import { PROGRAMS, WHERE, LAST_FLIGHT, PRIOR_ENDORSEMENTS, DEMO_IMPORT, emptyPrior, HOUR_KEYS, lessonState } from '../progress';
@@ -12,6 +13,7 @@ const num = (v) => (v === '' || isNaN(+v) ? 0 : r2(+v));
 
 export function PriorExperience({ nav, params }) {
   const { training, savePrior, getCfi, requests, pilot } = useStore();
+  const signedIn = !!useAuth()?.session;
   const start = training.prior ? JSON.parse(JSON.stringify(training.prior)) : emptyPrior();
   const shareDefault = [...new Set([...(start.sharedWith || []), training.cfiId, params?.shareWith].filter(Boolean))];
   const [p, setP] = useState({ ...start, sharedWith: shareDefault, hours: Object.fromEntries(HOUR_KEYS.map((k) => [k, start.hours[k] ? String(start.hours[k]) : ''])), landings: start.landings ? String(start.landings) : '' });
@@ -179,11 +181,11 @@ export function PriorExperience({ nav, params }) {
               })}
             </Card>
             <Button title={p.files.length ? `📷 ${p.files.length} photo${p.files.length > 1 ? 's' : ''} attached · add more` : '📷 Photograph endorsement pages'} variant="outline" style={{ paddingVertical: 12 }} onPress={async () => { const u = await pickImages(true); if (u.length) set('files')([...p.files, ...u]); }} />
-            <SectionTitle>Medical & student certificate</SectionTitle>
-            <Card style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => nav.push('Verification')}>
+            {!signedIn && <SectionTitle>Medical & student certificate</SectionTitle>}
+            {!signedIn && <Card style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => nav.push('Verification')}>
               <Text style={{ flex: 1, color: C.text }}>Verified in your Verification center</Text>
               <Tag label={`${pilot.medical} ✓`} color={C.green} bg="#E3F7EF" />
-            </Card>
+            </Card>}
           </>
         )}
 

@@ -12,7 +12,14 @@ export const MINIMUMS = {
 const now = () => new Date();
 const addMonths = (m, d = now()) => new Date(d.getFullYear(), d.getMonth() + m, Math.min(d.getDate(), 28));
 const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-const parse = (s) => new Date(s);
+// Dates are shown as "Mar 1, 2030". The iPhone's JavaScript engine (Hermes) can't parse
+// that format with new Date(), so read it by hand.
+const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+const parse = (s) => {
+  const m = /^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(String(s || '').trim());
+  if (m && MONTHS[m[1].toLowerCase()] != null) return new Date(+m[3], MONTHS[m[1].toLowerCase()], +m[2]);
+  return new Date(s);
+};
 const usd = (n) => '$' + Number(n).toLocaleString('en-US');
 const num = (s) => Number(String(s).replace(/[^0-9.]/g, '')) || 0;
 const daysUntil = (s) => Math.ceil((parse(s).getTime() - Date.now()) / 86400000);
