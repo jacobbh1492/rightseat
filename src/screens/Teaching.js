@@ -98,6 +98,9 @@ export function Teaching({ nav }) {
             <Text style={ts.sub}>{r.date} · {r.time}</Text>
             <Text style={ts.sub}>{who(r)} · {hours(r)}</Text>
             <Text style={[ts.sub, { color: C.text, fontWeight: '700', marginTop: 6 }]}>You earn about {money2(r.share || 0)}</Text>
+            <Pressable onPress={() => nav.push('Chat', { key: r.studentId, other: r.studentId, name: r.studentName })} style={{ marginTop: 6 }} accessibilityRole="button">
+              <Text style={{ color: C.blue, fontWeight: '700' }}>Message {r.studentName.split(' ')[0]} ›</Text>
+            </Pressable>
             {!r.cardReady && <Text style={ts.warn}>Waiting for the student to finish adding their card.</Text>}
             <View style={{ flexDirection: 'row', marginTop: 12 }}>
               <Button title={busy === `${r.id}:decline` ? 'Declining…' : 'Decline'} variant="outline" disabled={!!busy} style={{ flex: 0.6, marginRight: 8, paddingVertical: 10 }}
@@ -118,6 +121,9 @@ export function Teaching({ nav }) {
             </View>
             <Text style={ts.sub}>{r.date} · {r.time}</Text>
             <Text style={ts.sub}>{who(r)} · {hours(r)} booked</Text>
+            <Pressable onPress={() => nav.push('Chat', { key: r.studentId, other: r.studentId, name: r.studentName })} style={{ marginTop: 6 }} accessibilityRole="button">
+              <Text style={{ color: C.blue, fontWeight: '700' }}>Message {r.studentName.split(' ')[0]} ›</Text>
+            </Pressable>
             <View style={{ flexDirection: 'row', marginTop: 12 }}>
               <Button title={busy === `${r.id}:cancel` ? 'Cancelling…' : 'Cancel'} variant="outline" disabled={!!busy} style={{ flex: 0.6, marginRight: 8, paddingVertical: 10 }}
                 onPress={() => act(r, 'cancel', { reason: `Cancelled by ${role(r)}` })} />
