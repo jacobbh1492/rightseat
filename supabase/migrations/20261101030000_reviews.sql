@@ -8,17 +8,17 @@ create index if not exists reviews_subject on public.reviews (subject, subject_i
 
 create or replace function public.prepare_review() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare b record; full text;
+declare b record; fullname text;
 begin
   select * into b from bookings where id = new.booking_id;
   new.subject_id := case new.subject when 'cfi' then b.cfi_id else b.plane_id end;
   new.lesson := b.goal;
-  select full_name into full from profiles where id = new.author_id;
-  full := trim(coalesce(full, ''));
+  select full_name into fullname from profiles where id = new.author_id;
+  fullname := trim(coalesce(fullname, ''));
   new.author_name := case
-    when full = '' then 'RightSeat pilot'
-    when position(' ' in full) = 0 then full
-    else split_part(full, ' ', 1) || ' ' || left(split_part(full, ' ', array_length(string_to_array(full, ' '), 1)), 1) || '.'
+    when fullname = '' then 'RightSeat pilot'
+    when position(' ' in fullname) = 0 then fullname
+    else split_part(fullname, ' ', 1) || ' ' || left(split_part(fullname, ' ', array_length(string_to_array(fullname, ' '), 1)), 1) || '.'
   end;
   new.body := left(trim(coalesce(new.body, '')), 2000);
   return new;
