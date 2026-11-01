@@ -7,6 +7,7 @@ import Welcome from './src/screens/Welcome';
 import SignIn from './src/screens/SignIn';
 import { AuthProvider, useAuth, appRolesFrom } from './src/backend/auth';
 import { PaymentsProvider } from './src/backend/payments';
+import { registerForPush, onNotificationTap } from './src/backend/push';
 import { Icon } from './src/icons';
 import { C } from './src/ui';
 import Explore from './src/screens/Explore';
@@ -49,6 +50,11 @@ function Shell() {
     }
   }, [auth.account?.id, auth.session?.user?.id, (auth.account?.roles || []).join(',')]);
   const [tab, setTab] = useState('Explore');
+  // Push notifications: register this phone once signed in; taps open the right screen.
+  useEffect(() => { if (auth.session?.user?.id) registerForPush(auth.session.user.id).catch(() => {}); }, [auth.session?.user?.id]);
+  useEffect(() => onNotificationTap((screen, params) => {
+    if (TAB_SCREENS[screen]) { setStack([]); setTab(screen); } else setStack((s) => [...s, { name: screen, params, key: screen + Date.now() }]);
+  }), []);
   const badges = {
     // Sample debriefs only count for guests; signed-in users see their real record.
     Training: auth.session ? 0 : training.debriefs.filter((d) => !d.pending && (!d.acknowledged || (d.amendments || []).some((a) => !a.read))).length,

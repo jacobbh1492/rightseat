@@ -36,6 +36,12 @@
           "merchantIdentifier": "merchant.com.rightseat.app",
           "enableGooglePay": true
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#1F6FEB"
+        }
       ]
     ],
     "scheme": "rightseat",

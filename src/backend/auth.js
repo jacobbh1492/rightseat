@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { supabase } from './supabase';
+import { unregisterPush } from './push';
 
 // Session + profile for the signed-in user. Sign-in is a 6-digit code sent by email
 // (no passwords to forget, works the same on iPhone, Android and web).
@@ -58,7 +59,8 @@ export function AuthProvider({ children }) {
       if (data) setAccount(data);
       return data;
     },
-    signOut: () => supabase.auth.signOut(),
+    // Unregister this phone first (needs the session), then sign out.
+    signOut: async () => { try { await unregisterPush(); } catch {} return supabase.auth.signOut(); },
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
