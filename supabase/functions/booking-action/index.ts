@@ -58,9 +58,18 @@ async function payout(b: any, split: any, chargeId: string, plane: any, schoolId
   return plan;
 }
 
+// Sandbox only: lets the dashboard play the seeded Test Instructor so the confirm and
+// close-out flow can be exercised end to end. Inert with live Stripe keys, and only
+// touches bookings on the test listing (supabase/seed/test_listing.sql).
+const SANDBOX_CFI = 'a0000000-0000-4000-8000-000000000001';
+const sandboxAllowed = (req: Request) =>
+  req.headers.get('x-rightseat-sandbox') === 'act-as-test-cfi' && (Deno.env.get('STRIPE_SECRET_KEY') || '').startsWith('sk_test_');
+
 serve(async (req, body) => {
-  const user = await requireUser(req);
+  const sandbox = sandboxAllowed(req);
+  const user = sandbox ? { id: SANDBOX_CFI } : await requireUser(req);
   const { b, plane, schoolId, schoolPct } = await load(String(body.bookingId || ''));
+  if (sandbox && b.cfi_id !== SANDBOX_CFI) throw new HttpError(403, 'Sandbox mode only works on the test listing.');
   const role = roleIn(b, user.id, { planeOwnerId: plane?.owner_id, schoolAdmin: await isSchoolAdmin(user.id, schoolId) });
   const action = String(body.action || '');
 
