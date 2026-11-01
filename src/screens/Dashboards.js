@@ -209,12 +209,11 @@ export function OwnerDashboard({ nav }) {
           </>
         ) : null}
 
-        <SectionTitle>Renter protection</SectionTitle>
+        <SectionTitle>Renter checks</SectionTitle>
         <Card>
           <Text style={k.line}>✓ Every renter’s ID, certificate, medical, solo endorsement, checkout and insurance minimum ({p.insuranceMinHours} hrs) are checked before booking.</Text>
-          <Text style={k.line}>✓ {money(FEES.deposit)} damage-deposit hold on every solo rental.</Text>
           <Text style={k.line}>✓ Paid by Hobbs automatically. No cash, no chasing.</Text>
-          <Text style={[k.line, { color: '#B45309' }]}>Rentals arranged off the app aren’t covered.</Text>
+          <Text style={[k.line, { color: '#B45309' }]}>Rentals arranged off the app skip these checks.</Text>
         </Card>
 
         <SectionTitle>Schedule</SectionTitle>
