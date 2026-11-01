@@ -43,7 +43,7 @@ serve(async (req, body) => {
   const base = `${Deno.env.get('SUPABASE_URL')}/functions/v1/connect-return`;
   const link = await stripeV2('POST', '/v2/core/account_links', {
     account,
-    use_case: { type: 'account_onboarding', account_onboarding: { configurations: ['recipient'], refresh_url: `${base}?state=refresh`, return_url: `${base}?state=done` } },
+    use_case: { type: 'account_onboarding', account_onboarding: { refresh_url: `${base}?state=refresh`, return_url: `${base}?state=done` } },
   });
   return json({ url: link.url });
 });
