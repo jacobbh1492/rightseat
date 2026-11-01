@@ -1,5 +1,16 @@
 project_id = "velhvzupamhlhbriyreq"
 
+# Every function checks the caller itself (requireUser) or a Stripe signature, so the
+# gateway's legacy-JWT check is off for all of them (it rejects the new signing keys).
+[functions.book]
+verify_jwt = false
+
+[functions.booking-action]
+verify_jwt = false
+
+[functions.connect]
+verify_jwt = false
+
 [functions.connect-return]
 verify_jwt = false
 

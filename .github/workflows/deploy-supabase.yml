@@ -1,0 +1,31 @@
+name: Deploy server (Supabase)
+# On every push to main that touches supabase/: apply new database migrations, then
+# deploy all Edge Functions. Needs the SUPABASE_ACCESS_TOKEN repository secret
+# (supabase.com → Account → Access Tokens).
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/**', 'scripts/apply-migrations.mjs', '.github/workflows/deploy-supabase.yml']
+  workflow_dispatch:
+concurrency: { group: deploy-supabase, cancel-in-progress: false }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: velhvzupamhlhbriyreq
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - name: Tests
+        run: node --test test/bookings.test.mjs
+      - name: Shared pricing is in sync
+        run: node scripts/sync-shared.js && git diff --exit-code supabase/functions/_shared
+      - name: Database migrations
+        run: node scripts/apply-migrations.mjs
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - name: Edge Functions
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF" --use-api
