@@ -493,7 +493,21 @@ export function AutomationMonitor({ nav }) {
 export function VerifiedCard({ kind, entity }) {
   const { docs } = useStore();
   let items;
-  if (kind === 'cfi') {
+  // Live listings show what RightSeat has actually verified on the server.
+  if (entity.live) {
+    const s = (ok) => (ok ? 'ok' : 'missing');
+    items = kind === 'cfi'
+      ? [
+          ['Identity', 'Verified by RightSeat', s(entity.verified)],
+          [`FAA certificate · ${(entity.certs || ['CFI']).join(', ')}`, 'FAA Airmen Registry', s(entity.verified)],
+          ['Instructor insurance', 'Policy verified', s(entity.verified && entity.insured)],
+        ]
+      : [
+          ['FAA registration', 'FAA Aircraft Registry', s(entity.airworthyVerified)],
+          ['Airworthiness certificate', 'Serial matched', s(entity.airworthyVerified)],
+          ['Insurance · rental & instruction', 'Policy verified', s(entity.insured)],
+        ];
+  } else if (kind === 'cfi') {
     items = [
       ['Identity', 'Stripe Identity', 'ok'],
       [`FAA certificate · ${entity.certs.join(', ')}`, 'FAA Airmen Registry', 'ok'],
@@ -527,6 +541,7 @@ export function VerifiedCard({ kind, entity }) {
 }
 
 export function planeVerified(plane, docs) {
+  if (plane.live) return !!(plane.airworthyVerified && plane.insured);
   const d = docs[plane.id];
   if (!d) return !plane.userListed; // seeded listings were verified at onboarding
   return d.registration?.status === 'approved' && d.ownerIns?.status === 'approved';

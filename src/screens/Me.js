@@ -4,6 +4,7 @@ import { useStore, money } from '../store';
 import { money2 } from '../logic';
 import { AIRPORTS, CERTS, SPECIALTIES, DAYS, TIMES, AVIONICS, OWNER_TYPES } from '../data';
 import { useAuth } from '../backend/auth';
+import { saveCfiProfile, savePlaneListing } from '../backend/profiles';
 import { C, Card, Field, MultiSelect, Toggle, Button, SectionTitle, Avatar, pickImages, ListRow, Icon } from '../ui';
 import { Header } from './Details';
 import { CfiCard, PlaneCard, SchoolCard } from './Explore';
@@ -141,8 +142,15 @@ export function Me({ nav }) {
 }
 
 export function CfiForm({ nav, params }) {
-  const { getCfi, planes, saveCfi, affiliationFor, getSchool } = useStore();
-  const existing = params?.id ? getCfi(params.id) : null;
+  const { getCfi, planes: allPlanes, saveCfi, affiliationFor, getSchool, refreshListings } = useStore();
+  const auth = useAuth();
+  const uid = auth?.session?.user?.id || null;
+  // Signed in: the profile is saved to RightSeat and can only list live planes.
+  const planes = uid ? allPlanes.filter((p) => p.live) : allPlanes;
+  const existing = params?.id ? getCfi(params.id) : uid ? getCfi(uid) : null;
+  const [publish, setPublish] = useState(existing ? existing.published !== false : true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   const e = existing || {};
   const [f, setF] = useState({
     name: e.name || '',
@@ -177,10 +185,10 @@ export function CfiForm({ nav, params }) {
   const set = (k) => (v) => setF((prev) => ({ ...prev, [k]: v }));
   const valid = f.name.trim() && num(f.flightRate) > 0;
 
-  const save = () => {
-    const id = existing?.id || 'me-cfi';
+  const save = async () => {
+    const id = uid || existing?.id || 'me-cfi';
     const initials = f.name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-    saveCfi({
+    const cfi = {
       id,
       name: f.name.trim(),
       initials,
@@ -216,8 +224,15 @@ export function CfiForm({ nav, params }) {
       reviews: existing?.reviews || [],
       aircraftIds: f.aircraftIds,
       packages: f.pkgName && num(f.pkgPrice) ? [{ name: f.pkgName, price: num(f.pkgPrice), includes: f.pkgIncludes }] : [],
-    });
-    nav.replace('Cfi', { id });
+    };
+    if (!uid) { saveCfi(cfi); nav.replace('Cfi', { id }); return; }
+    setErr(''); setBusy(true);
+    try {
+      await saveCfiProfile(uid, cfi, { publish });
+      await refreshListings();
+      nav.replace('Cfi', { id });
+    } catch (e) { setErr(e.message || 'Couldn’t save. Try again.'); }
+    setBusy(false);
   };
 
   return (
@@ -306,17 +321,30 @@ export function CfiForm({ nav, params }) {
         <Field label="Teaching style" multiline value={f.teachingStyle} onChangeText={set('teachingStyle')} placeholder="Structured? Laid-back? Scenario-based?" />
         <Field label="Aviation background" value={f.background} onChangeText={set('background')} placeholder="e.g. Trained at ATP, building time for the airlines" />
         <Field label="Languages" value={f.languages} onChangeText={set('languages')} placeholder="English, Spanish" />
+
+        {uid && (
+          <>
+            <SectionTitle>Visibility</SectionTitle>
+            <Toggle label="Show my profile to students" value={publish} onValueChange={setPublish} hint={publish ? 'Students can find and book you.' : 'Saved as a draft. Only you can see it.'} />
+          </>
+        )}
+        {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', marginTop: 10 }} accessibilityLiveRegion="polite">{err}</Text>}
       </ScrollView>
       <View style={ms.cta}>
-        <Button title={valid ? 'Save & preview profile' : 'Add your name and flight rate'} disabled={!valid} style={{ flex: 1 }} onPress={save} />
+        <Button title={busy ? 'Saving…' : valid ? 'Save & preview profile' : 'Add your name and flight rate'} disabled={!valid || busy} style={{ flex: 1 }} onPress={save} />
       </View>
     </View>
   );
 }
 
 export function PlaneForm({ nav }) {
-  const { addPlane, myCfiId, getCfi, saveCfi, planes } = useStore();
+  const { addPlane, myCfiId, getCfi, saveCfi, planes, refreshListings } = useStore();
   const me = getCfi(myCfiId);
+  const auth = useAuth();
+  const uid = auth?.session?.user?.id || null;
+  const [publish, setPublish] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   const [f, setF] = useState({
     tail: '', year: '', make: '', model: '', category: ['Single'], homeAirport: ['KPIE'],
     wetRate: '', dryRate: '', blockRate: '', avionics: [], ifr: true, seats: '4', usefulLoad: '', cruise: '', fuelBurn: '',
@@ -326,10 +354,10 @@ export function PlaneForm({ nav }) {
   const set = (k) => (v) => setF((prev) => ({ ...prev, [k]: v }));
   const valid = f.tail.trim() && f.make.trim() && f.model.trim() && num(f.wetRate) > 0;
 
-  const save = () => {
+  const save = async () => {
     const id = 'p' + Date.now();
     const wet = num(f.wetRate);
-    addPlane({
+    const plane = {
       id,
       art: f.category[0] === 'Multi' ? 'twin' : 'highwing',
       photos: f.photos,
@@ -361,9 +389,20 @@ export function PlaneForm({ nav }) {
       rating: 5.0,
       reviewCount: 0,
       notes: f.notes,
-    });
-    if (me && f.onMyProfile) saveCfi({ ...me, aircraftIds: [...me.aircraftIds, id] });
-    nav.replace('Plane', { id });
+    };
+    if (!uid) {
+      addPlane(plane);
+      if (me && f.onMyProfile) saveCfi({ ...me, aircraftIds: [...me.aircraftIds, id] });
+      nav.replace('Plane', { id });
+      return;
+    }
+    setErr(''); setBusy(true);
+    try {
+      const newId = await savePlaneListing(uid, plane, { publish, addToMyCfiProfile: f.onMyProfile });
+      await refreshListings();
+      nav.replace('Plane', { id: newId });
+    } catch (e) { setErr(e.message || 'Couldn’t save. Try again.'); }
+    setBusy(false);
   };
 
   return (
@@ -421,9 +460,16 @@ export function PlaneForm({ nav }) {
         <Field label="Listed by" value={f.ownerName} onChangeText={set('ownerName')} placeholder="Your name, club or company" />
         <Field label="Notes for renters" multiline value={f.notes} onChangeText={set('notes')} placeholder="Hangared? Recent paint? Quirks?" />
         {me && <Toggle label={`Show on my CFI profile (${me.name})`} hint="Students will see you teach in this plane" value={f.onMyProfile} onValueChange={set('onMyProfile')} />}
+        {uid && (
+          <>
+            <SectionTitle>Visibility</SectionTitle>
+            <Toggle label="Show this plane to renters and instructors" value={publish} onValueChange={setPublish} hint={publish ? 'Listed on RightSeat right away.' : 'Saved as a draft. Only you can see it.'} />
+          </>
+        )}
+        {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', marginTop: 10 }} accessibilityLiveRegion="polite">{err}</Text>}
       </ScrollView>
       <View style={ms.cta}>
-        <Button title={valid ? 'Publish listing' : 'Add tail, make, model & wet rate'} disabled={!valid} style={{ flex: 1 }} onPress={save} />
+        <Button title={busy ? 'Saving…' : valid ? (uid && !publish ? 'Save draft' : 'Publish listing') : 'Add tail, make, model & wet rate'} disabled={!valid || busy} style={{ flex: 1 }} onPress={save} />
       </View>
     </View>
   );

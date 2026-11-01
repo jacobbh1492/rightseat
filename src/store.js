@@ -99,15 +99,19 @@ export function StoreProvider({ children }) {
 
   // Live listings from the database go first; the sample listings stay for browsing.
   const auth = useAuth();
-  useEffect(() => {
-    let alive = true;
-    fetchLiveListings().then(({ cfis: lc, planes: lp }) => {
-      if (!alive) return;
-      setCfis((prev) => [...lc, ...prev.filter((c) => !c.live)]);
-      setPlanes((prev) => [...lp, ...prev.filter((p) => !p.live)]);
-    }).catch(() => {});
-    return () => { alive = false; };
-  }, [auth?.session?.user?.id]);
+  const refreshListings = async () => {
+    const uid = auth?.session?.user?.id || null;
+    const { cfis: lc, planes: lp } = await fetchLiveListings(uid);
+    setCfis((prev) => [...lc, ...prev.filter((c) => !c.live)]);
+    setPlanes((prev) => [...lp, ...prev.filter((p) => !p.live)]);
+    // The signed-in user's own live listings become "mine" (edit, dashboards).
+    if (uid) {
+      if (lc.some((c) => c.id === uid)) setMyCfiId(uid);
+      const own = lp.filter((p) => p.ownerId === uid).map((p) => p.id);
+      if (own.length) setMyPlaneIds((prev) => [...new Set([...own, ...prev])]);
+    }
+  };
+  useEffect(() => { refreshListings().catch(() => {}); }, [auth?.session?.user?.id]);
 
   // Live bookings: the student's go into `requests` (Lessons tab), the instructor's
   // and owner's into `teaching` (Lesson requests screen).
@@ -140,7 +144,7 @@ export function StoreProvider({ children }) {
   const bumpCfiEarnings = (id, amt) => setCfis((prev) => prev.map((c) => (c.id === id ? { ...c, monthEarnings: r2((c.monthEarnings || 0) + amt) } : c)));
 
   const value = {
-    teaching, refreshLive,
+    teaching, refreshLive, refreshListings,
     cfis, planes, schools, requests, myCfiId, myPlaneIds, mySchoolId, favorites, pilot: { ...pilot, totalHours: allHours(training).total },
     training, wallet, held, available: r2(wallet.balance - held), threads, plans, payouts,
     getCfi, getPlane, getSchool, hasBookingWith,

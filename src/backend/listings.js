@@ -5,11 +5,11 @@ import { supabase } from './supabase';
 const COLORS = ['#1F6FEB', '#0891B2', '#7C3AED', '#059669', '#DB2777', '#EA580C'];
 const colorFor = (id) => COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 
-export function cfiFromRow(row, names, planeIds) {
+export function cfiFromRow(row, names, planeIds, avatars = {}) {
   const d = row.details || {};
   const name = names[row.id] || 'Instructor';
   return {
-    id: row.id, live: true, name,
+    id: row.id, live: true, name, photo: avatars[row.id] || null, published: !!row.published,
     initials: name.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
     color: colorFor(row.id), homeAirport: d.homeAirport || 'KPIE', alsoTeachesAt: d.alsoTeachesAt || [],
     certs: row.certs || ['CFI'], flightRate: Number(row.flight_rate), groundRate: Number(row.ground_rate),
@@ -23,11 +23,12 @@ export function cfiFromRow(row, names, planeIds) {
   };
 }
 
-export function planeFromRow(row) {
+export function planeFromRow(row, photos = []) {
   const d = row.details || {};
   return {
-    id: row.id, live: true, tail: row.tail, year: row.year, make: row.make, model: row.model, category: row.category,
-    homeAirport: row.home_airport, color: colorFor(row.id), art: d.art || 'highwing', photos: [],
+    id: row.id, live: true, ownerId: row.owner_id, published: !!row.published,
+    insured: !!row.insured, airworthyVerified: !!row.airworthy_verified, tail: row.tail, year: row.year, make: row.make, model: row.model, category: row.category,
+    homeAirport: row.home_airport, color: colorFor(row.id), art: d.art || 'highwing', photos,
     wetRate: Number(row.wet_rate), dryRate: Number(row.dry_rate || 0), blockRate: Number(d.blockRate || row.wet_rate),
     avionics: d.avionics || [], ifr: !!d.ifr, seats: d.seats || 4, usefulLoad: d.usefulLoad || 0, fuelBurn: d.fuelBurn || 0, cruise: d.cruise || 0,
     engineSMOH: d.engineSMOH || 0, tbo: d.tbo || 2000, last100hr: d.last100hr || '',
@@ -38,21 +39,30 @@ export function planeFromRow(row) {
   };
 }
 
-// Published instructors and planes from the live database.
-export async function fetchLiveListings() {
+// Published instructors and planes from the live database, plus the signed-in
+// user's own listings even while they're unpublished drafts.
+export async function fetchLiveListings(uid) {
+  const mine = (col) => (uid ? `published.eq.true,${col}.eq.${uid}` : 'published.eq.true');
   const [cfisRes, planesRes, linksRes] = await Promise.all([
-    supabase.from('cfis').select('*').eq('published', true),
-    supabase.from('planes').select('*').eq('published', true),
+    supabase.from('cfis').select('*').or(mine('id')),
+    supabase.from('planes').select('*').or(mine('owner_id')),
     supabase.from('cfi_planes').select('*'),
   ]);
   if (cfisRes.error || planesRes.error) throw cfisRes.error || planesRes.error;
   const ids = cfisRes.data.map((c) => c.id);
+  const planeIds = planesRes.data.map((p) => p.id);
   // Names live on profiles, which only signed-in users can read; fall back gracefully.
-  const { data: people } = ids.length ? await supabase.from('profiles').select('id, full_name').in('id', ids) : { data: [] };
+  const [{ data: people }, { data: photoRows }] = await Promise.all([
+    ids.length ? supabase.from('profiles').select('id, full_name, avatar_url').in('id', ids) : { data: [] },
+    planeIds.length ? supabase.from('plane_photos').select('plane_id, path, position').in('plane_id', planeIds).order('position') : { data: [] },
+  ]);
   const names = Object.fromEntries((people || []).map((p) => [p.id, p.full_name]));
+  const avatars = Object.fromEntries((people || []).filter((p) => p.avatar_url).map((p) => [p.id, p.avatar_url]));
+  const photoUrl = (path) => supabase.storage.from('plane-photos').getPublicUrl(path).data.publicUrl;
+  const photosFor = (id) => (photoRows || []).filter((r) => r.plane_id === id).map((r) => photoUrl(r.path));
   const links = linksRes.data || [];
   return {
-    cfis: cfisRes.data.map((r) => cfiFromRow(r, names, links.filter((l) => l.cfi_id === r.id).map((l) => l.plane_id))),
-    planes: planesRes.data.map(planeFromRow),
+    cfis: cfisRes.data.map((r) => cfiFromRow(r, names, links.filter((l) => l.cfi_id === r.id).map((l) => l.plane_id), avatars)),
+    planes: planesRes.data.map((r) => planeFromRow(r, photosFor(r.id))),
   };
 }
