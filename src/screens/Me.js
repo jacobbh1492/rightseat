@@ -146,6 +146,11 @@ export function Me({ nav }) {
         <Pressable onPress={() => auth.signOut()} style={{ alignItems: 'center', marginTop: 18 }} accessibilityRole="button">
           <Text style={{ color: '#B91C1C', fontWeight: '800' }}>Sign out</Text>
         </Pressable>
+      ) : null}
+      {auth?.session ? (
+        <Pressable onPress={() => nav.push('DeleteAccount')} style={{ alignItems: 'center', marginTop: 14 }} accessibilityRole="button">
+          <Text style={{ color: C.sub, fontWeight: '700', fontSize: 13 }}>Delete account</Text>
+        </Pressable>
       ) : (
         <Pressable onPress={() => setProfile({ onboarded: false })} style={{ alignItems: 'center', marginTop: 18 }} accessibilityRole="button">
           <Text style={{ color: C.sub, fontWeight: '700' }}>Replay welcome & setup</Text>
