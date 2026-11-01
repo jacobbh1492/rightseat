@@ -22,3 +22,13 @@ test('aircraft: valid + matching make passes; invalid/expired fails; mismatch or
   assert.equal(decideAircraft(listing, { ...rec, make: 'PIPER' }).status, 'review');
   assert.equal(decideAircraft(listing, null).status, 'review');
 });
+
+test('aircraft registry with a byte-order mark (as the FAA ships it) still indexes by N-number', async () => {
+  const { AircraftIndex } = await import('../src/faa/aircraft.js');
+  const master = 'ï»¿N-NUMBER,SERIAL NUMBER,MFR MDL CODE,YEAR MFR,NAME,STATUS CODE,EXPIRATION DATE,\r\n12345,17280001,2072738,2006,JANE PILOT,V,20300131,\r\n';
+  const ref = 'ï»¿CODE,MFR,MODEL,NO-ENG,NO-SEATS,\r\n2072738,CESSNA,172S,1,4,\r\n';
+  const idx = AircraftIndex.fromFiles({ 'MASTER.TXT': master, 'ACFTREF.TXT': ref });
+  const rec = idx.lookup('N12345');
+  assert.equal(rec.make, 'CESSNA');
+  assert.equal(rec.valid, true);
+});

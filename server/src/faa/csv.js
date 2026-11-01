@@ -12,7 +12,8 @@ export function parseFaaCsv(text, { quoted = true } = {}) {
   });
 }
 
-export const normHeader = (h) => String(h || '').replace(/﻿/g, '').trim().replace(/\s+/g, ' ').toUpperCase();
+// FAA files start with a UTF-8 byte-order mark; read as latin1 it shows up as "ï»¿".
+export const normHeader = (h) => String(h || '').replace(/^(\ufeff|\u00ef\u00bb\u00bf)+/, '').replace(/\ufeff/g, '').trim().replace(/\s+/g, ' ').toUpperCase();
 
 // Read the first present column among aliases (FAA has renamed columns across releases).
 export function col(row, ...names) {

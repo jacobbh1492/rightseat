@@ -51,20 +51,6 @@ async function probe() {
   const cfiCount = [...airmen.byId.values()].filter((r) => r.certs.some((c) => c.type === 'F')).length;
   console.log(`Airmen records: ${airmen.byId.size}, with a flight instructor certificate: ${cfiCount}`);
   console.log('Sample name lookup (JOHN SMITH, FL):', decideAirmen(airmen.find({ first: 'John', last: 'Smith', state: 'FL' })).status);
-  // Diagnostics: what's inside the aircraft ZIP and how MASTER.txt starts.
-  {
-    const AdmZip = (await import('adm-zip')).default;
-    const res2 = await fetch('https://registry.faa.gov/database/ReleasableAircraft.zip');
-    console.log(`Aircraft ZIP: HTTP ${res2.status}, ${res2.headers.get('content-type')}, ${res2.headers.get('content-length')} bytes`);
-    const buf = Buffer.from(await res2.arrayBuffer());
-    console.log('First bytes:', JSON.stringify(buf.subarray(0, 80).toString('latin1')));
-    try {
-      const zip = new AdmZip(buf);
-      for (const e of zip.getEntries()) console.log(`  entry ${e.entryName} (${e.header.size} bytes)`);
-      const master = zip.getEntries().find((e) => /master/i.test(e.entryName));
-      if (master) console.log('MASTER head:', JSON.stringify(master.getData().toString('latin1').slice(0, 400)));
-    } catch (e) { console.log('Not a ZIP:', e.message); }
-  }
   const aircraft = await downloadAircraft();
   console.log(`Aircraft records: ${aircraft.byTail.size}`);
   const sample = [...aircraft.byTail.keys()].slice(0, 1)[0];
