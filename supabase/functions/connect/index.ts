@@ -1,7 +1,8 @@
-// POST /connect { for?: 'me' | schoolId } — start or resume payout setup (Stripe Connect Express).
+// POST /connect { for?: 'me' | schoolId } — start or resume payout setup (Stripe Connect,
+// Accounts v2 recipient with the Express dashboard).
 // Returns a Stripe-hosted onboarding link. Instructors and owners set up their own;
 // a school admin sets up the school's account.
-import { serve, json, admin, stripe, requireUser, releaseHeld } from '../_shared/server.ts';
+import { serve, json, admin, requireUser, releaseHeld, stripeV2, payoutStatus } from '../_shared/server.ts';
 import { HttpError } from '../_shared/bookings.js';
 
 serve(async (req, body) => {
@@ -19,27 +20,30 @@ serve(async (req, body) => {
   // { check: true } — called when the person comes back to the app: refresh status.
   if (body.check) {
     if (!account) return json({ ready: false, started: false });
-    const a = await stripe.accounts.retrieve(account);
-    const ready = !!(a.details_submitted && a.payouts_enabled && a.capabilities?.transfers === 'active');
-    await admin.from(table).update({ payouts_ready: ready }).eq('id', id);
-    const released = ready ? await releaseHeld(account, schoolId ? { schoolId } : { partyId: id }) : 0;
-    return json({ ready, started: true, needs: a.requirements?.currently_due?.length || 0, released });
+    const st = await payoutStatus(account);
+    await admin.from(table).update({ payouts_ready: st.ready }).eq('id', id);
+    const released = st.ready ? await releaseHeld(account, schoolId ? { schoolId } : { partyId: id }) : 0;
+    return json({ ready: st.ready, started: true, status: st.status, needs: st.needs, released });
   }
   if (!account) {
-    const a = await stripe.accounts.create({
-      type: 'express', country: 'US', email,
-      business_type: schoolId ? 'company' : 'individual',
-      capabilities: { transfers: { requested: true } },
-      business_profile: { mcc: '8299', product_description: schoolId ? 'Flight school instruction and aircraft rental' : 'Flight instruction and aircraft rental', name },
+    // Recipient account: receives transfers from RightSeat; Stripe hosts onboarding and the
+    // Express dashboard; RightSeat pays Stripe fees and covers negative balances.
+    const a = await stripeV2('POST', '/v2/core/accounts', {
+      contact_email: email,
+      display_name: name || undefined,
+      dashboard: 'express',
+      identity: { country: 'us', entity_type: schoolId ? 'company' : 'individual' },
+      defaults: { responsibilities: { fees_collector: 'application', losses_collector: 'application' } },
+      configuration: { recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } } },
       metadata: { rightseat_table: table, rightseat_id: id },
-    }, { idempotencyKey: `acct-${table}-${id}` });
-    account = a.id;
+    }, `acct-v2-${table}-${id}`);
+    account = a.id as string;
     await admin.from(table).update({ stripe_account_id: account }).eq('id', id);
   }
   const base = `${Deno.env.get('SUPABASE_URL')}/functions/v1/connect-return`;
-  const link = await stripe.accountLinks.create({
-    account, type: 'account_onboarding',
-    refresh_url: `${base}?state=refresh`, return_url: `${base}?state=done`,
+  const link = await stripeV2('POST', '/v2/core/account_links', {
+    account,
+    use_case: { type: 'account_onboarding', account_onboarding: { configurations: ['recipient'], refresh_url: `${base}?state=refresh`, return_url: `${base}?state=done` } },
   });
   return json({ url: link.url });
 });

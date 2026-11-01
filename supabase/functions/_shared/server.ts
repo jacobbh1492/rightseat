@@ -108,3 +108,32 @@ export async function releaseHeld(account: string, who: { partyId?: string; scho
   }
   return Math.round(released * 100) / 100;
 }
+
+// ---- Stripe Accounts v2 (payout accounts for instructors, owners and schools).
+// Stripe now creates new connected accounts through the v2 API. The Node SDK
+// doesn't cover it yet, so these call the REST endpoints directly.
+const STRIPE_V2_VERSION = '2026-10-28.preview';
+export async function stripeV2(method: 'GET' | 'POST', path: string, body?: unknown, idempotencyKey?: string) {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${Deno.env.get('STRIPE_SECRET_KEY')}`,
+    'Stripe-Version': STRIPE_V2_VERSION,
+  };
+  if (body) headers['Content-Type'] = 'application/json';
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+  const res = await fetch('https://api.stripe.com' + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err: any = new Error(data?.error?.message || `Stripe ${res.status}`);
+    err.type = 'StripeV2Error'; err.code = data?.error?.code || null; err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+// Ready for payouts = the recipient's transfers capability is active.
+export async function payoutStatus(account: string) {
+  const a = await stripeV2('GET', `/v2/core/accounts/${account}?include=configuration.recipient&include=requirements`);
+  const cap = a?.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers;
+  const due = (a?.requirements?.entries || []).filter((e: any) => e?.minimum_deadline?.status === 'currently_due' || e?.minimum_deadline?.status === 'past_due').length;
+  return { ready: cap?.status === 'active', status: cap?.status || 'unknown', needs: due };
+}

@@ -4,7 +4,7 @@
 //                    pays the late-cancel fee, which goes to the instructor.
 //  complete        — close-out with actual Hobbs/ground time: charge the saved card,
 //                    then pay the instructor, owner and school their shares.
-import { serve, json, admin, stripe, requireUser, audit } from '../_shared/server.ts';
+import { serve, json, admin, stripe, requireUser, audit, payoutStatus } from '../_shared/server.ts';
 import { assertTransition, roleIn, finalPrice, validateActuals, cancellationFee, payoutPlan, cents, HttpError } from '../_shared/bookings.js';
 
 async function load(id: string) {
@@ -38,7 +38,12 @@ async function payout(b: any, split: any, chargeId: string, plane: any, schoolId
   const acct = async (table: string, id: string | null) => {
     if (!id) return null;
     const { data } = await admin.from(table).select('stripe_account_id, payouts_ready').eq('id', id).single();
-    return data?.payouts_ready ? data.stripe_account_id : null;
+    if (!data?.stripe_account_id) return null;
+    if (data.payouts_ready) return data.stripe_account_id;
+    // They may have just finished setup: ask Stripe before holding their pay.
+    const st = await payoutStatus(data.stripe_account_id).catch(() => ({ ready: false }));
+    if (st.ready) await admin.from(table).update({ payouts_ready: true }).eq('id', id);
+    return st.ready ? data.stripe_account_id : null;
   };
   // A school-owned plane pays the school, not the person who listed it.
   const ownerAccount = plane?.school_id ? await acct('schools', plane.school_id) : await acct('profiles', plane?.owner_id || null);
