@@ -41,6 +41,22 @@ async function airmenZipUrl() {
   return csv;
 }
 
+// PROBE=1: download both registries and look up a sample, without touching the database.
+async function probe() {
+  const url = await airmenZipUrl();
+  console.log(`Airmen ZIP: ${url}`);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Airmen download failed: ${res.status}`);
+  const airmen = AirmenIndex.fromZip(Buffer.from(await res.arrayBuffer()));
+  const cfiCount = [...airmen.byId.values()].filter((r) => r.certs.some((c) => c.type === 'F')).length;
+  console.log(`Airmen records: ${airmen.byId.size}, with a flight instructor certificate: ${cfiCount}`);
+  console.log('Sample name lookup (JOHN SMITH, FL):', decideAirmen(airmen.find({ first: 'John', last: 'Smith', state: 'FL' })).status);
+  const aircraft = await downloadAircraft();
+  console.log(`Aircraft records: ${aircraft.byTail.size}`);
+  const sample = [...aircraft.byTail.keys()].slice(0, 1)[0];
+  console.log(`Sample tail N${sample}:`, JSON.stringify(aircraft.lookup(sample)));
+}
+
 async function main() {
   if (!TOKEN) throw new Error('SUPABASE_ACCESS_TOKEN is not set');
 
@@ -79,4 +95,4 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+(process.env.PROBE ? probe() : main()).catch((e) => { console.error(e); process.exit(1); });

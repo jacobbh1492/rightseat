@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: '17 6 * * *'   # 1:17 AM Eastern, after the FAA's nightly aircraft refresh
   workflow_dispatch:
+    inputs:
+      probe:
+        description: 'Test the FAA downloads only (no database writes)'
+        type: boolean
+        default: false
 concurrency: { group: faa-verify, cancel-in-progress: false }
 jobs:
   verify:
@@ -23,3 +28,5 @@ jobs:
       - run: npm ci
       - run: node --test test/*.test.js
       - run: node src/jobs/faa-verify.js
+        env:
+          PROBE: ${{ inputs.probe && '1' || '' }}
