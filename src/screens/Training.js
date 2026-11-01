@@ -6,6 +6,8 @@ import { PPL_MINIMUMS, costProjection, hoursUntil, money2, r2 } from '../logic';
 import { ALL_LESSONS, lessonState, doneCount, nextLessons, allHours, allEndorsements, upcomingEndorsements, hasPrior } from '../progress';
 import { C, Card, Avatar, SectionTitle, Button, Row, Tag, Chip, Toggle } from '../ui';
 import { DebriefCard, FocusAreas } from './Debrief';
+import { useAuth } from '../backend/auth';
+import LiveTraining from './LiveTraining';
 
 function Bar({ value, extra = 0, max, color = C.blue }) {
   const a = Math.max(0, Math.min(1, max ? value / max : 0));
@@ -27,7 +29,14 @@ const STATE_UI = {
   todo: { icon: '', color: C.sub, bg: '#fff', border: C.line, tag: null },
 };
 
+// Signed in: the real training record. Guests see the sample one.
 export default function Training({ nav }) {
+  const auth = useAuth();
+  if (auth?.session) return <LiveTraining nav={nav} />;
+  return <DemoTraining nav={nav} />;
+}
+
+function DemoTraining({ nav }) {
   const { training, getCfi, getPlane, available, markLessonPrior, setSharing, cfis } = useStore();
   const debriefs = [...training.debriefs].sort((a, b) => new Date(b.when) - new Date(a.when));
   const unread = debriefs.filter((d) => !d.acknowledged && !d.pending).length;

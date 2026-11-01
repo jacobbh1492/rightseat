@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet } from 'react-native';
 import { useStore } from '../store';
 import { useAuth } from '../backend/auth';
-import { bookingAction, setUpPayouts, checkPayouts } from '../backend/bookings';
+import { bookingAction, setUpPayouts, checkPayouts, writeDebrief } from '../backend/bookings';
 import { quote } from '../pricing';
 import { money2, r2 } from '../logic';
-import { C, Card, Button, SectionTitle, Row, Tag, Field, Stepper } from '../ui';
+import { C, Card, Button, SectionTitle, Row, Tag, Field, Stepper, Toggle } from '../ui';
 import { Header } from './Details';
 
 // Instructor (and plane owner) side of live bookings: answer requests, close out
@@ -166,6 +166,11 @@ export function LiveCloseOut({ nav, params }) {
   const [hobbsOut, setOut] = useState('');
   const [hobbsIn, setIn] = useState('');
   const [ground, setGround] = useState(r?.groundHours || 0);
+  const [night, setNight] = useState(/night/i.test(r?.goal || ''));
+  const [xc, setXc] = useState(/cross/i.test(r?.goal || ''));
+  const [inst, setInst] = useState(0);
+  const [debrief, setDebrief] = useState({ wentWell: '', needsWork: '', nextPlan: '' });
+  const [debriefNote, setDebriefNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [result, setResult] = useState(null);
@@ -179,8 +184,15 @@ export function LiveCloseOut({ nav, params }) {
   const submit = async () => {
     setErr(''); setBusy(true);
     try {
-      const res = await bookingAction(r.id, 'complete', { flightHours: fh, groundHours: r.cfiId ? ground : 0 });
+      const res = await bookingAction(r.id, 'complete', { flightHours: fh, groundHours: r.cfiId ? ground : 0, night, xc, instrumentHours: r.cfiId ? inst : 0 });
       setResult(res);
+      // The debrief goes to the student's training record (instructors only).
+      if (r.role === 'cfi' && (debrief.wentWell || debrief.needsWork || debrief.nextPlan)) {
+        try {
+          await writeDebrief({ bookingId: r.id, studentId: r.studentId, cfiId: r.cfiId, flownOn: r.when.slice(0, 10), ...debrief });
+          setDebriefNote('Debrief saved to the student’s training record.');
+        } catch (e) { setDebriefNote(`The charge went through, but the debrief didn’t save: ${e.message}`); }
+      }
       refreshLive().catch(() => {});
     } catch (e) { setErr(e.message); }
     setBusy(false);
@@ -203,6 +215,7 @@ export function LiveCloseOut({ nav, params }) {
             <Text style={[ts.sub, { marginTop: 8, color: held ? '#B45309' : C.green, fontWeight: '700' }]}>
               {held ? 'Held for you until you set up payouts.' : 'On its way to your bank (usually 2 business days).'}
             </Text>
+            {!!debriefNote && <Text style={[ts.sub, { marginTop: 8 }]}>{debriefNote}</Text>}
             <Button title="Back to requests" style={{ marginTop: 14 }} onPress={nav.pop} />
           </Card>
         </ScrollView>
@@ -228,6 +241,21 @@ export function LiveCloseOut({ nav, params }) {
           {hobbsIn && hobbsOut ? (valid ? `Flight time: ${fh} hr` : 'Check the Hobbs times (0.1 to 8.0 hr).') : 'Enter Hobbs out and in.'}
         </Text>
         {r.cfiId ? <Card><Stepper label="Ground instruction" value={ground} onChange={setGround} /></Card> : null}
+
+        <SectionTitle>Log to the training record</SectionTitle>
+        <Toggle label="Night" value={night} onValueChange={setNight} />
+        <Toggle label="Cross-country" value={xc} onValueChange={setXc} />
+        {r.cfiId ? <Card><Stepper label="Simulated instrument" value={inst} onChange={(v) => setInst(Math.min(v, fh || v))} step={0.1} /></Card> : null}
+
+        {r.role === 'cfi' && (
+          <>
+            <SectionTitle>Debrief (optional)</SectionTitle>
+            <Text style={[ts.sub, { marginBottom: 6 }]}>Saved to the student’s training record. Once they read it, it’s locked.</Text>
+            <Field label="What went well" multiline value={debrief.wentWell} onChangeText={(t) => setDebrief((d) => ({ ...d, wentWell: t }))} placeholder="Smooth radio calls, good energy management on final" />
+            <Field label="Needs work" multiline value={debrief.needsWork} onChangeText={(t) => setDebrief((d) => ({ ...d, needsWork: t }))} placeholder="Holding altitude in steep turns" />
+            <Field label="Next lesson" multiline value={debrief.nextPlan} onChangeText={(t) => setDebrief((d) => ({ ...d, nextPlan: t }))} placeholder="Slow flight and power-off stalls" />
+          </>
+        )}
 
         {est && (
           <>

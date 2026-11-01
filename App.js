@@ -45,7 +45,8 @@ function Shell() {
   }, [auth.account?.id, auth.session?.user?.id]);
   const [tab, setTab] = useState('Explore');
   const badges = {
-    Training: training.debriefs.filter((d) => !d.pending && (!d.acknowledged || (d.amendments || []).some((a) => !a.read))).length,
+    // Sample debriefs only count for guests; signed-in users see their real record.
+    Training: auth.session ? 0 : training.debriefs.filter((d) => !d.pending && (!d.acknowledged || (d.amendments || []).some((a) => !a.read))).length,
     Lessons: requests.filter((r) => r.status === 'Pending').length,
     Me: teaching.filter((r) => r.status === 'Pending').length,
   };

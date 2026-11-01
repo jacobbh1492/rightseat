@@ -11,7 +11,7 @@ const dateLabel = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month
 
 export async function fetchMyBookings(userId) {
   const { data: rows, error } = await supabase.from('bookings')
-    .select('id, student_id, cfi_id, plane_id, starts_at, goal, flight_hours, ground_hours, status, quote, actual_hobbs, final_split, card_ready, cancel_reason, cancelled_by')
+    .select('id, student_id, cfi_id, plane_id, starts_at, goal, flight_hours, ground_hours, status, quote, actual_hobbs, final_split, card_ready, cancel_reason, cancelled_by, conditions')
     .order('starts_at', { ascending: false }).limit(200);
   if (error) throw error;
   const planeIds = [...new Set(rows.map((b) => b.plane_id).filter(Boolean))];
@@ -43,6 +43,7 @@ export async function fetchMyBookings(userId) {
       status: STATUS[b.status] || 'Pending', rawStatus: b.status, cardReady: !!b.card_ready,
       quote: b.quote, total: final ? final.total : b.quote?.total || 0, final,
       actualHobbs: b.actual_hobbs != null ? Number(b.actual_hobbs) : null,
+      conditions: b.conditions || {}, actualGround: b.final_split?.final?.groundHours ?? null,
       share, method: 'card',
       reviewedCfi: (myReviews || []).some((x) => x.booking_id === b.id && x.subject === 'cfi'),
       reviewedPlane: (myReviews || []).some((x) => x.booking_id === b.id && x.subject === 'plane'),
@@ -64,3 +65,45 @@ export async function setUpPayouts() {
   return checkPayouts();
 }
 export const checkPayouts = () => callFn('connect', { check: true });
+
+// ---- training record
+// Hours from completed RightSeat flights, in the keys the FAA-minimums view uses.
+export function hoursFromFlights(flights) {
+  const h = { total: 0, dual: 0, solo: 0, dualXC: 0, soloXC: 0, night: 0, instrument: 0, ground: 0, prep: 0 };
+  const r1 = (n) => Math.round(n * 10) / 10;
+  for (const f of flights) {
+    const fh = f.actualHobbs || 0;
+    const dual = !!f.cfiId;
+    h.total += fh;
+    if (dual) h.dual += fh; else h.solo += fh;
+    if (f.conditions?.xc) { if (dual) h.dualXC += fh; else h.soloXC += fh; }
+    if (f.conditions?.night && dual) h.night += fh;
+    if (dual) h.instrument += f.conditions?.instrumentHours || 0;
+    h.ground += f.actualGround ?? f.groundHours ?? 0;
+  }
+  for (const k of Object.keys(h)) h[k] = r1(h[k]);
+  return h;
+}
+
+export async function fetchDebriefs(uid) {
+  const { data, error } = await supabase.from('debriefs').select('*').eq('student_id', uid).order('flown_on', { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+// Written by the instructor at close-out (the database checks it's their booking).
+export async function writeDebrief({ bookingId, studentId, cfiId, flownOn, wentWell, needsWork, nextPlan }) {
+  const { error } = await supabase.from('debriefs').insert({
+    booking_id: bookingId, student_id: studentId, cfi_id: cfiId, flown_on: flownOn,
+    went_well: wentWell || '', needs_work: needsWork || '', next_plan: nextPlan || '',
+  });
+  if (error) throw error;
+}
+
+// The student marks a debrief read (locks the instructor's text; they can add a note).
+export async function acknowledgeDebrief(id, note) {
+  const patch = { acknowledged: true };
+  if (note) patch.student_note = note;
+  const { error } = await supabase.from('debriefs').update(patch).eq('id', id);
+  if (error) throw error;
+}
