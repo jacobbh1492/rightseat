@@ -17,6 +17,7 @@ import { PlaneImage } from '../art';
 import { useAuth } from '../backend/auth';
 import { useBookingPayment, CARD_PAYMENTS_SUPPORTED } from '../backend/payments';
 import { bookingAction } from '../backend/bookings';
+import { postReview } from '../backend/profiles';
 
 // Listings stored in the live database have UUID ids; the built-in sample listings don't.
 const isLive = (id) => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(id);
@@ -711,8 +712,11 @@ const CFI_TAGS = ['Well prepared', 'Patient', 'Clear explanations', 'Great debri
 const PLANE_TAGS = ['Clean', 'Well maintained', 'Great avionics', 'Easy to schedule', 'Accurate squawk list', 'Great value', 'Fuel/billing as listed'];
 
 export function LeaveReview({ nav, params }) {
-  const { getRequest, getCfi, getPlane, addReview, updateRequest } = useStore();
+  const { getRequest, getCfi, getPlane, addReview, updateRequest, refreshListings, refreshLive } = useStore();
+  const auth = useAuth();
   const r = getRequest(params.requestId);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   const [rating, setRating] = useState(0);
   const [tags, setTags] = useState([]);
   const [text, setText] = useState('');
@@ -723,7 +727,17 @@ export function LeaveReview({ nav, params }) {
   const role = isCfi || r.cfiId ? 'Student' : 'Renter';
   const title = isCfi ? target.name : `${target.year} ${target.make} ${target.model}`;
 
-  const submit = () => {
+  const submit = async () => {
+    if (r.live) {
+      setErr(''); setBusy(true);
+      try {
+        await postReview(auth.session.user.id, { bookingId: r.id, subject: isCfi ? 'cfi' : 'plane', rating, tags, text: text.trim() });
+        await Promise.all([refreshListings().catch(() => {}), refreshLive().catch(() => {})]);
+        nav.replace(isCfi ? 'Cfi' : 'Plane', { id: target.id });
+      } catch (e) { setErr(e.message); }
+      setBusy(false);
+      return;
+    }
     const review = {
       name: name.trim() || 'RightSeat pilot', verified: true, role, lesson: r.goal,
       date: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), bookingId: r.id, tags, rating, text: text.trim(),
@@ -747,7 +761,7 @@ export function LeaveReview({ nav, params }) {
           </View>
         </Card>
         <Text style={{ color: C.sub, fontSize: 12, marginBottom: 6 }}>
-          Your review is tied to booking #{r.id.toUpperCase()}, so it shows a verified badge. Only people who completed a booking can review.
+          Your review is tied to booking #{r.id.slice(0, 8).toUpperCase()}, so it shows a verified badge. Only people who completed a booking can review.
         </Text>
         <SectionTitle>Overall rating</SectionTitle>
         <StarPicker value={rating} onChange={setRating} />
@@ -759,10 +773,13 @@ export function LeaveReview({ nav, params }) {
         </View>
         <SectionTitle>Tell other pilots</SectionTitle>
         <Field multiline value={text} onChangeText={setText} placeholder={isCfi ? 'How was the lesson, briefing and debrief?' : 'Condition, squawks, scheduling, billing…'} />
-        <Field label="Display name" value={name} onChangeText={setName} placeholder="e.g. Sam C." />
+        {r.live
+          ? <Text style={{ color: C.sub, fontSize: 12 }}>Shown with your first name and last initial.</Text>
+          : <Field label="Display name" value={name} onChangeText={setName} placeholder="e.g. Sam C." />}
+        {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', marginTop: 10 }}>{err}</Text>}
       </ScrollView>
       <View style={bs.cta}>
-        <Button title={rating ? 'Post verified review' : 'Tap a star rating'} disabled={!rating} style={{ flex: 1 }} onPress={submit} />
+        <Button title={busy ? 'Posting…' : rating ? 'Post verified review' : 'Tap a star rating'} disabled={!rating || busy} style={{ flex: 1 }} onPress={submit} />
       </View>
     </View>
   );

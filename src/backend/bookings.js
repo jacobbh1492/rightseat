@@ -16,10 +16,11 @@ export async function fetchMyBookings(userId) {
   if (error) throw error;
   const planeIds = [...new Set(rows.map((b) => b.plane_id).filter(Boolean))];
   const people = [...new Set(rows.flatMap((b) => [b.student_id, b.cfi_id]).filter(Boolean))];
-  const [{ data: planes }, { data: profiles }, { data: ledger }] = await Promise.all([
+  const [{ data: planes }, { data: profiles }, { data: ledger }, { data: myReviews }] = await Promise.all([
     planeIds.length ? supabase.from('planes').select('id, tail, make, model, owner_id').in('id', planeIds) : { data: [] },
     people.length ? supabase.from('profiles').select('id, full_name').in('id', people) : { data: [] },
     supabase.from('ledger').select('booking_id, kind, amount').eq('party_id', userId),
+    supabase.from('reviews').select('booking_id, subject').eq('author_id', userId),
   ]);
   const planeBy = Object.fromEntries((planes || []).map((p) => [p.id, p]));
   const nameBy = Object.fromEntries((profiles || []).map((p) => [p.id, p.full_name || 'Pilot']));
@@ -43,6 +44,8 @@ export async function fetchMyBookings(userId) {
       quote: b.quote, total: final ? final.total : b.quote?.total || 0, final,
       actualHobbs: b.actual_hobbs != null ? Number(b.actual_hobbs) : null,
       share, method: 'card',
+      reviewedCfi: (myReviews || []).some((x) => x.booking_id === b.id && x.subject === 'cfi'),
+      reviewedPlane: (myReviews || []).some((x) => x.booking_id === b.id && x.subject === 'plane'),
       // For the instructor/owner: was their share paid out, or held until payouts are set up?
       payout: mine.some((l) => l.kind.startsWith('payout_')) ? 'paid' : mine.some((l) => l.kind.startsWith('held_')) ? 'held' : null,
       cancel: b.status === 'cancelled' ? { reason: b.cancel_reason || 'Cancelled', fee: lateFee ? Number(lateFee.amount) : 0 } : undefined,

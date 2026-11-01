@@ -61,6 +61,15 @@ export async function saveCfiProfile(uid, cfi, { publish }) {
   await addRole(uid, 'cfi');
 }
 
+// A verified review of a completed live booking (the database checks it's yours and completed).
+export async function postReview(uid, { bookingId, subject, rating, tags, text }) {
+  const { error } = await supabase.from('reviews').insert({ booking_id: bookingId, author_id: uid, subject, rating, tags, body: text });
+  if (error) {
+    if (error.code === '23505') throw new Error('You already reviewed this.');
+    throw error;
+  }
+}
+
 // plane: the app's plane shape (from PlaneForm). Returns the new plane id.
 export async function savePlaneListing(uid, plane, { publish, addToMyCfiProfile }) {
   const row = {

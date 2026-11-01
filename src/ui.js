@@ -308,6 +308,7 @@ export function ReviewCard({ r }) {
         </View>
       )}
       {r.text ? <Text style={{ color: C.text, lineHeight: 20, marginTop: 6 }}>{r.text}</Text> : null}
+      {r.reply ? <View style={{ marginTop: 8, paddingLeft: 10, borderLeftWidth: 3, borderLeftColor: C.line }}><Text style={{ color: C.sub, fontSize: 12, fontWeight: '700' }}>Reply</Text><Text style={{ color: C.text, lineHeight: 20 }}>{r.reply}</Text></View> : null}
     </View>
   );
 }

@@ -39,6 +39,13 @@ export function planeFromRow(row, photos = []) {
   };
 }
 
+// Verified reviews, in the shape the app's ReviewCard shows.
+const reviewFromRow = (subject) => (r) => ({
+  name: r.author_name || 'RightSeat pilot', verified: true, role: subject === 'cfi' ? 'Student' : 'Renter', lesson: r.lesson || '',
+  date: new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+  tags: r.tags || [], rating: r.rating, text: r.body || '', reply: r.reply || null,
+});
+
 // Published instructors and planes from the live database, plus the signed-in
 // user's own listings even while they're unpublished drafts.
 export async function fetchLiveListings(uid) {
@@ -61,8 +68,16 @@ export async function fetchLiveListings(uid) {
   const photoUrl = (path) => supabase.storage.from('plane-photos').getPublicUrl(path).data.publicUrl;
   const photosFor = (id) => (photoRows || []).filter((r) => r.plane_id === id).map((r) => photoUrl(r.path));
   const links = linksRes.data || [];
+  const { data: reviewRows } = await supabase.from('reviews').select('subject, subject_id, rating, tags, body, reply, author_name, lesson, created_at')
+    .in('subject_id', [...ids, ...planeIds].length ? [...ids, ...planeIds] : ['00000000-0000-0000-0000-000000000000'])
+    .order('created_at', { ascending: false });
+  const withReviews = (item, subject) => {
+    const rs = (reviewRows || []).filter((r) => r.subject === subject && r.subject_id === item.id).map(reviewFromRow(subject));
+    if (!rs.length) return item;
+    return { ...item, reviews: rs, reviewCount: rs.length, rating: Math.round((rs.reduce((a, r) => a + r.rating, 0) / rs.length) * 100) / 100 };
+  };
   return {
-    cfis: cfisRes.data.map((r) => cfiFromRow(r, names, links.filter((l) => l.cfi_id === r.id).map((l) => l.plane_id), avatars)),
-    planes: planesRes.data.map((r) => planeFromRow(r, photosFor(r.id))),
+    cfis: cfisRes.data.map((r) => withReviews(cfiFromRow(r, names, links.filter((l) => l.cfi_id === r.id).map((l) => l.plane_id), avatars), 'cfi')),
+    planes: planesRes.data.map((r) => withReviews(planeFromRow(r, photosFor(r.id)), 'plane')),
   };
 }
