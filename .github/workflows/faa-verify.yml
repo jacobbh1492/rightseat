@@ -1,0 +1,25 @@
+name: FAA verification (nightly)
+# Matches identity-verified instructors against the FAA Airmen Registry and checks
+# every listed plane against the FAA Aircraft Registry. Results appear in the app
+# (Get verified / Verification reviews). Uses the SUPABASE_ACCESS_TOKEN secret.
+on:
+  schedule:
+    - cron: '17 6 * * *'   # 1:17 AM Eastern, after the FAA's nightly aircraft refresh
+  workflow_dispatch:
+concurrency: { group: faa-verify, cancel-in-progress: false }
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults: { run: { working-directory: server } }
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: velhvzupamhlhbriyreq
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: node --test test/*.test.js
+      - run: node src/jobs/faa-verify.js

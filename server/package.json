@@ -10,7 +10,8 @@
     "sync:aircraft": "node src/jobs/run.js aircraft",
     "sync:airmen": "node src/jobs/run.js airmen",
     "sweep": "node src/jobs/run.js sweep",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "faa:verify": "node src/jobs/faa-verify.js"
   },
   "engines": {
     "node": ">=20"
