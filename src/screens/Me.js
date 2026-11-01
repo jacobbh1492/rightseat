@@ -325,7 +325,7 @@ export function CfiForm({ nav, params }) {
         {uid && (
           <>
             <SectionTitle>Visibility</SectionTitle>
-            <Toggle label="Show my profile to students" value={publish} onValueChange={setPublish} hint={publish ? 'Students can find and book you.' : 'Saved as a draft. Only you can see it.'} />
+            <Toggle label="Show my profile to students" value={publish} onValueChange={setPublish} hint={publish ? 'Students can find and book you once RightSeat verifies your certificate.' : 'Saved as a draft. Only you can see it.'} />
           </>
         )}
         {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', marginTop: 10 }} accessibilityLiveRegion="polite">{err}</Text>}
@@ -463,7 +463,7 @@ export function PlaneForm({ nav }) {
         {uid && (
           <>
             <SectionTitle>Visibility</SectionTitle>
-            <Toggle label="Show this plane to renters and instructors" value={publish} onValueChange={setPublish} hint={publish ? 'Listed on RightSeat right away.' : 'Saved as a draft. Only you can see it.'} />
+            <Toggle label="Show this plane to renters and instructors" value={publish} onValueChange={setPublish} hint={publish ? 'Listed once RightSeat verifies the registration and insurance.' : 'Saved as a draft. Only you can see it.'} />
           </>
         )}
         {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', marginTop: 10 }} accessibilityLiveRegion="polite">{err}</Text>}

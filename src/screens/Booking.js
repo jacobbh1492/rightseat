@@ -76,6 +76,7 @@ export function RequestLesson({ nav, params }) {
   const q = quote({ cfi, plane, flightHours, groundHours: cfi ? groundHours : 0, repeat, prepaid, cfiPro: cfi?.pro, method, affiliation: cfi ? affiliationFor(cfi.id) : null });
   const checks = [
     ...bookingChecks({ pilot, cfi, plane, flightHours }),
+    ...(cfi?.live ? [{ label: 'Instructor verified by RightSeat', ok: !!cfi.verified, blocking: true }] : []),
     ...(plane ? [{ label: 'Aircraft registration & insurance verified', ok: planeVerified(plane, docs), blocking: true }] : []),
     ...(!cfi && plane ? [{ label: 'Medical verified in RightSeat', ok: docs.me?.medical?.status === 'approved', blocking: true }] : []),
   ];

@@ -16,6 +16,9 @@ serve(async (req, body) => {
   const cfi = cfiRes.data, plane = planeRes.data;
   if (r.cfiId && (!cfi || !cfi.published)) throw new HttpError(404, 'That instructor isn’t taking bookings right now.');
   if (r.planeId && (!plane || !plane.published)) throw new HttpError(404, 'That plane isn’t available to book right now.');
+  // Only verified instructors and planes can be booked (certificate; registration + insurance).
+  if (cfi && !cfi.verified) throw new HttpError(409, 'This instructor is still being verified by RightSeat. Try again soon.');
+  if (plane && !(plane.airworthy_verified && plane.insured)) throw new HttpError(409, 'This plane’s registration and insurance are still being verified. Try again soon.');
   if (cfi && cfi.id === user.id) throw new HttpError(400, 'You can’t book yourself.');
   if (plane && !cfi && plane.owner_id === user.id) throw new HttpError(400, 'You can’t rent your own plane.');
   if (plane && !cfi && plane.details?.soloRental === false) throw new HttpError(400, 'This plane is dual-only. Add an instructor.');

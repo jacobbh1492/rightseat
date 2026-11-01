@@ -155,7 +155,9 @@ export function CfiDetail({ nav, params }) {
           {c.discoveryFlight > 0 && <Text style={ds.sub}>Discovery flight {money(c.discoveryFlight)}</Text>}
         </View>
         <Pressable onPress={() => nav.push('Chat', { key: c.id })} style={ds.msgBtn} accessibilityRole="button" accessibilityLabel={`Message ${c.name}`}><Icon name="chat" size={20} color={C.blue} /></Pressable>
-        <Button title="Request a lesson" style={{ paddingHorizontal: 20 }} onPress={() => nav.push('Request', { cfiId: c.id, planeId: c.aircraftIds[0] || null })} />
+        {c.live && !c.verified
+          ? <Button title="Verification pending" disabled style={{ paddingHorizontal: 20 }} />
+          : <Button title="Request a lesson" style={{ paddingHorizontal: 20 }} onPress={() => nav.push('Request', { cfiId: c.id, planeId: c.aircraftIds[0] || null })} />}
       </View>
     </View>
   );

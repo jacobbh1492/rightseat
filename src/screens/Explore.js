@@ -25,8 +25,9 @@ export default function Explore({ nav }) {
   const store = useStore();
   const { schools, getPlane, getCfi, profile, setProfile, pilot, requests } = store;
   // Drafts (unpublished live listings) are visible to their owner elsewhere, not in search.
-  const cfis = store.cfis.filter((c) => c.published !== false);
-  const planes = store.planes.filter((p) => p.published !== false);
+  // Only verified live listings appear in search; unverified ones can't be booked yet.
+  const cfis = store.cfis.filter((c) => c.published !== false && (!c.live || c.verified));
+  const planes = store.planes.filter((p) => p.published !== false && (!p.live || (p.airworthyVerified && p.insured)));
   const [mode, setMode] = useState(profile.roles.includes('rent') && !profile.roles.includes('learn') ? 'plane' : 'combo');
   const [q, setQ] = useState('');
   const [f, setF] = useState(profile.stage === 'new' ? { ...DEFAULTS, goal: 'Discovery flights' } : DEFAULTS);
