@@ -42,7 +42,12 @@ function Shell() {
     const a = auth.account;
     if (a?.onboarded && !profile.onboarded) setProfile({ onboarded: true, guest: false, roles: appRolesFrom(a.roles), airport: a.home_airport || 'KPIE', name: a.full_name });
     if (!auth.session && profile.onboarded && !profile.guest) setProfile({ onboarded: false });
-  }, [auth.account?.id, auth.session?.user?.id]);
+    // Roles added on the server (e.g. becoming an instructor) show up in the app.
+    if (a?.onboarded && profile.onboarded) {
+      const merged = [...new Set([...(profile.roles || []), ...appRolesFrom(a.roles)])];
+      if (merged.length !== (profile.roles || []).length) setProfile({ roles: merged });
+    }
+  }, [auth.account?.id, auth.session?.user?.id, (auth.account?.roles || []).join(',')]);
   const [tab, setTab] = useState('Explore');
   const badges = {
     // Sample debriefs only count for guests; signed-in users see their real record.

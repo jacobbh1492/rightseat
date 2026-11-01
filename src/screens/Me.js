@@ -30,8 +30,11 @@ export function Me({ nav }) {
     {
       key: 'fly', show: roles.includes('learn') || roles.includes('rent'), title: 'Flying',
       rows: [
-        { icon: 'shieldCheck', title: 'Verification', subtitle: `${verified} documents verified · ID, certificate, medical`, go: 'Verification' },
-        { icon: 'file', title: 'Pilot credentials', subtitle: 'What CFIs and owners see before you fly', go: 'Credentials' },
+        // Sample verification screens for guests only; signed-in users have real checks.
+        ...(auth?.session ? [] : [
+          { icon: 'shieldCheck', title: 'Verification', subtitle: `${verified} documents verified · ID, certificate, medical`, go: 'Verification' },
+          { icon: 'file', title: 'Pilot credentials', subtitle: 'What CFIs and owners see before you fly', go: 'Credentials' },
+        ]),
         { icon: 'book', title: 'Previous experience', subtitle: training.prior ? 'Update your hours and lessons' : 'Trained before? Add it here', go: 'PriorExperience' },
       ],
     },
@@ -71,11 +74,11 @@ export function Me({ nav }) {
         <View style={{ flex: 1, marginLeft: 14 }}>
           <Text style={{ fontSize: 22, fontWeight: '900', color: C.text }}>{displayName}</Text>
           {auth?.user && <Text style={{ color: C.sub, marginTop: 2 }}>{auth.user.email}</Text>}
-          <Text style={{ color: C.sub, marginTop: 2 }}>{pilot.certificate} pilot · {profile.airport}</Text>
-          <Pressable onPress={() => nav.push('Verification')} style={ms.verifiedPill} accessibilityRole="button">
+          <Text style={{ color: C.sub, marginTop: 2 }}>{auth?.session ? profile.airport : `${pilot.certificate} pilot · ${profile.airport}`}</Text>
+          {(!auth?.session || (me?.live && me.verified)) && <Pressable onPress={() => nav.push(auth?.session ? 'GetVerified' : 'Verification')} style={ms.verifiedPill} accessibilityRole="button">
             <Icon name="shieldCheck" size={14} color={C.green} />
-            <Text style={{ color: C.green, fontWeight: '800', fontSize: 12, marginLeft: 4 }}>ID & medical verified</Text>
-          </Pressable>
+            <Text style={{ color: C.green, fontWeight: '800', fontSize: 12, marginLeft: 4 }}>{auth?.session ? 'Verified instructor' : 'ID & medical verified'}</Text>
+          </Pressable>}
         </View>
       </View>
 
