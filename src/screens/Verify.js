@@ -500,7 +500,6 @@ export function VerifiedCard({ kind, entity }) {
       ? [
           ['Identity', 'Verified by RightSeat', s(entity.verified)],
           [`FAA certificate · ${(entity.certs || ['CFI']).join(', ')}`, 'FAA Airmen Registry', s(entity.verified)],
-          ['Instructor insurance', 'Policy verified', s(entity.verified && entity.insured)],
         ]
       : [
           ['FAA registration', 'FAA Aircraft Registry', s(entity.airworthyVerified)],

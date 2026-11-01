@@ -2,8 +2,10 @@
 //  setup_intent.succeeded  → the student's card is saved; the request goes to the instructor.
 //  account.updated         → mark an instructor/owner/school ready (or not) for payouts.
 //  payment_intent.payment_failed → record it for follow-up.
+//  identity.verification_session.* → record an instructor's ID check (see verify function).
 import Stripe from 'npm:stripe@17';
 import { admin, stripe, releaseHeld } from '../_shared/server.ts';
+import { recordIdentity } from '../_shared/verification.ts';
 
 const crypto = Stripe.createSubtleCryptoProvider();
 
@@ -38,6 +40,9 @@ Deno.serve(async (req) => {
         const { data: s } = await admin.from('schools').select('id').eq('stripe_account_id', a.id).maybeSingle();
         if (s) await releaseHeld(a.id, { schoolId: s.id });
       }
+    } else if (event.type === 'identity.verification_session.verified' || event.type === 'identity.verification_session.requires_input') {
+      const s = event.data.object as Stripe.Identity.VerificationSession;
+      await recordIdentity(await stripe.identity.verificationSessions.retrieve(s.id, { expand: ['verified_outputs'] }));
     } else if (event.type === 'payment_intent.payment_failed') {
       const pi = event.data.object as Stripe.PaymentIntent;
       await admin.from('audit_log').insert({ action: 'payment.failed', target: pi.metadata?.booking_id || pi.id, detail: { code: pi.last_payment_error?.code, message: pi.last_payment_error?.message } });

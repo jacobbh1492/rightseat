@@ -38,6 +38,7 @@ export function Me({ nav }) {
     {
       key: 'teach', show: roles.includes('teach') || teaching.length > 0, title: 'Teaching',
       rows: [
+        ...(auth?.session ? [{ icon: 'shieldCheck', title: 'Get verified', subtitle: me?.live && me.verified ? 'Verified ✓ · students can book you' : 'Required before students can book you', go: 'GetVerified' }] : []),
         { icon: 'calendar', title: 'Lesson requests', subtitle: teaching.some((r) => r.status === 'Pending') ? `${teaching.filter((r) => r.status === 'Pending').length} waiting for you · confirm, close out, get paid` : 'Confirm, close out, get paid', go: 'Teaching' },
         { icon: 'user', title: me ? 'Edit CFI profile' : 'Create your CFI profile', subtitle: me ? `${me.name} · ${me.certs.join(', ')}` : 'Hours, pass rate, pricing and planes you fly', go: 'CfiForm', params: { id: myCfiId } },
         { icon: 'chart', title: 'Instructor dashboard', subtitle: 'Earnings, payouts, students, debriefs', go: 'CfiDashboard' },
@@ -50,6 +51,7 @@ export function Me({ nav }) {
       rows: [
         { icon: 'plus', title: 'List a plane', subtitle: 'Photos, rates, renter requirements', go: 'PlaneForm' },
         { icon: 'tool', title: 'Owner tools', subtitle: '100-hr countdown, squawks, schedule', go: 'OwnerDashboard' },
+        ...(auth?.session ? [{ icon: 'shieldCheck', title: 'Verify my planes', subtitle: 'FAA registration and insurance, required before renting', go: 'GetVerified' }] : []),
       ],
     },
     {
@@ -121,12 +123,21 @@ export function Me({ nav }) {
         </>
       )}
 
-      <Text style={ms.groupTitle}>RightSeat team</Text>
-      <Card style={{ paddingVertical: 2 }}>
+      {auth?.account?.is_staff && (
+        <>
+          <Text style={ms.groupTitle}>RightSeat team</Text>
+          <Card style={{ paddingVertical: 2 }}>
+            <ListRow first icon="shieldCheck" iconColor="#7C3AED" iconBg="#F3E8FF" title="Verification reviews" subtitle="Approve instructors, planes and insurance" onPress={() => nav.push('StaffReview')} />
+          </Card>
+        </>
+      )}
+
+      {!auth?.session && <Text style={ms.groupTitle}>RightSeat team (demo)</Text>}
+      {!auth?.session && <Card style={{ paddingVertical: 2 }}>
         <ListRow first icon="file" iconColor="#7C3AED" iconBg="#F3E8FF" title="Document review queue" subtitle="Only what automation couldn’t approve" right={<View style={{ flexDirection: 'row', alignItems: 'center' }}>{pendingQueue ? <View style={ms.count}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>{pendingQueue}</Text></View> : null}<Icon name="chevron" size={18} color="#94A3B8" /></View>} onPress={() => nav.push('ReviewQueue')} />
         <ListRow icon="zap" iconColor="#7C3AED" iconBg="#F3E8FF" title="Automation monitor" subtitle="FAA syncs, expirations, auto-pauses" onPress={() => nav.push('Automation')} />
         <ListRow icon="chart" iconColor="#7C3AED" iconBg="#F3E8FF" title="Founder metrics" subtitle="Rebooking rate & leakage watchlist" onPress={() => nav.push('Insights')} />
-      </Card>
+      </Card>}
 
       {auth?.session ? (
         <Pressable onPress={() => auth.signOut()} style={{ alignItems: 'center', marginTop: 18 }} accessibilityRole="button">

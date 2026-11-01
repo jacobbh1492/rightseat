@@ -21,6 +21,7 @@ import { DebriefView, DebriefList, EditDebrief, StudentFile, AmendDebrief } from
 import { VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, AutomationMonitor } from './src/screens/Verify';
 import { Me, CfiForm, PlaneForm, SchoolForm } from './src/screens/Me';
 import { Teaching, LiveCloseOut } from './src/screens/Teaching';
+import { GetVerified, StaffReview } from './src/screens/GetVerified';
 
 const TABS = [
   { key: 'Explore', icon: 'search', label: 'Explore' },
@@ -31,7 +32,7 @@ const TABS = [
 ];
 const TAB_SCREENS = { Explore, Lessons, Training, Inbox, Me };
 const SignInScreen = ({ nav, params }) => <SignIn askName={false} title="Sign in" subtitle={params?.reason || 'We’ll email you a 6-digit code. No password needed.'} onCancel={nav.pop} onDone={() => nav.pop()} />;
-const STACK_SCREENS = { SignIn: SignInScreen, Cfi: CfiDetail, Plane: PlaneDetail, School: SchoolDetail, Review: LeaveReview, Request: RequestLesson, CfiForm, PlaneForm, SchoolForm, Cancel: CancelLesson, CloseOut, Receipt, Chat, Wallet, CfiDashboard, OwnerDashboard, Plans, Credentials, Insights, Verification: VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, Automation: AutomationMonitor, PriorExperience, PriorReview, Debrief: DebriefView, Debriefs: DebriefList, EditDebrief, StudentFile, AmendDebrief, SchoolDashboard, AffiliationReview, JoinSchool, Teaching, LiveCloseOut };
+const STACK_SCREENS = { SignIn: SignInScreen, Cfi: CfiDetail, Plane: PlaneDetail, School: SchoolDetail, Review: LeaveReview, Request: RequestLesson, CfiForm, PlaneForm, SchoolForm, Cancel: CancelLesson, CloseOut, Receipt, Chat, Wallet, CfiDashboard, OwnerDashboard, Plans, Credentials, Insights, Verification: VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, Automation: AutomationMonitor, PriorExperience, PriorReview, Debrief: DebriefView, Debriefs: DebriefList, EditDebrief, StudentFile, AmendDebrief, SchoolDashboard, AffiliationReview, JoinSchool, Teaching, LiveCloseOut, GetVerified, StaffReview };
 
 function Shell() {
   const { profile, setProfile, training, requests, teaching } = useStore();
