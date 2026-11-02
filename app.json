@@ -13,8 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.rightseat.app"
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rightseat.app",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -33,14 +36,21 @@
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.com.rightseat.app",
-          "enableGooglePay": true
+          "enableGooglePay": false
         }
       ],
       [
         "expo-notifications",
         {
           "color": "#1F6FEB"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "RightSeat uses your photos so you can add a profile picture, aircraft photos and insurance documents.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ]
     ],
