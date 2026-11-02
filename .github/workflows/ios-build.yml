@@ -1,8 +1,15 @@
 # Build the iOS app on EAS and send it to TestFlight. Run it from the Actions tab
-# ("iOS build → TestFlight" → Run workflow). Works after the first build was run once
-# interactively (that one stores the Apple signing certificates and App Store Connect key at Expo).
+# ("iOS build → TestFlight" → Run workflow). Choose "submit-latest" to only upload the
+# most recent finished build (e.g. when the build was fine but the upload step failed).
 name: iOS build → TestFlight
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: build (build + upload) or submit-latest (upload the newest finished build)
+        type: choice
+        options: [build, submit-latest]
+        default: build
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,4 +22,7 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - run: npm ci
-      - run: eas build --platform ios --profile production --non-interactive --auto-submit --no-wait
+      - if: inputs.action != 'submit-latest'
+        run: eas build --platform ios --profile production --non-interactive --auto-submit --no-wait
+      - if: inputs.action == 'submit-latest'
+        run: eas submit --platform ios --profile production --latest --non-interactive --no-wait
