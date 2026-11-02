@@ -49,7 +49,7 @@
         "expo-image-picker",
         {
           "photosPermission": "RightSeat uses your photos so you can add a profile picture, aircraft photos and insurance documents.",
-          "cameraPermission": false,
+          "cameraPermission": "RightSeat uses the camera to scan your card when you add a payment method, and to take photos for your profile and aircraft listings.",
           "microphonePermission": false
         }
       ],
