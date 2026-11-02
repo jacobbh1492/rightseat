@@ -15,7 +15,7 @@ const CLOSE_OUT_EARLY_MIN = 15; // matches the server: close-out opens 15 min be
 const canCloseOut = (r) => new Date(r.when).getTime() <= Date.now() + CLOSE_OUT_EARLY_MIN * 60 * 1000;
 const role = (r) => (r.role === 'owner' ? 'owner' : 'instructor');
 
-export function Teaching({ nav }) {
+export function Teaching({ nav, asTab }) {
   const { teaching, refreshLive } = useStore();
   const auth = useAuth();
   const [busy, setBusy] = useState(null); // `${id}:${action}`
@@ -52,7 +52,7 @@ export function Teaching({ nav }) {
 
   const requests = teaching.filter((r) => r.status === 'Pending').sort((a, b) => new Date(a.when) - new Date(b.when));
   const upcoming = teaching.filter((r) => r.status === 'Confirmed').sort((a, b) => new Date(a.when) - new Date(b.when));
-  const done = teaching.filter((r) => ['Completed', 'Cancelled'].includes(r.status)).sort((a, b) => new Date(b.when) - new Date(a.when)).slice(0, 20);
+  const done = teaching.filter((r) => ['Completed', 'Cancelled'].includes(r.status)).sort((a, b) => new Date(b.when) - new Date(a.when)).slice(0, asTab ? 5 : 20);
   const held = teaching.filter((r) => r.payout === 'held').reduce((a, r) => a + (r.share || 0), 0);
 
   const who = (r) => `${r.studentName}${r.tail ? ` · ${r.tail}` : ''}`;
@@ -60,10 +60,26 @@ export function Teaching({ nav }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Header nav={nav} title="Lesson requests" />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+      {!asTab && <Header nav={nav} title="Lesson requests" />}
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: asTab ? 110 : 60 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+        {asTab && <Text style={ts.h1}>Schedule</Text>}
+        {asTab && !auth?.session && (
+          <Card style={{ borderWidth: 1.5, borderColor: C.blue }}>
+            <Text style={ts.title}>Sign in to see your lessons</Text>
+            <Text style={ts.sub}>Lesson requests from students show up here to confirm, then close out after the flight.</Text>
+            <Button title="Sign in" style={{ marginTop: 12 }} onPress={() => nav.push('SignIn')} />
+          </Card>
+        )}
+        {asTab && auth?.session && !ready && (
+          <Pressable onPress={() => nav.goTab('Earnings')} accessibilityRole="button">
+            <Card style={{ borderWidth: 1.5, borderColor: C.blue }}>
+              <Text style={ts.title}>Set up payouts to get paid ›</Text>
+              <Text style={ts.sub}>{held > 0 ? `${money2(held)} is waiting for you. ` : ''}Takes about 5 minutes in Earnings.</Text>
+            </Card>
+          </Pressable>
+        )}
         {/* Payouts */}
-        <Card style={ready ? null : { borderWidth: 1.5, borderColor: C.blue }}>
+        {!asTab && <Card style={ready ? null : { borderWidth: 1.5, borderColor: C.blue }}>
           <Text style={ts.kicker}>PAYOUTS</Text>
           {ready ? (
             <>
@@ -83,10 +99,11 @@ export function Teaching({ nav }) {
               </Pressable>
             </>
           )}
-        </Card>
+        </Card>}
 
         {!!err && <Text style={ts.err} accessibilityLiveRegion="polite">{err}</Text>}
 
+        {(!asTab || auth?.session) && <>
         <SectionTitle>New requests</SectionTitle>
         {requests.length === 0 && <Text style={ts.empty}>No new requests. Pull down to refresh.</Text>}
         {requests.map((r) => (
@@ -135,6 +152,7 @@ export function Teaching({ nav }) {
         ))}
 
         <SectionTitle>Recent</SectionTitle>
+        {asTab && done.length > 0 && <Pressable onPress={() => nav.goTab('Earnings')} style={{ marginBottom: 8 }} accessibilityRole="button"><Text style={{ color: C.blue, fontWeight: '700' }}>All lessons and earnings ›</Text></Pressable>}
         {done.length === 0 && <Text style={ts.empty}>Completed lessons show here with what you earned.</Text>}
         {done.map((r) => (
           <Card key={r.id}>
@@ -155,6 +173,7 @@ export function Teaching({ nav }) {
             {r.status === 'Cancelled' && <Text style={ts.sub}>{r.cancel?.reason}{r.cancel?.fee ? ` · late fee ${money2(r.cancel.fee)}` : ''}</Text>}
           </Card>
         ))}
+        </>}
       </ScrollView>
     </View>
   );
@@ -216,7 +235,7 @@ export function LiveCloseOut({ nav, params }) {
               {held ? 'Held for you until you set up payouts.' : 'On its way to your bank (usually 2 business days).'}
             </Text>
             {!!debriefNote && <Text style={[ts.sub, { marginTop: 8 }]}>{debriefNote}</Text>}
-            <Button title="Back to requests" style={{ marginTop: 14 }} onPress={nav.pop} />
+            <Button title="Done" style={{ marginTop: 14 }} onPress={nav.pop} />
           </Card>
         </ScrollView>
       </View>
@@ -281,6 +300,7 @@ export function LiveCloseOut({ nav, params }) {
 }
 
 const ts = StyleSheet.create({
+  h1: { fontSize: 28, fontWeight: '900', color: C.text, marginTop: 6, marginBottom: 4 },
   kicker: { color: C.sub, fontSize: 12, fontWeight: '700' },
   title: { fontWeight: '900', color: C.text, fontSize: 16, flex: 1 },
   sub: { color: C.sub, marginTop: 2, fontSize: 13, lineHeight: 18 },

@@ -28,7 +28,7 @@ export function Me({ nav }) {
 
   const sections = [
     {
-      key: 'fly', show: roles.includes('learn') || roles.includes('rent'), title: 'Flying',
+      key: 'fly', mode: 'learn', show: roles.includes('learn') || roles.includes('rent'), title: 'Flying',
       rows: [
         // Sample verification screens for guests only; signed-in users have real checks.
         ...(auth?.session ? [] : [
@@ -39,18 +39,17 @@ export function Me({ nav }) {
       ],
     },
     {
-      key: 'teach', show: roles.includes('teach') || teaching.length > 0, title: 'Teaching',
+      key: 'teach', mode: 'teach', show: roles.includes('teach') || teaching.some((r) => r.role === 'cfi'), title: 'Teaching',
       rows: [
         ...(auth?.session ? [{ icon: 'shieldCheck', title: 'Get verified', subtitle: me?.live && me.verified ? 'Verified ✓ · students can book you' : 'Required before students can book you', go: 'GetVerified' }] : []),
-        { icon: 'calendar', title: 'Lesson requests', subtitle: teaching.some((r) => r.status === 'Pending') ? `${teaching.filter((r) => r.status === 'Pending').length} waiting for you · confirm, close out, get paid` : 'Confirm, close out, get paid', go: 'Teaching' },
         { icon: 'user', title: me ? 'Edit CFI profile' : 'Create your CFI profile', subtitle: me ? `${me.name} · ${me.certs.join(', ')}` : 'Hours, pass rate, pricing and planes you fly', go: 'CfiForm', params: { id: myCfiId } },
-        { icon: 'chart', title: 'Instructor dashboard', subtitle: 'Earnings, payouts, students, debriefs', go: 'CfiDashboard' },
+        ...(auth?.session ? [] : [{ icon: 'chart', title: 'Instructor dashboard (sample)', subtitle: 'Earnings, payouts, students, debriefs', go: 'CfiDashboard' }]),
         { icon: 'school', title: 'Flight school', subtitle: me && affiliationFor(me.id) ? `Teaching for ${getSchool(affiliationFor(me.id).schoolId)?.name}` : 'Join a school or see your arrangement', go: 'JoinSchool', params: { cfiId: myCfiId } },
         { icon: 'dollar', title: 'Plans & fees', subtitle: 'CFI Pro: 0% fees, instant payouts', go: 'Plans' },
       ],
     },
     {
-      key: 'own', show: roles.includes('own'), title: 'Aircraft',
+      key: 'own', mode: 'teach', show: roles.includes('own'), title: 'Aircraft',
       rows: [
         { icon: 'plus', title: 'List a plane', subtitle: 'Photos, rates, renter requirements', go: 'PlaneForm' },
         { icon: 'tool', title: 'Owner tools', subtitle: '100-hr countdown, squawks, schedule', go: 'OwnerDashboard' },
@@ -58,7 +57,7 @@ export function Me({ nav }) {
       ],
     },
     {
-      key: 'school', show: roles.includes('school'), title: 'Flight school',
+      key: 'school', mode: 'teach', show: roles.includes('school'), title: 'Flight school',
       rows: [
         { icon: 'calendar', title: 'School dashboard', subtitle: 'Schedule, instructors, join requests, your share', go: 'SchoolDashboard' },
         { icon: 'school', title: mySchool ? 'Edit school page' : 'Create school page', subtitle: 'Instructors, fleet, programs, reviews', go: 'SchoolForm', params: { id: mySchoolId } },
@@ -66,6 +65,15 @@ export function Me({ nav }) {
     },
   ];
   const others = sections.filter((x) => !x.show);
+  const mode = nav.mode || 'learn';
+  const teachingMode = mode === 'teach';
+  const pendingTeach = teaching.filter((r) => r.status === 'Pending').length;
+  // Turning on teaching or owning a plane also opens teaching mode, where those tools live.
+  const turnOn = (key) => {
+    setProfile({ roles: [...roles, { fly: 'learn', teach: 'teach', own: 'own', school: 'school' }[key]] });
+    if (key !== 'fly' && nav.switchMode) setTimeout(() => nav.switchMode('teach'), 0);
+    if (key === 'fly' && nav.switchMode) setTimeout(() => nav.switchMode('learn'), 0);
+  };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
@@ -90,16 +98,30 @@ export function Me({ nav }) {
         </Card>
       )}
 
-      <Pressable onPress={() => nav.push('Wallet')} style={ms.wallet} accessibilityRole="button" accessibilityLabel={`Wallet, ${money2(available)} available`}>
+      {nav.canTeach && (
+        <Pressable onPress={() => nav.switchMode(teachingMode ? 'learn' : 'teach')} style={ms.switch} accessibilityRole="button" accessibilityLabel={teachingMode ? 'Switch to learning' : 'Switch to teaching'}>
+          <View style={ms.switchIcon}><Icon name={teachingMode ? 'plane' : 'users'} size={20} color={C.blue} /></View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={{ fontWeight: '900', color: C.text, fontSize: 15 }}>{teachingMode ? 'Switch to learning' : 'Switch to teaching'}</Text>
+            <Text style={{ color: C.sub, fontSize: 12, marginTop: 1 }}>
+              {teachingMode ? 'Find instructors and planes, your lessons and training record' : pendingTeach ? `${pendingTeach} lesson request${pendingTeach > 1 ? 's' : ''} waiting for you` : 'Your schedule, students and earnings'}
+            </Text>
+          </View>
+          {!teachingMode && pendingTeach > 0 && <View style={ms.count}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>{pendingTeach}</Text></View>}
+          <Icon name="chevron" size={18} color="#94A3B8" />
+        </Pressable>
+      )}
+
+      {!teachingMode && <Pressable onPress={() => nav.push('Wallet')} style={ms.wallet} accessibilityRole="button" accessibilityLabel={`Wallet, ${money2(available)} available`}>
         <View style={ms.walletIcon}><Icon name="wallet" size={22} color="#fff" /></View>
         <View style={{ flex: 1 }}>
           <Text style={{ color: '#9FB3D1', fontWeight: '700', fontSize: 12 }}>Wallet balance</Text>
           <Text style={{ color: '#fff', fontWeight: '900', fontSize: 24 }}>{money2(available)}</Text>
         </View>
         <View style={ms.addFunds}><Text style={{ color: C.navy, fontWeight: '800', fontSize: 13 }}>Add funds</Text></View>
-      </Pressable>
+      </Pressable>}
 
-      {sections.filter((x) => x.show).map((sec) => (
+      {sections.filter((x) => x.show && x.mode === mode).map((sec) => (
         <View key={sec.key}>
           <Text style={ms.groupTitle}>{sec.title}</Text>
           <Card style={{ paddingVertical: 2 }}>
@@ -108,10 +130,10 @@ export function Me({ nav }) {
         </View>
       ))}
 
-      {me && (<><Text style={ms.groupTitle}>My CFI profile</Text><CfiCard c={me} nav={nav} /></>)}
-      {myPlanes.length > 0 && (<><Text style={ms.groupTitle}>My planes</Text>{myPlanes.map((p) => <PlaneCard key={p.id} p={p} nav={nav} />)}</>)}
-      {mySchool && (<><Text style={ms.groupTitle}>My flight school</Text><SchoolCard x={mySchool} nav={nav} /></>)}
-      {favs.length > 0 && (<><Text style={ms.groupTitle}>Saved instructors</Text>{favs.map((c) => <CfiCard key={c.id} c={c} nav={nav} />)}</>)}
+      {teachingMode && me && (<><Text style={ms.groupTitle}>My CFI profile</Text><CfiCard c={me} nav={nav} /></>)}
+      {teachingMode && myPlanes.length > 0 && (<><Text style={ms.groupTitle}>My planes</Text>{myPlanes.map((p) => <PlaneCard key={p.id} p={p} nav={nav} />)}</>)}
+      {teachingMode && mySchool && (<><Text style={ms.groupTitle}>My flight school</Text><SchoolCard x={mySchool} nav={nav} /></>)}
+      {!teachingMode && favs.length > 0 && (<><Text style={ms.groupTitle}>Saved instructors</Text>{favs.map((c) => <CfiCard key={c.id} c={c} nav={nav} />)}</>)}
 
       {others.length > 0 && (
         <>
@@ -119,7 +141,7 @@ export function Me({ nav }) {
           <Card style={{ paddingVertical: 2 }}>
             {others.map((sec, i) => (
               <ListRow key={sec.key} first={i === 0} icon={sec.rows[0].icon} iconColor={C.sub} iconBg="#F1F5F9" title={{ fly: 'Book lessons & rent planes', teach: 'Teach as a CFI', own: 'List your plane', school: 'Run a flight school' }[sec.key]}
-                subtitle={sec.rows[0].subtitle} onPress={() => setProfile({ roles: [...roles, { fly: 'learn', teach: 'teach', own: 'own', school: 'school' }[sec.key]] })}
+                subtitle={sec.rows[0].subtitle} onPress={() => turnOn(sec.key)}
                 right={<Text style={{ color: C.blue, fontWeight: '800', fontSize: 13 }}>Turn on</Text>} />
             ))}
           </Card>
@@ -624,6 +646,8 @@ const ms = StyleSheet.create({
   addFunds: { backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   groupTitle: { fontSize: 13, fontWeight: '800', color: C.sub, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 18, marginBottom: 8, marginLeft: 4 },
   count: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginRight: 6 },
+  switch: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, padding: 14, marginBottom: 12, borderWidth: 1.5, borderColor: C.sky },
+  switchIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center' },
   wallet: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.navy, borderRadius: 18, padding: 16, marginBottom: 12 },
   menu: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderTopWidth: 1, borderTopColor: '#F1F3F7' },
   h1: { fontSize: 28, fontWeight: '900', color: C.text, marginBottom: 14, marginTop: 6 },

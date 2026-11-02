@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, Pressable, StyleSheet, BackHandler, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -24,17 +25,29 @@ import { Me, CfiForm, PlaneForm, SchoolForm } from './src/screens/Me';
 import { Teaching, LiveCloseOut } from './src/screens/Teaching';
 import { GetVerified, StaffReview } from './src/screens/GetVerified';
 import { DeleteAccount } from './src/screens/DeleteAccount';
+import { Schedule, Students, StudentDetail, Earnings } from './src/screens/Instructor';
 
-const TABS = [
+// Two experiences: learning (students and renters) and teaching (CFIs and plane owners).
+const LEARN_TABS = [
   { key: 'Explore', icon: 'search', label: 'Explore' },
   { key: 'Lessons', icon: 'calendar', label: 'Lessons' },
   { key: 'Training', icon: 'book', label: 'Training' },
   { key: 'Inbox', icon: 'chat', label: 'Inbox' },
   { key: 'Me', icon: 'user', label: 'Account' },
 ];
-const TAB_SCREENS = { Explore, Lessons, Training, Inbox, Me };
+const TEACH_TABS = [
+  { key: 'Schedule', icon: 'calendar', label: 'Schedule' },
+  { key: 'Students', icon: 'users', label: 'Students' },
+  { key: 'Inbox', icon: 'chat', label: 'Inbox' },
+  { key: 'Earnings', icon: 'dollar', label: 'Earnings' },
+  { key: 'Me', icon: 'user', label: 'Account' },
+];
+const TAB_SCREENS = { Explore, Lessons, Training, Inbox, Me, Schedule, Students, Earnings };
+const TEACH_ONLY = ['Schedule', 'Students', 'Earnings', 'Teaching'];
+const LEARN_ONLY = ['Explore', 'Lessons', 'Training'];
+const MODE_KEY = 'rightseat.mode';
 const SignInScreen = ({ nav, params }) => <SignIn askName={false} title="Sign in" subtitle={params?.reason || 'We’ll email you a 6-digit code. No password needed.'} onCancel={nav.pop} onDone={() => nav.pop()} />;
-const STACK_SCREENS = { SignIn: SignInScreen, Cfi: CfiDetail, Plane: PlaneDetail, School: SchoolDetail, Review: LeaveReview, Request: RequestLesson, CfiForm, PlaneForm, SchoolForm, Cancel: CancelLesson, CloseOut, Receipt, Chat, Wallet, CfiDashboard, OwnerDashboard, Plans, Credentials, Insights, Verification: VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, Automation: AutomationMonitor, PriorExperience, PriorReview, Debrief: DebriefView, Debriefs: DebriefList, EditDebrief, StudentFile, AmendDebrief, SchoolDashboard, AffiliationReview, JoinSchool, Teaching, LiveCloseOut, GetVerified, StaffReview, DeleteAccount };
+const STACK_SCREENS = { SignIn: SignInScreen, Cfi: CfiDetail, Plane: PlaneDetail, School: SchoolDetail, Review: LeaveReview, Request: RequestLesson, CfiForm, PlaneForm, SchoolForm, Cancel: CancelLesson, CloseOut, Receipt, Chat, Wallet, CfiDashboard, OwnerDashboard, Plans, Credentials, Insights, Verification: VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, Automation: AutomationMonitor, PriorExperience, PriorReview, Debrief: DebriefView, Debriefs: DebriefList, EditDebrief, StudentFile, AmendDebrief, SchoolDashboard, AffiliationReview, JoinSchool, Teaching, LiveCloseOut, GetVerified, StaffReview, DeleteAccount, StudentDetail };
 
 function Shell() {
   const { profile, setProfile, training, requests, teaching } = useStore();
@@ -51,16 +64,40 @@ function Shell() {
     }
   }, [auth.account?.id, auth.session?.user?.id, (auth.account?.roles || []).join(',')]);
   const [tab, setTab] = useState('Explore');
+  // Teaching mode is offered to instructors and plane owners (or anyone with lessons to teach).
+  const roles = profile.roles || [];
+  const canTeach = roles.includes('teach') || roles.includes('own') || teaching.length > 0;
+  const [mode, setModeState] = useState('learn');
+  const switchMode = (m) => {
+    setModeState(m); setStack([]); setTab(m === 'teach' ? 'Schedule' : 'Explore');
+    AsyncStorage.setItem(MODE_KEY, m).catch(() => {});
+  };
+  // Start in the mode used last; a teach-only account starts in teaching.
+  useEffect(() => {
+    if (!profile.onboarded) return;
+    AsyncStorage.getItem(MODE_KEY).then((m) => {
+      const want = m || (roles.includes('teach') && !roles.includes('learn') && !roles.includes('rent') ? 'teach' : 'learn');
+      if (want === 'teach' && canTeach) { setModeState('teach'); setTab('Schedule'); }
+    }).catch(() => {});
+  }, [profile.onboarded, canTeach]);
+  // Lost access to teaching (signed out, role removed): back to learning.
+  useEffect(() => { if (mode === 'teach' && !canTeach) { setModeState('learn'); setTab('Explore'); } }, [canTeach]);
+  const TABS = mode === 'teach' ? TEACH_TABS : LEARN_TABS;
   // Push notifications: register this phone once signed in; taps open the right screen.
   useEffect(() => { if (auth.session?.user?.id) registerForPush(auth.session.user.id).catch(() => {}); }, [auth.session?.user?.id]);
   useEffect(() => onNotificationTap((screen, params) => {
+    // A lesson request opens teaching mode; a student notification opens learning mode.
+    if (TEACH_ONLY.includes(screen)) { setModeState('teach'); setStack([]); setTab(screen === 'Teaching' ? 'Schedule' : screen); return; }
+    if (LEARN_ONLY.includes(screen)) { setModeState('learn'); setStack([]); setTab(screen); return; }
     if (TAB_SCREENS[screen]) { setStack([]); setTab(screen); } else setStack((s) => [...s, { name: screen, params, key: screen + Date.now() }]);
   }), []);
   const badges = {
     // Sample debriefs only count for guests; signed-in users see their real record.
     Training: auth.session ? 0 : training.debriefs.filter((d) => !d.pending && (!d.acknowledged || (d.amendments || []).some((a) => !a.read))).length,
     Lessons: requests.filter((r) => r.status === 'Pending').length,
-    Me: teaching.filter((r) => r.status === 'Pending').length,
+    Schedule: teaching.filter((r) => r.status === 'Pending').length,
+    // In learning mode, a dot on Account says students are waiting in teaching mode.
+    Me: mode === 'learn' ? teaching.filter((r) => r.status === 'Pending').length : 0,
   };
   const [stack, setStack] = useState([]);
 
@@ -69,6 +106,7 @@ function Shell() {
     pop: () => setStack((s) => s.slice(0, -1)),
     replace: (name, params = {}) => setStack((s) => [...s.slice(0, -1), { name, params, key: name + Date.now() }]),
     goTab: (t) => { setStack([]); setTab(t); },
+    mode, canTeach, switchMode,
   };
 
   useEffect(() => {
@@ -89,7 +127,7 @@ function Shell() {
       </SafeAreaView>
     );
   }
-  const TabScreen = TAB_SCREENS[tab];
+  const TabScreen = TAB_SCREENS[tab] || TAB_SCREENS[TABS[0].key];
   const StackScreen = top ? STACK_SCREENS[top.name] : null;
 
   return (

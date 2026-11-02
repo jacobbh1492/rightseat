@@ -107,3 +107,10 @@ export async function acknowledgeDebrief(id, note) {
   const { error } = await supabase.from('debriefs').update(patch).eq('id', id);
   if (error) throw error;
 }
+
+// Debriefs this instructor wrote (for the Students tab).
+export async function fetchDebriefsIWrote(uid) {
+  const { data, error } = await supabase.from('debriefs').select('id, booking_id, student_id, flown_on, went_well, needs_work, next_plan, acknowledged, student_note').eq('cfi_id', uid).order('flown_on', { ascending: false });
+  if (error) throw error;
+  return data;
+}
