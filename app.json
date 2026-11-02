@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.rightseat.app",
+      "bundleIdentifier": "com.flyingrightseat.app",
       "config": {
         "usesNonExemptEncryption": false
       }
@@ -25,7 +25,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.rightseat.app"
+      "package": "com.flyingrightseat.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",
