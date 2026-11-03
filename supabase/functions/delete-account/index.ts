@@ -11,6 +11,7 @@
 //  - The sign-in is removed (soft delete, email released so it can sign up again).
 import { serve, json, admin, stripe, requireUser, audit } from '../_shared/server.ts';
 import { HttpError } from '../_shared/bookings.js';
+import { refundDeposit } from '../_shared/splits.ts';
 
 const ok = (r: { error: any }) => { if (r.error) throw r.error; };
 
@@ -28,17 +29,36 @@ serve(async (req, body) => {
   if (confirmed?.length) {
     throw new HttpError(409, `You have ${confirmed.length} confirmed lesson${confirmed.length > 1 ? 's' : ''}. Cancel or complete ${confirmed.length > 1 ? 'them' : 'it'} first, then delete your account.`);
   }
-  const { data: held } = await admin.from('ledger').select('booking_id, kind, amount').eq('party_id', uid).like('kind', 'held_%');
-  let owed = 0;
+  // Pay that's held (payouts not set up) or waiting on a debrief, and not yet settled.
+  const { data: held } = await admin.from('ledger').select('id, booking_id, kind, amount, stripe_ref').eq('party_id', uid).or('kind.like.held_%,kind.like.await_%');
+  let owed = 0, debriefs = 0;
   for (const h of held || []) {
-    const { count } = await admin.from('ledger').select('id', { count: 'exact', head: true }).eq('booking_id', h.booking_id).eq('party_id', uid).eq('kind', 'payout_' + h.kind.slice(5));
-    if (!count) owed += Number(h.amount);
+    const party = h.kind.replace(/^(held|await)_/, '');
+    const settled = h.stripe_ref || h.kind.startsWith('await_')
+      ? admin.from('ledger').select('id', { count: 'exact', head: true }).eq('source_id', h.id)
+      : admin.from('ledger').select('id', { count: 'exact', head: true }).eq('booking_id', h.booking_id).eq('party_id', uid).eq('kind', 'payout_' + party);
+    const { count } = await settled;
+    if (count) continue;
+    if (h.kind.startsWith('await_')) debriefs += Number(h.amount); else owed += Number(h.amount);
   }
+  if (debriefs > 0) throw new HttpError(409, `$${debriefs.toFixed(2)} in lesson pay is waiting for your debriefs. Write them (Teaching → Recent) to get paid, then delete your account.`);
   if (owed > 0) throw new HttpError(409, `$${owed.toFixed(2)} in lesson pay is still waiting for you. Set up payouts to receive it, or contact support, before deleting your account.`);
 
   // 2. Close open requests (no charges are made for requests).
+  // Shared flights: they can't leave someone mid-way through a confirmed one.
+  const { data: splits } = await admin.from('booking_splits').select('*').or(`partner_id.eq.${uid},booker_id.eq.${uid}`).in('status', ['invited', 'accepted', 'declined']);
+  for (const sp of splits || []) {
+    const { data: sb } = await admin.from('bookings').select('status').eq('id', sp.booking_id).single();
+    if (sp.status === 'accepted' && sb?.status === 'confirmed') throw new HttpError(409, 'You’re on a confirmed shared flight. Leave or cancel it first, then delete your account.');
+    if (sp.partner_id === uid) {
+      await refundDeposit(sp, 'account deleted');
+      ok(await admin.from('booking_splits').update({ status: sp.status === 'accepted' ? 'left' : 'declined', responded_at: new Date().toISOString() }).eq('id', sp.id));
+    }
+  }
   const { data: open } = await admin.from('bookings').select('id, student_id').or(mine).eq('status', 'requested');
   for (const b of open || []) {
+    const sp = (splits || []).find((x: any) => x.booking_id === b.id && x.booker_id === uid);
+    if (sp) { await refundDeposit(sp, 'account deleted'); ok(await admin.from('booking_splits').update({ status: 'cancelled' }).eq('id', sp.id)); }
     ok(await admin.from('bookings').update({ status: 'cancelled', cancelled_by: uid, cancel_reason: b.student_id === uid ? 'Account deleted' : 'Declined: instructor or owner left RightSeat' }).eq('id', b.id));
   }
 

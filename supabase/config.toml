@@ -22,3 +22,9 @@ verify_jwt = false
 
 [functions.delete-account]
 verify_jwt = false
+
+[functions.split]
+verify_jwt = false
+
+[functions.booking-sweep]
+verify_jwt = false

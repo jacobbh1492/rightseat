@@ -176,6 +176,8 @@ export function Earnings({ nav }) {
   const month = sum(done.filter((r) => { const d = new Date(r.when); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }));
   const year = sum(done.filter((r) => new Date(r.when).getFullYear() === now.getFullYear()));
   const held = sum(done.filter((r) => r.payout === 'held'));
+  const debriefDue = done.filter((r) => r.payout === 'debrief');
+  const waiting = debriefDue.reduce((a, r) => a + (r.awaitingDebrief || 0), 0);
   const upcoming = sum(teaching.filter((r) => r.status === 'Confirmed'));
 
   return (
@@ -192,12 +194,20 @@ export function Earnings({ nav }) {
             </View>
           </View>
 
+          {debriefDue.length > 0 && (
+            <Pressable onPress={() => nav.push('WriteDebrief', { id: debriefDue[0].id })} accessibilityRole="button">
+              <Card style={{ borderWidth: 1.5, borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
+                <Text style={s.title}>{money2(waiting)} waiting on {debriefDue.length > 1 ? `${debriefDue.length} debriefs` : 'a debrief'} ›</Text>
+                <Text style={s.sub}>Lesson pay is released once the debrief is written. We’ll remind you 1, 3 and 7 days after each flight.</Text>
+              </Card>
+            </Pressable>
+          )}
           <Card style={ready ? null : { borderWidth: 1.5, borderColor: C.blue }}>
             <Text style={s.kicker}>PAYOUTS</Text>
             {ready ? (
               <>
                 <Text style={s.title}>Payouts are on ✓</Text>
-                <Text style={s.sub}>Your share goes to your bank automatically when you close out a lesson, usually within 2 business days.</Text>
+                <Text style={s.sub}>Your share goes to your bank automatically once the lesson’s debrief is written (rentals: at close-out), usually within 2 business days.</Text>
               </>
             ) : (
               <>
@@ -221,8 +231,14 @@ export function Earnings({ nav }) {
                 <Text style={{ fontWeight: '900', color: C.navy, fontSize: 16 }}>{money2(r.share || 0)}</Text>
               </View>
               <Text style={s.sub}>{r.date} · {r.goal}{r.actualHobbs ? ` · ${r.actualHobbs} hr` : ''}{r.role === 'owner' ? ' · plane rental' : ''}</Text>
-              <Row label="Student paid" value={money2(r.total)} />
-              <Text style={[s.sub, { color: r.payout === 'paid' ? C.green : '#B45309', fontWeight: '700' }]}>{r.payout === 'paid' ? 'Sent to your bank' : 'Held until payouts are set up'}</Text>
+              <Row label={r.split?.status === 'accepted' ? 'Pilots paid' : 'Student paid'} value={money2(r.total)} />
+              {r.payout === 'debrief' ? (
+                <Pressable onPress={() => nav.push('WriteDebrief', { id: r.id })} accessibilityRole="button">
+                  <Text style={[s.sub, { color: C.blue, fontWeight: '800' }]}>Write the debrief to get paid ›</Text>
+                </Pressable>
+              ) : (
+                <Text style={[s.sub, { color: r.payout === 'paid' ? C.green : '#B45309', fontWeight: '700' }]}>{r.payout === 'paid' ? 'Sent to your bank' : 'Held until payouts are set up'}</Text>
+              )}
             </Card>
           ))}
         </>

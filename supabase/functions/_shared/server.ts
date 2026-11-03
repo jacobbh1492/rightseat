@@ -13,7 +13,7 @@ export const cors = {
 export const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
-function serviceKey(): string {
+export function serviceKey(): string {
   const legacy = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (legacy) return legacy;
   const keys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}');
@@ -80,30 +80,39 @@ export async function customerFor(user: { id: string; email?: string }) {
 // payout setup when the lesson closed. Runs when their Stripe account becomes ready.
 // Safe to run repeatedly: each held row is paid once (idempotency key + payout row).
 export async function releaseHeld(account: string, who: { partyId?: string; schoolId?: string }) {
-  let q = admin.from('ledger').select('id, booking_id, kind, amount').like('kind', 'held_%');
+  let q = admin.from('ledger').select('id, booking_id, kind, amount, stripe_ref').like('kind', 'held_%');
   q = who.schoolId ? q.eq('school_id', who.schoolId) : q.eq('party_id', who.partyId!);
   const { data: held } = await q;
   let released = 0;
   for (const h of held || []) {
     const party = h.kind.slice('held_'.length);
     const payoutKind = 'payout_' + party;
-    let paid = admin.from('ledger').select('id', { count: 'exact', head: true }).eq('booking_id', h.booking_id).eq('kind', payoutKind);
-    paid = who.schoolId ? paid.eq('school_id', who.schoolId) : paid.eq('party_id', who.partyId!);
-    const { count } = await paid;
-    if (count) continue;
-    // The charge the money came from: the lesson charge, or the late-cancel fee.
-    const { data: b } = await admin.from('bookings').select('charge_id, status').eq('id', h.booking_id).single();
-    let chargeId = b?.charge_id as string | null;
-    if (!chargeId) {
-      const { data: late } = await admin.from('ledger').select('stripe_ref').eq('booking_id', h.booking_id).eq('kind', 'charge_late_cancel').maybeSingle();
-      if (late?.stripe_ref) chargeId = String((await stripe.paymentIntents.retrieve(late.stripe_ref)).latest_charge);
+    // Held rows record the charge they draw on and are settled by a payout pointing back at
+    // them. Older rows (no charge recorded) count as settled once any payout to them exists.
+    let chargeId = h.stripe_ref as string | null;
+    if (chargeId) {
+      const { count } = await admin.from('ledger').select('id', { count: 'exact', head: true }).eq('source_id', h.id);
+      if (count) continue;
+    } else {
+      let paid = admin.from('ledger').select('id', { count: 'exact', head: true }).eq('booking_id', h.booking_id).eq('kind', payoutKind);
+      paid = who.schoolId ? paid.eq('school_id', who.schoolId) : paid.eq('party_id', who.partyId!);
+      const { count } = await paid;
+      if (count) continue;
+      // The charge the money came from: the lesson charge, or the late-cancel fee.
+      const { data: b } = await admin.from('bookings').select('charge_id').eq('id', h.booking_id).single();
+      chargeId = b?.charge_id as string | null;
+      if (!chargeId) {
+        const { data: late } = await admin.from('ledger').select('stripe_ref').eq('booking_id', h.booking_id).eq('kind', 'charge_late_cancel').maybeSingle();
+        if (late?.stripe_ref) chargeId = String((await stripe.paymentIntents.retrieve(late.stripe_ref)).latest_charge);
+      }
     }
     if (!chargeId) continue;
     const tr = await stripe.transfers.create({
       amount: Math.round(Number(h.amount) * 100), currency: 'usd', destination: account, source_transaction: chargeId,
       transfer_group: h.booking_id, metadata: { booking_id: h.booking_id, party, released_from: h.id },
     }, { idempotencyKey: 'release-' + h.id });
-    await admin.from('ledger').insert({ booking_id: h.booking_id, party_id: who.partyId || null, school_id: who.schoolId || null, kind: payoutKind, amount: h.amount, stripe_ref: tr.id });
+    const { error } = await admin.from('ledger').insert({ booking_id: h.booking_id, party_id: who.partyId || null, school_id: who.schoolId || null, kind: payoutKind, amount: h.amount, stripe_ref: tr.id, source_id: h.stripe_ref ? h.id : null });
+    if (error?.code === '23505') continue; // another release got there first (same transfer, by idempotency key)
     released += Number(h.amount);
   }
   return Math.round(released * 100) / 100;

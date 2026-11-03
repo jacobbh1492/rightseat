@@ -48,6 +48,39 @@ export function useBookingPayment() {
       check = await callFn('booking-action', { bookingId: res.booking.id, action: 'card' });
     }
     if (!check.cardReady) throw new Error('Stripe didn’t save your card, so the request wasn’t sent. Tap Send request to try again.');
-    return { booking: res.booking, quote: res.quote };
+    return { booking: res.booking, quote: res.quote, split: res.split || null };
+  };
+}
+
+// Shared flight: the invited pilot pays their deposit (their share of the estimate).
+// Their card is saved too, for any difference once the flight's actual time is known.
+export function useSplitDeposit() {
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  return async (bookingId) => {
+    const res = await callFn('split', { bookingId, action: 'accept', attest: true });
+    if (res.status === 'accepted') return { status: 'accepted' };
+    const { error: initErr } = await initPaymentSheet({
+      merchantDisplayName: 'RightSeat',
+      customerId: res.payment.customer,
+      customerEphemeralKeySecret: res.payment.ephemeralKey,
+      paymentIntentClientSecret: res.payment.paymentIntentClientSecret,
+      allowsDelayedPaymentMethods: false,
+      returnURL: Linking.createURL('stripe-redirect'),
+      primaryButtonLabel: `Pay $${Number(res.deposit).toFixed(2)} deposit & join`,
+    });
+    if (initErr) throw new Error(initErr.message);
+    const { error } = await presentPaymentSheet();
+    if (error) {
+      if (error.code === 'Canceled') return { cancelled: true };
+      throw new Error(error.message);
+    }
+    // Confirm with the server (it checks with Stripe) before showing the flight as joined.
+    let check = { status: 'invited' };
+    for (let i = 0; i < 3 && check.status !== 'accepted'; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 1500));
+      check = await callFn('split', { bookingId, action: 'paid' });
+    }
+    if (check.status !== 'accepted') throw new Error('Your deposit is still processing. Check back in a minute.');
+    return { status: 'accepted', deposit: res.deposit };
   };
 }

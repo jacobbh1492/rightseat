@@ -2,17 +2,24 @@
 //  confirm/decline — the instructor (or the owner, for a solo rental) answers a request.
 //  cancel          — anyone on the booking; a student inside 24 h of a confirmed lesson
 //                    pays the late-cancel fee, which goes to the instructor.
-//  complete        — close-out with actual Hobbs/ground time: charge the saved card,
-//                    then pay the instructor, owner and school their shares.
-import { serve, json, admin, stripe, requireUser, audit, payoutStatus } from '../_shared/server.ts';
-import { assertTransition, roleIn, finalPrice, validateActuals, cancellationFee, payoutPlan, cents, HttpError } from '../_shared/bookings.js';
+//  complete        — close-out with actual Hobbs/ground time: charge the saved card(s),
+//                    then pay the owner their share. On a lesson the instructor's (and
+//                    school's) share waits for the debrief, sent with the close-out or later.
+//  debrief         — the instructor writes the debrief; their waiting pay is released.
+// Shared solo rentals (see the split function): the booker pays their share and the other
+// pilot's deposit covers theirs, with any difference charged or refunded at close-out.
+import { serve, json, admin, stripe, requireUser, audit, customerFor } from '../_shared/server.ts';
+import { assertTransition, roleIn, finalPrice, validateActuals, cancellationFee, cents, parseDebrief, splitShares, partnerSettlement, HttpError } from '../_shared/bookings.js';
+import { payShares, releaseDebrief, type Charge } from '../_shared/payouts.ts';
+import { loadSplit, refundDeposit } from '../_shared/splits.ts';
 
 async function load(id: string) {
   const { data: b } = await admin.from('bookings').select('*').eq('id', id).single();
   if (!b) throw new HttpError(404, 'Booking not found.');
   const { data: plane } = b.plane_id ? await admin.from('planes').select('id, owner_id, school_id, tail').eq('id', b.plane_id).single() : { data: null };
   const { data: aff } = b.affiliation_id ? await admin.from('affiliations').select('school_id, school_pct').eq('id', b.affiliation_id).single() : { data: null };
-  return { b, plane, schoolId: aff?.school_id || null, schoolPct: Number(aff?.school_pct || 0) };
+  const split = b.plane_id && !b.cfi_id ? await loadSplit(b.id) : null;
+  return { b, plane, split, schoolId: aff?.school_id || null, schoolPct: Number(aff?.school_pct || 0) };
 }
 
 async function isSchoolAdmin(userId: string, schoolId: string | null) {
@@ -34,33 +41,19 @@ async function charge(b: any, amount: number, description: string, key: string) 
   }, { idempotencyKey: key });
 }
 
-async function payout(b: any, split: any, chargeId: string, plane: any, schoolId: string | null, kind: string) {
-  const acct = async (table: string, id: string | null) => {
-    if (!id) return null;
-    const { data } = await admin.from(table).select('stripe_account_id, payouts_ready').eq('id', id).single();
-    if (!data?.stripe_account_id) return null;
-    if (data.payouts_ready) return data.stripe_account_id;
-    // They may have just finished setup: ask Stripe before holding their pay.
-    const st = await payoutStatus(data.stripe_account_id).catch(() => ({ ready: false }));
-    if (st.ready) await admin.from(table).update({ payouts_ready: true }).eq('id', id);
-    return st.ready ? data.stripe_account_id : null;
-  };
-  // A school-owned plane pays the school, not the person who listed it.
-  const ownerAccount = plane?.school_id ? await acct('schools', plane.school_id) : await acct('profiles', plane?.owner_id || null);
-  const plan = payoutPlan(split, { cfiAccount: await acct('profiles', b.cfi_id), ownerAccount, schoolAccount: await acct('schools', schoolId) });
-  const partyId = { cfi: b.cfi_id, owner: plane?.school_id ? null : plane?.owner_id, school: null } as any;
-  const partySchool = { cfi: null, owner: plane?.school_id || null, school: schoolId } as any;
-  for (const t of plan.transfers) {
-    const tr = await stripe.transfers.create({
-      amount: t.cents, currency: 'usd', destination: t.account, source_transaction: chargeId,
-      transfer_group: b.id, metadata: { booking_id: b.id, party: t.party },
-    }, { idempotencyKey: `tr-${kind}-${b.id}-${t.party}` });
-    await admin.from('ledger').insert({ booking_id: b.id, party_id: partyId[t.party], school_id: partySchool[t.party], kind: 'payout_' + t.party, amount: t.amount, stripe_ref: tr.id });
-  }
-  for (const h of plan.held) {
-    await admin.from('ledger').insert({ booking_id: b.id, party_id: partyId[h.party], school_id: partySchool[h.party], kind: 'held_' + h.party, amount: h.amount });
-  }
-  return plan;
+// Save the instructor's debrief for a lesson (once). Returns false if it's incomplete.
+async function saveDebrief(b: any, raw: any) {
+  const { data: have } = await admin.from('debriefs').select('id').eq('booking_id', b.id).maybeSingle();
+  if (have) return true;
+  const d = parseDebrief(raw);
+  if (!d.complete) return false;
+  const flownOn = /^\d{4}-\d{2}-\d{2}$/.test(String(raw?.flownOn || '')) ? raw.flownOn : String(b.starts_at).slice(0, 10);
+  const { error } = await admin.from('debriefs').insert({
+    booking_id: b.id, student_id: b.student_id, cfi_id: b.cfi_id, flown_on: flownOn,
+    went_well: d.wentWell, needs_work: d.needsWork, next_plan: d.nextPlan,
+  });
+  if (error && error.code !== '23505') throw error; // 23505: written a moment ago
+  return true;
 }
 
 // Sandbox only: lets the dashboard play the seeded Test Instructor so the confirm and
@@ -73,9 +66,9 @@ const sandboxAllowed = (req: Request) =>
 serve(async (req, body) => {
   const sandbox = sandboxAllowed(req);
   const user = sandbox ? { id: SANDBOX_CFI } : await requireUser(req);
-  const { b, plane, schoolId, schoolPct } = await load(String(body.bookingId || ''));
+  const { b, plane, split, schoolId, schoolPct } = await load(String(body.bookingId || ''));
   if (sandbox && b.cfi_id !== SANDBOX_CFI) throw new HttpError(403, 'Sandbox mode only works on the test listing.');
-  const role = roleIn(b, user.id, { planeOwnerId: plane?.owner_id, schoolAdmin: await isSchoolAdmin(user.id, schoolId) });
+  const role = roleIn(b, user.id, { planeOwnerId: plane?.owner_id, schoolAdmin: await isSchoolAdmin(user.id, schoolId), partnerId: split?.status === 'accepted' ? split.partner_id : null });
   const action = String(body.action || '');
 
   // The student's app asks this right after Stripe's card sheet closes: we check with
@@ -94,13 +87,15 @@ serve(async (req, body) => {
 
   if (action === 'confirm') {
     if (!b.card_ready) throw new HttpError(409, 'Waiting for the student to finish adding their card.');
+    if (b.split_pending) throw new HttpError(409, 'Waiting for the other pilot to accept and pay their deposit.');
     await admin.from('bookings').update({ status: 'confirmed' }).eq('id', b.id).eq('status', 'requested');
     await audit(user.id, 'booking.confirmed', b.id);
     return json({ status: 'confirmed' });
   }
 
   if (action === 'decline') {
-    await admin.from('bookings').update({ status: 'cancelled', cancelled_by: user.id, cancel_reason: String(body.reason || 'Declined').slice(0, 300) }).eq('id', b.id);
+    await admin.from('bookings').update({ status: 'cancelled', cancelled_by: user.id, cancel_reason: String(body.reason || 'Declined').slice(0, 300), split_pending: false }).eq('id', b.id);
+    await endSplit(split, 'declined by owner');
     await audit(user.id, 'booking.declined', b.id);
     return json({ status: 'cancelled' });
   }
@@ -114,12 +109,20 @@ serve(async (req, body) => {
       await admin.from('ledger').insert({ booking_id: b.id, party_id: b.student_id, kind: 'charge_late_cancel', amount: fee, stripe_ref: pi.id });
       // The late fee is instruction pay, so an affiliated school gets its usual share.
       const school = Math.round(fee * schoolPct * 100) / 100;
-      await payout(b, { cfi: Math.round((fee - school) * 100) / 100, owner: 0, school }, chargeId, null, schoolId, 'late');
+      await payShares({ b, plane: null, schoolId, split: { cfi: Math.round((fee - school) * 100) / 100, owner: 0, school }, charges: [{ id: chargeId, amount: fee }], kind: 'late' });
       feeCharged = fee;
     }
-    await admin.from('bookings').update({ status: 'cancelled', cancelled_by: user.id, cancel_reason: String(body.reason || '').slice(0, 300) || null }).eq('id', b.id);
+    await admin.from('bookings').update({ status: 'cancelled', cancelled_by: user.id, cancel_reason: String(body.reason || '').slice(0, 300) || null, split_pending: false }).eq('id', b.id);
+    await endSplit(split, 'booking cancelled');
     await audit(user.id, 'booking.cancelled', b.id, { role, feeCharged });
     return json({ status: 'cancelled', feeCharged });
+  }
+
+  if (action === 'debrief') {
+    if (!(await saveDebrief(b, body))) throw new HttpError(400, 'Fill in what went well, what needs work and the plan for next time.');
+    const released = await releaseDebrief(b, schoolId);
+    await audit(user.id, 'booking.debriefed', b.id, released);
+    return json({ status: 'debriefed', ...released });
   }
 
   // complete
@@ -130,12 +133,69 @@ serve(async (req, body) => {
     night: !!body.night, xc: !!body.xc,
     instrumentHours: Math.max(0, Math.min(actual.flightHours, Math.round(Number(body.instrumentHours || 0) * 10) / 10)),
   };
-  const pi = await charge(b, q.total, `Lesson ${new Date(b.starts_at).toDateString()}`, 'final-' + b.id);
+  const when = new Date(b.starts_at).toDateString();
+  const shared = split?.status === 'accepted' ? split : null;
+  const charges: Charge[] = [];
+  let bookerAmount = q.total, partnerShare = 0, settle = 0, coveredByBooker = 0;
+  if (shared) ({ booker: bookerAmount, partner: partnerShare } = splitShares(q.total, shared.booker_pct));
+
+  const pi = await charge(b, bookerAmount, (shared ? 'Shared flight ' : 'Lesson ') + when, 'final-' + b.id);
   const chargeId = String(pi.latest_charge);
-  await admin.from('bookings').update({ status: 'completed', actual_hobbs: actual.flightHours, conditions, final_split: { ...q.split, final: { total: q.total, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft, bookingFee: q.bookingFee, protection: q.protection, flightHours: actual.flightHours, groundHours: actual.groundHours } }, payment_intent_id: pi.id, charge_id: chargeId }).eq('id', b.id);
-  await admin.from('ledger').insert({ booking_id: b.id, party_id: b.student_id, kind: 'charge', amount: q.total, stripe_ref: pi.id });
+  charges.push({ id: chargeId, amount: bookerAmount });
+  await admin.from('ledger').insert({ booking_id: b.id, party_id: b.student_id, kind: 'charge', amount: bookerAmount, stripe_ref: pi.id });
+
+  if (shared) {
+    // The other pilot's deposit covers their share of the estimate; settle the difference.
+    settle = partnerSettlement(partnerShare, Number(shared.deposit || 0));
+    let depositKept = Number(shared.deposit || 0);
+    if (settle < 0) {
+      const rf = await stripe.refunds.create({ charge: shared.deposit_charge_id, amount: cents(-settle), metadata: { booking_id: b.id, split_id: shared.id } }, { idempotencyKey: 'split-diff-' + b.id });
+      await admin.from('ledger').insert({ booking_id: b.id, party_id: shared.partner_id, kind: 'refund_split_diff', amount: -settle, stripe_ref: rf.id });
+      depositKept = Math.round((depositKept + settle) * 100) / 100;
+    }
+    if (depositKept > 0) charges.push({ id: shared.deposit_charge_id, amount: depositKept });
+    if (settle > 0) {
+      try {
+        const customer = await customerFor({ id: shared.partner_id });
+        const extra = await stripe.paymentIntents.create({
+          amount: cents(settle), currency: 'usd', customer, payment_method: shared.partner_pm, off_session: true, confirm: true,
+          description: 'Shared flight ' + when + ' (difference from deposit)', transfer_group: b.id, metadata: { booking_id: b.id, split_id: shared.id },
+        }, { idempotencyKey: 'split-extra-' + b.id });
+        charges.push({ id: String(extra.latest_charge), amount: settle });
+        await admin.from('ledger').insert({ booking_id: b.id, party_id: shared.partner_id, kind: 'charge_split_diff', amount: settle, stripe_ref: extra.id });
+      } catch (e) {
+        if (!e?.type?.startsWith?.('Stripe')) throw e;
+        // Their saved card didn't go through: the booker covers it so the owner is paid in full.
+        const cover = await charge(b, settle, 'Shared flight ' + when + ' (other pilot’s card declined)', 'split-cover-' + b.id);
+        charges.push({ id: String(cover.latest_charge), amount: settle });
+        await admin.from('ledger').insert({ booking_id: b.id, party_id: b.student_id, kind: 'charge_split_cover', amount: settle, stripe_ref: cover.id });
+        coveredByBooker = settle;
+        await audit(null, 'split.partner_card_failed', b.id, { amount: settle, code: e.code || null });
+      }
+    }
+  }
+
+  const finalLine: any = { total: q.total, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft, bookingFee: q.bookingFee, protection: q.protection, flightHours: actual.flightHours, groundHours: actual.groundHours };
+  if (shared) Object.assign(finalLine, { charged: Math.round((bookerAmount + coveredByBooker) * 100) / 100, bookerPct: shared.booker_pct, partnerShare, partnerDiff: coveredByBooker ? 0 : settle, coveredByBooker });
+  await admin.from('bookings').update({ status: 'completed', actual_hobbs: actual.flightHours, conditions, final_split: { ...q.split, final: finalLine }, payment_intent_id: pi.id, charge_id: chargeId }).eq('id', b.id);
   if (q.split.platform) await admin.from('ledger').insert({ booking_id: b.id, kind: 'fee', amount: q.split.platform });
-  const plan = await payout(b, q.split, chargeId, plane, schoolId, 'final');
-  await audit(user.id, 'booking.completed', b.id, { total: q.total, actual });
-  return json({ status: 'completed', total: q.total, split: q.split, held: plan.held.map((h: any) => h.party) });
+
+  // The owner is paid now. On a lesson, the instructor's and school's shares wait for the debrief.
+  const paid = await payShares({ b, plane, schoolId, split: q.split, charges, kind: 'final', awaitDebrief: !!b.cfi_id });
+  let released = null;
+  if (b.cfi_id && body.debrief && await saveDebrief(b, body.debrief)) released = await releaseDebrief(b, schoolId);
+  await audit(user.id, 'booking.completed', b.id, { total: q.total, actual, shared: !!shared });
+  return json({
+    status: 'completed', total: q.total, split: q.split, held: paid.held,
+    awaitingDebrief: b.cfi_id && !released ? (q.split.cfi || 0) : 0,
+    debriefReleased: released,
+    shared: shared ? { bookerAmount, partnerShare, settle, coveredByBooker } : null,
+  });
 });
+
+// The booking is off: refund the other pilot's deposit and close the invite.
+async function endSplit(split: any, why: string) {
+  if (!split || !['invited', 'declined', 'accepted'].includes(split.status)) return;
+  await refundDeposit(split, why);
+  await admin.from('booking_splits').update({ status: 'cancelled' }).eq('id', split.id);
+}

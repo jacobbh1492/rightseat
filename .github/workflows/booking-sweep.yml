@@ -1,0 +1,27 @@
+name: Booking sweep (hourly)
+# Releases shared-flight invites that ran out, reminds instructors to write debriefs
+# (their pay waits for them) and pays out debriefs written from older app versions.
+# Calls the booking-sweep Edge Function with the project's service key, fetched with
+# the SUPABASE_ACCESS_TOKEN secret (nothing new to configure).
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+concurrency: { group: booking-sweep, cancel-in-progress: false }
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: velhvzupamhlhbriyreq
+    steps:
+      - name: Run the sweep
+        run: |
+          set -euo pipefail
+          KEY=$(curl -fsS "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/api-keys?reveal=true" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            | jq -r '[.[] | select(.name == "service_role" or .type == "secret")][0].api_key')
+          echo "::add-mask::$KEY"
+          curl -fsS -X POST "https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1/booking-sweep" \
+            -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{}'

@@ -2,13 +2,17 @@
 // Prices it on the server (the app's number is only an estimate), checks the
 // instructor and plane are free, saves the student's card for charging at close-out,
 // and creates the booking as "requested" for the instructor/owner to confirm.
+// A solo rental can be shared: the booker invites another pilot and picks their own share;
+// the request only goes to the owner once that pilot accepts and pays a deposit (split function).
 import { serve, json, admin, stripe, requireUser, customerFor, audit } from '../_shared/server.ts';
-import { parseBookingRequest, priceBooking, HttpError } from '../_shared/bookings.js';
+import { parseBookingRequest, priceBooking, parseSplit, splitHoldUntil, splitShares, HttpError } from '../_shared/bookings.js';
 import { normalizeSchedule, checkBooking } from '../_shared/schedule.js';
 
 serve(async (req, body) => {
   const user = await requireUser(req);
   const r = parseBookingRequest(body);
+  // Optional: share a solo rental with another pilot ({ email, bookerPct }).
+  const share = parseSplit(body.split, { cfiId: r.cfiId });
 
   const [cfiRes, planeRes] = await Promise.all([
     r.cfiId ? admin.from('cfis').select('*').eq('id', r.cfiId).single() : Promise.resolve({ data: null }),
@@ -23,6 +27,17 @@ serve(async (req, body) => {
   if (cfi && cfi.id === user.id) throw new HttpError(400, 'You can’t book yourself.');
   if (plane && !cfi && plane.owner_id === user.id) throw new HttpError(400, 'You can’t rent your own plane.');
   if (plane && !cfi && plane.details?.soloRental === false) throw new HttpError(400, 'This plane is dual-only. Add an instructor.');
+
+  let partnerId: string | null = null, holdUntil: Date | null = null;
+  if (share) {
+    if (!plane) throw new HttpError(400, 'Cost sharing is for plane rentals.');
+    const { data: found } = await admin.rpc('user_id_by_email', { p_email: share.email });
+    partnerId = found ? String(found) : null;
+    if (!partnerId) throw new HttpError(404, 'No RightSeat pilot uses that email. Ask them to join first, then invite them.');
+    if (partnerId === user.id) throw new HttpError(400, 'Invite someone other than yourself.');
+    if (partnerId === plane.owner_id) throw new HttpError(400, 'The plane’s owner can’t share the cost of renting it.');
+    holdUntil = splitHoldUntil(r.startsAt);
+  }
 
   // The instructor's calendar: working hours, notice, booking window and time off.
   // Their buffer after each lesson sets how long the booking holds the slot.
@@ -52,7 +67,9 @@ serve(async (req, body) => {
       .eq(col, id).in('status', ['requested', 'confirmed'])
       .lt('starts_at', r.endsAt.toISOString()).gt('ends_at', r.startsAt.toISOString())
       // a request whose card was never saved stops holding the slot after 30 minutes
-      .or(`card_ready.eq.true,status.eq.confirmed,created_at.gt.${new Date(Date.now() - 30 * 60 * 1000).toISOString()}`);
+      .or(`card_ready.eq.true,status.eq.confirmed,created_at.gt.${new Date(Date.now() - 30 * 60 * 1000).toISOString()}`)
+      // a shared rental waiting on the other pilot holds the slot until its invite runs out
+      .or(`split_pending.eq.false,hold_until.gt.${new Date().toISOString()}`);
     return (count || 0) > 0;
   };
   if (cfi && await overlap('cfi_id', cfi.id)) throw new HttpError(409, 'The instructor is already booked then. Pick another time.');
@@ -74,8 +91,14 @@ serve(async (req, body) => {
     student_id: user.id, cfi_id: cfi?.id || null, plane_id: plane?.id || null, affiliation_id: affiliation?.id || null,
     starts_at: r.startsAt.toISOString(), ends_at: r.endsAt.toISOString(), goal: r.goal,
     flight_hours: r.flightHours, ground_hours: r.groundHours, status: 'requested', quote: q,
+    split_pending: !!share, hold_until: holdUntil?.toISOString() || null,
   }).select().single();
   if (error) throw error;
+  // The invite is sent once the booker's card is saved (notify_booking).
+  if (share) {
+    const { error: se } = await admin.from('booking_splits').insert({ booking_id: booking.id, booker_id: user.id, partner_id: partnerId, booker_pct: share.bookerPct });
+    if (se) throw se;
+  }
 
   // Save the card now; it's charged for the actual Hobbs time at close-out.
   const si = await stripe.setupIntents.create({
@@ -84,10 +107,11 @@ serve(async (req, body) => {
   }, { idempotencyKey: 'si-' + booking.id });
   const ek = await stripe.ephemeralKeys.create({ customer }, { apiVersion: '2024-12-18.acacia' });
   await admin.from('bookings').update({ setup_intent_id: si.id }).eq('id', booking.id);
-  await audit(user.id, 'booking.requested', booking.id, { total: q.total });
+  await audit(user.id, 'booking.requested', booking.id, { total: q.total, shared: share ? share.bookerPct : null });
 
   return json({
     booking: { id: booking.id, status: booking.status, startsAt: booking.starts_at },
+    split: share ? { bookerPct: share.bookerPct, holdUntil, ...splitShares(q.total, share.bookerPct) } : null,
     quote: { total: q.total, bookingFee: q.bookingFee, protection: q.protection, deposit: q.deposit, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft },
     payment: { setupIntentClientSecret: si.client_secret, customer, ephemeralKey: ek.secret },
   }, 201);

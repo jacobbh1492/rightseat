@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet } from 'react-native';
 import { useStore } from '../store';
 import { useAuth } from '../backend/auth';
-import { bookingAction, setUpPayouts, checkPayouts, writeDebrief } from '../backend/bookings';
+import { bookingAction, setUpPayouts, checkPayouts, submitDebrief } from '../backend/bookings';
 import { quote } from '../pricing';
 import { money2, r2 } from '../logic';
 import { C, Card, Button, SectionTitle, Row, Tag, Field, Stepper, Toggle } from '../ui';
@@ -69,8 +69,12 @@ export function Teaching({ nav, asTab }) {
   const upcoming = teaching.filter((r) => r.status === 'Confirmed').sort((a, b) => new Date(a.when) - new Date(b.when));
   const done = teaching.filter((r) => ['Completed', 'Cancelled'].includes(r.status)).sort((a, b) => new Date(b.when) - new Date(a.when)).slice(0, asTab ? 5 : 20);
   const held = teaching.filter((r) => r.payout === 'held').reduce((a, r) => a + (r.share || 0), 0);
+  const needDebrief = teaching.filter((r) => r.payout === 'debrief');
+  const waitingOnDebriefs = needDebrief.reduce((a, r) => a + (r.awaitingDebrief || 0), 0);
 
-  const who = (r) => `${r.studentName}${r.tail ? ` · ${r.tail}` : ''}`;
+  // A shared rental shows both pilots.
+  const sharedWith = (r) => (r.split && r.split.status === 'accepted' ? ` + ${r.split.partnerName.split(' ')[0]}` : '');
+  const who = (r) => `${r.studentName}${sharedWith(r)}${r.tail ? ` · ${r.tail}` : ''}`;
   const hours = (r) => `${r.flightHours} hr flight${r.groundHours ? ` + ${r.groundHours} hr ground` : ''}`;
 
   return (
@@ -116,6 +120,14 @@ export function Teaching({ nav, asTab }) {
           )}
         </Card>}
 
+        {auth?.session && needDebrief.length > 0 && (
+          <Pressable onPress={() => nav.push('WriteDebrief', { id: needDebrief[0].id })} accessibilityRole="button">
+            <Card style={{ borderWidth: 1.5, borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
+              <Text style={ts.title}>Write {needDebrief.length > 1 ? `${needDebrief.length} debriefs` : 'your debrief'} to get paid ›</Text>
+              <Text style={ts.sub}>{money2(waitingOnDebriefs)} is waiting. Your pay for a lesson is released once its debrief is written.</Text>
+            </Card>
+          </Pressable>
+        )}
         {asTab && auth?.session && <CalendarCard nav={nav} />}
         {!!err && <Text style={ts.err} accessibilityLiveRegion="polite">{err}</Text>}
 
@@ -135,11 +147,13 @@ export function Teaching({ nav, asTab }) {
               <Text style={{ color: C.blue, fontWeight: '700' }}>Message {r.studentName.split(' ')[0]} ›</Text>
             </Pressable>
             {!r.cardReady && <Text style={ts.warn}>Waiting for the student to finish adding their card.</Text>}
+            {r.split?.pending && <Text style={ts.warn}>Shared flight: waiting for {r.split.partnerName.split(' ')[0]} to accept and pay their deposit.</Text>}
+            {r.split?.status === 'accepted' && <Text style={ts.sub}>Shared flight: {r.split.bookerName.split(' ')[0]} {r.split.bookerPct}% · {r.split.partnerName.split(' ')[0]} {r.split.partnerPct}%. Both pilots are checked like solo renters.</Text>}
             {review(r)}
             <View style={{ flexDirection: 'row', marginTop: 12 }}>
               <Button title={busy === `${r.id}:decline` ? 'Declining…' : 'Decline'} variant="outline" disabled={!!busy} style={{ flex: 0.6, marginRight: 8, paddingVertical: 10 }}
                 onPress={() => act(r, 'decline', { reason: `Declined by ${role(r)}` })} />
-              <Button title={busy === `${r.id}:confirm` ? 'Confirming…' : 'Confirm'} disabled={!!busy || !r.cardReady} style={{ flex: 1, paddingVertical: 10 }}
+              <Button title={busy === `${r.id}:confirm` ? 'Confirming…' : 'Confirm'} disabled={!!busy || !r.cardReady || !!r.split?.pending} style={{ flex: 1, paddingVertical: 10 }}
                 onPress={() => act(r, 'confirm')} />
             </View>
           </Card>
@@ -181,11 +195,16 @@ export function Teaching({ nav, asTab }) {
             <Text style={ts.sub}>{r.date} · {who(r)}{r.actualHobbs ? ` · ${r.actualHobbs} hr Hobbs` : ''}</Text>
             {r.status === 'Completed' && (
               <>
-                <Row label="Student paid" value={money2(r.total)} />
+                <Row label={r.split?.status === 'accepted' ? 'Pilots paid' : 'Student paid'} value={money2(r.total)} />
                 <Row bold label="Your share" value={money2(r.share || 0)} />
-                <Text style={[ts.sub, { color: r.payout === 'paid' ? C.green : '#B45309', fontWeight: '700' }]}>
-                  {r.payout === 'paid' ? 'Sent to your bank' : 'Held until you set up payouts'}
-                </Text>
+                {r.payout === 'debrief' ? (
+                  <Button title={`Write debrief to get paid ${money2(r.awaitingDebrief || r.share || 0)}`} style={{ marginTop: 8, paddingVertical: 10 }}
+                    onPress={() => nav.push('WriteDebrief', { id: r.id })} />
+                ) : (
+                  <Text style={[ts.sub, { color: r.payout === 'paid' ? C.green : '#B45309', fontWeight: '700' }]}>
+                    {r.payout === 'paid' ? 'Sent to your bank' : 'Held until you set up payouts'}
+                  </Text>
+                )}
               </>
             )}
             {r.status === 'Cancelled' && <Text style={ts.sub}>{r.cancel?.reason}{r.cancel?.fee ? ` · late fee ${money2(r.cancel.fee)}` : ''}</Text>}
@@ -207,7 +226,6 @@ export function LiveCloseOut({ nav, params }) {
   const [xc, setXc] = useState(/cross/i.test(r?.goal || ''));
   const [inst, setInst] = useState(0);
   const [debrief, setDebrief] = useState({ wentWell: '', needsWork: '', nextPlan: '' });
-  const [debriefNote, setDebriefNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [result, setResult] = useState(null);
@@ -218,18 +236,17 @@ export function LiveCloseOut({ nav, params }) {
   const i = r.quote?.inputs;
   const est = valid && i ? quote({ cfi: i.cfi, plane: i.plane, affiliation: i.affiliation, cfiPro: i.cfiPro, repeat: i.repeat, prepaid: i.prepaid, flightHours: fh, groundHours: r.cfiId ? ground : 0 }) : null;
 
+  const debriefDone = !!(debrief.wentWell.trim() && debrief.needsWork.trim() && debrief.nextPlan.trim());
   const submit = async () => {
     setErr(''); setBusy(true);
     try {
-      const res = await bookingAction(r.id, 'complete', { flightHours: fh, groundHours: r.cfiId ? ground : 0, night, xc, instrumentHours: r.cfiId ? inst : 0 });
+      // On a lesson, the debrief goes with the close-out: the server saves it to the
+      // student's training record and releases the instructor's pay. Without it, the pay waits.
+      const res = await bookingAction(r.id, 'complete', {
+        flightHours: fh, groundHours: r.cfiId ? ground : 0, night, xc, instrumentHours: r.cfiId ? inst : 0,
+        debrief: r.role === 'cfi' && debriefDone ? { ...debrief, flownOn: r.when.slice(0, 10) } : undefined,
+      });
       setResult(res);
-      // The debrief goes to the student's training record (instructors only).
-      if (r.role === 'cfi' && (debrief.wentWell || debrief.needsWork || debrief.nextPlan)) {
-        try {
-          await writeDebrief({ bookingId: r.id, studentId: r.studentId, cfiId: r.cfiId, flownOn: r.when.slice(0, 10), ...debrief });
-          setDebriefNote('Debrief saved to the student’s training record.');
-        } catch (e) { setDebriefNote(`The charge went through, but the debrief didn’t save: ${e.message}`); }
-      }
       refreshLive().catch(() => {});
     } catch (e) { setErr(e.message); }
     setBusy(false);
@@ -237,23 +254,30 @@ export function LiveCloseOut({ nav, params }) {
 
   if (result) {
     const mine = r.role === 'owner' ? result.split.owner : result.split.cfi;
-    const held = (result.held || []).includes(r.role === 'owner' ? 'owner' : 'cfi');
+    const held = (result.held || []).includes(r.role === 'owner' ? 'owner' : 'cfi') || (result.debriefReleased?.held > 0 && r.role === 'cfi');
+    const waiting = r.role === 'cfi' && !result.debriefReleased;
+    const sh = result.shared;
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <Header nav={nav} title="Lesson closed out" />
         <ScrollView contentContainerStyle={{ padding: 16 }}>
           <Card>
             <Text style={{ fontWeight: '900', fontSize: 20, color: C.text }}>Done ✓</Text>
-            <Text style={[ts.sub, { marginTop: 4 }]}>{r.studentName}’s card was charged for {fh} hr{r.cfiId && ground ? ` + ${ground} hr ground` : ''}.</Text>
+            <Text style={[ts.sub, { marginTop: 4 }]}>
+              {sh ? `${r.studentName.split(' ')[0]} and ${r.split?.partnerName?.split(' ')[0] || 'the other pilot'} were charged their shares` : `${r.studentName}’s card was charged`} for {fh} hr{r.cfiId && ground ? ` + ${ground} hr ground` : ''}.
+            </Text>
             <View style={{ marginTop: 10 }}>
-              <Row label="Student paid" value={money2(result.total)} />
+              <Row label={sh ? 'Pilots paid' : 'Student paid'} value={money2(result.total)} />
+              {sh && <Row label={`  ${r.studentName.split(' ')[0]} · ${r.split?.bookerPct}%`} value={money2(sh.bookerAmount + (sh.coveredByBooker || 0))} />}
+              {sh && <Row label={`  ${r.split?.partnerName?.split(' ')[0] || 'Other pilot'} · ${r.split?.partnerPct}%`} value={money2(sh.coveredByBooker ? sh.partnerShare - sh.coveredByBooker : sh.partnerShare)} />}
               <Row bold label="Your share" value={money2(mine)} />
             </View>
-            <Text style={[ts.sub, { marginTop: 8, color: held ? '#B45309' : C.green, fontWeight: '700' }]}>
-              {held ? 'Held for you until you set up payouts.' : 'On its way to your bank (usually 2 business days).'}
+            <Text style={[ts.sub, { marginTop: 8, color: held || waiting ? '#B45309' : C.green, fontWeight: '700' }]}>
+              {waiting ? 'Waiting for your debrief. Write it to release your pay.' : held ? 'Held for you until you set up payouts.' : 'On its way to your bank (usually 2 business days).'}
             </Text>
-            {!!debriefNote && <Text style={[ts.sub, { marginTop: 8 }]}>{debriefNote}</Text>}
-            <Button title="Done" style={{ marginTop: 14 }} onPress={nav.pop} />
+            {r.role === 'cfi' && result.debriefReleased && <Text style={[ts.sub, { marginTop: 8 }]}>Debrief saved to {r.studentName.split(' ')[0]}’s training record.</Text>}
+            {waiting && <Button title="Write debrief now" style={{ marginTop: 14 }} onPress={() => nav.replace ? nav.replace('WriteDebrief', { id: r.id }) : nav.push('WriteDebrief', { id: r.id })} />}
+            <Button title="Done" variant={waiting ? 'outline' : undefined} style={{ marginTop: waiting ? 8 : 14 }} onPress={nav.pop} />
           </Card>
         </ScrollView>
       </View>
@@ -286,8 +310,8 @@ export function LiveCloseOut({ nav, params }) {
 
         {r.role === 'cfi' && (
           <>
-            <SectionTitle>Debrief (optional)</SectionTitle>
-            <Text style={[ts.sub, { marginBottom: 6 }]}>Saved to the student’s training record. Once they read it, it’s locked.</Text>
+            <SectionTitle>Debrief</SectionTitle>
+            <Text style={[ts.sub, { marginBottom: 6 }]}>Your pay for this lesson is released once the debrief is written (all three parts). It’s saved to the student’s training record and locked once they read it. You can also write it later.</Text>
             <Field label="What went well" multiline value={debrief.wentWell} onChangeText={(t) => setDebrief((d) => ({ ...d, wentWell: t }))} placeholder="Smooth radio calls, good energy management on final" />
             <Field label="Needs work" multiline value={debrief.needsWork} onChangeText={(t) => setDebrief((d) => ({ ...d, needsWork: t }))} placeholder="Holding altitude in steep turns" />
             <Field label="Next lesson" multiline value={debrief.nextPlan} onChangeText={(t) => setDebrief((d) => ({ ...d, nextPlan: t }))} placeholder="Slow flight and power-off stalls" />
@@ -311,7 +335,65 @@ export function LiveCloseOut({ nav, params }) {
         {!!err && <Text style={ts.err} accessibilityLiveRegion="polite">{err}</Text>}
       </ScrollView>
       <View style={ts.cta}>
-        <Button title={busy ? 'Charging…' : valid ? `Close out ${fh} hr & charge` : 'Enter Hobbs times'} disabled={busy || !valid} style={{ flex: 1 }} onPress={submit} />
+        <Button title={busy ? 'Charging…' : !valid ? 'Enter Hobbs times' : r.role === 'cfi' && !debriefDone ? `Close out ${fh} hr · debrief later` : `Close out ${fh} hr & charge`} disabled={busy || !valid} style={{ flex: 1 }} onPress={submit} />
+      </View>
+    </View>
+  );
+}
+
+// Write the debrief for a closed-out lesson; the server saves it and releases the pay.
+export function WriteDebrief({ nav, params }) {
+  const { teaching, refreshLive } = useStore();
+  const r = teaching.find((x) => x.id === params.id);
+  const [d, setD] = useState({ wentWell: '', needsWork: '', nextPlan: '' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [done, setDone] = useState(null);
+  useEffect(() => { if (!r) refreshLive().catch(() => {}); }, []);
+  if (!r) return (<View style={{ flex: 1, backgroundColor: C.bg }}><Header nav={nav} title="Debrief" /><Text style={[ts.empty, { padding: 24, textAlign: 'center' }]}>Loading the lesson…</Text></View>);
+  const ok = !!(d.wentWell.trim() && d.needsWork.trim() && d.nextPlan.trim());
+  const amount = r.awaitingDebrief || r.share || 0;
+  const submit = async () => {
+    setErr(''); setBusy(true);
+    try { setDone(await submitDebrief(r.id, { ...d, flownOn: r.when.slice(0, 10) })); refreshLive().catch(() => {}); }
+    catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  if (done || r.payout === 'paid' || r.payout === 'held') {
+    const heldNow = done ? done.held > 0 : r.payout === 'held';
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Header nav={nav} title="Debrief" />
+        <ScrollView contentContainerStyle={{ padding: 16 }}>
+          <Card>
+            <Text style={{ fontWeight: '900', fontSize: 20, color: C.text }}>Debrief saved ✓</Text>
+            <Text style={[ts.sub, { marginTop: 4 }]}>It’s in {r.studentName.split(' ')[0]}’s training record.</Text>
+            <Text style={[ts.sub, { marginTop: 8, color: heldNow ? '#B45309' : C.green, fontWeight: '700' }]}>
+              {heldNow ? `${money2(amount)} is held for you until you set up payouts.` : `${money2(done ? done.paid || amount : amount)} is on its way to your bank (usually 2 business days).`}
+            </Text>
+            <Button title="Done" style={{ marginTop: 14 }} onPress={nav.pop} />
+          </Card>
+        </ScrollView>
+      </View>
+    );
+  }
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <Header nav={nav} title="Write debrief" />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }}>
+        <Card>
+          <Text style={ts.title}>{r.goal}</Text>
+          <Text style={ts.sub}>{r.date} · {r.studentName}{r.tail ? ` · ${r.tail}` : ''}{r.actualHobbs ? ` · ${r.actualHobbs} hr` : ''}</Text>
+          <Text style={[ts.sub, { color: '#B45309', fontWeight: '700', marginTop: 6 }]}>{money2(amount)} is released when you save this.</Text>
+        </Card>
+        <Field label="What went well" multiline value={d.wentWell} onChangeText={(t) => setD((x) => ({ ...x, wentWell: t }))} placeholder="Smooth radio calls, good energy management on final" />
+        <Field label="Needs work" multiline value={d.needsWork} onChangeText={(t) => setD((x) => ({ ...x, needsWork: t }))} placeholder="Holding altitude in steep turns" />
+        <Field label="Next lesson" multiline value={d.nextPlan} onChangeText={(t) => setD((x) => ({ ...x, nextPlan: t }))} placeholder="Slow flight and power-off stalls" />
+        <Text style={ts.sub}>Saved to the student’s training record. Once they read it, it’s locked (you can add an amendment).</Text>
+        {!!err && <Text style={ts.err} accessibilityLiveRegion="polite">{err}</Text>}
+      </ScrollView>
+      <View style={ts.cta}>
+        <Button title={busy ? 'Saving…' : ok ? `Save debrief & get paid ${money2(amount)}` : 'Fill in all three parts'} disabled={busy || !ok} style={{ flex: 1 }} onPress={submit} />
       </View>
     </View>
   );
