@@ -35,6 +35,7 @@ export function Me({ nav }) {
           { icon: 'shieldCheck', title: 'Verification', subtitle: `${verified} documents verified · ID, certificate, medical`, go: 'Verification' },
           { icon: 'file', title: 'Pilot credentials', subtitle: 'What CFIs and owners see before you fly', go: 'Credentials' },
         ]),
+        ...(auth?.session ? [{ icon: 'file', title: 'Pilot profile', subtitle: 'Certificate, medical, flight review, hours · needed to rent solo', go: 'PilotProfile' }] : []),
         { icon: 'book', title: 'Previous experience', subtitle: training.prior ? 'Update your hours and lessons' : 'Trained before? Add it here', go: 'PriorExperience' },
       ],
     },
@@ -53,6 +54,7 @@ export function Me({ nav }) {
       rows: [
         { icon: 'plus', title: 'List a plane', subtitle: 'Photos, rates, renter requirements', go: 'PlaneForm' },
         { icon: 'tool', title: 'Owner tools', subtitle: '100-hr countdown, squawks, schedule', go: 'OwnerDashboard' },
+        ...(auth?.session ? [{ icon: 'user', title: 'Renter checkouts', subtitle: 'Approve who can rent your plane solo', go: 'Checkouts' }] : []),
         ...(auth?.session ? [{ icon: 'shieldCheck', title: 'Verify my planes', subtitle: 'FAA registration and insurance, required before renting', go: 'GetVerified' }] : []),
       ],
     },
