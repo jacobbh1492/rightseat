@@ -7,6 +7,7 @@
 import { serve, json, admin, stripe, requireUser, customerFor, audit } from '../_shared/server.ts';
 import { parseBookingRequest, priceBooking, parseSplit, splitHoldUntil, splitShares, HttpError } from '../_shared/bookings.js';
 import { normalizeSchedule, checkBooking } from '../_shared/schedule.js';
+import { assertRenterReady } from '../_shared/renter.ts';
 
 serve(async (req, body) => {
   const user = await requireUser(req);
@@ -27,6 +28,10 @@ serve(async (req, body) => {
   if (cfi && cfi.id === user.id) throw new HttpError(400, 'You can’t book yourself.');
   if (plane && !cfi && plane.owner_id === user.id) throw new HttpError(400, 'You can’t rent your own plane.');
   if (plane && !cfi && plane.details?.soloRental === false) throw new HttpError(400, 'This plane is dual-only. Add an instructor.');
+
+  // Renting without an instructor: the pilot's profile (medical, flight review, hours) and
+  // the owner's checkout in this plane.
+  if (plane && !cfi) await assertRenterReady(user.id, plane, r.flightHours, r.startsAt);
 
   let partnerId: string | null = null, holdUntil: Date | null = null;
   if (share) {

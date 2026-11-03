@@ -11,6 +11,7 @@
 import { serve, json, admin, stripe, requireUser, customerFor, audit } from '../_shared/server.ts';
 import { splitShares, cents, HttpError } from '../_shared/bookings.js';
 import { loadSplit, finalizeDeposit, refundDeposit } from '../_shared/splits.ts';
+import { assertRenterReady } from '../_shared/renter.ts';
 
 serve(async (_req, body) => {
   const user = await requireUser(_req);
@@ -31,6 +32,9 @@ serve(async (_req, body) => {
     if (b.hold_until && new Date(b.hold_until).getTime() <= Date.now()) throw new HttpError(409, 'This invite has run out.');
     if (!b.card_ready) throw new HttpError(409, 'The booker hasn’t finished booking yet.');
     if (body.attest !== true) throw new HttpError(400, 'Confirm you’re current and meet the rental requirements.');
+    // The same checks as renting this plane solo.
+    const { data: plane } = await admin.from('planes').select('*').eq('id', b.plane_id).single();
+    await assertRenterReady(user.id, plane, Number(b.flight_hours), new Date(b.starts_at));
     const deposit = splitShares(Number(b.quote?.total || 0), s.booker_pct).partner;
     if (!(deposit > 0)) throw new HttpError(409, 'Nothing to pay on this flight.');
     const customer = await customerFor(user);

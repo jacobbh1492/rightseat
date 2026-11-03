@@ -19,7 +19,7 @@ const canCloseOut = (r) => new Date(r.when).getTime() <= Date.now() + CLOSE_OUT_
 const role = (r) => (r.role === 'owner' ? 'owner' : 'instructor');
 
 export function Teaching({ nav, asTab }) {
-  const { teaching, refreshLive } = useStore();
+  const { teaching, refreshLive, myPlaneIds } = useStore();
   const auth = useAuth();
   const [busy, setBusy] = useState(null); // `${id}:${action}`
   const [err, setErr] = useState('');
@@ -129,6 +129,11 @@ export function Teaching({ nav, asTab }) {
           </Pressable>
         )}
         {asTab && auth?.session && <CalendarCard nav={nav} />}
+        {auth?.session && (myPlaneIds || []).length > 0 && (
+          <Pressable onPress={() => nav.push('Checkouts')} accessibilityRole="button">
+            <Card><Text style={ts.title}>Renter checkouts ›</Text><Text style={ts.sub}>Approve who can rent your plane{myPlaneIds.length > 1 ? 's' : ''} solo.</Text></Card>
+          </Pressable>
+        )}
         {!!err && <Text style={ts.err} accessibilityLiveRegion="polite">{err}</Text>}
 
         {(!asTab || auth?.session) && <>

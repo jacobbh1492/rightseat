@@ -21,6 +21,8 @@ import { postReview } from '../backend/profiles';
 import { useLibrary } from '../library/useLibrary';
 import { ReviewChip } from './Library';
 import { useOpenTimes } from '../useOpenTimes';
+import { usePilot, requestCheckout } from '../backend/pilot';
+import { renterChecks } from '../renterChecks';
 import { MonthCalendar, cmpDate, shortDate, longDate } from '../calendarUi';
 import { DEFAULT_TZ, todayIn, addDays, dateKey, timeIn, tzAbbrev } from '../schedule';
 
@@ -44,6 +46,31 @@ export function CheckList({ checks }) {
         </View>
       ))}
     </Card>
+  );
+}
+
+// What to do about failing renter checks: fill in the pilot profile, or ask the owner for a checkout.
+export function RenterFixes({ checks, plane, nav, onCheckout, busy, err }) {
+  const bad = checks.filter((c) => c.blocking && !c.ok);
+  const needProfile = bad.some((c) => c.fix === 'profile');
+  const needCheckout = bad.some((c) => c.fix === 'checkout');
+  const waiting = checks.some((c) => c.key === 'checkout' && !c.ok && !c.fix);
+  if (!needProfile && !needCheckout && !waiting) return null;
+  return (
+    <View style={bs.fixes}>
+      {needProfile && (
+        <Pressable onPress={() => nav.push('PilotProfile')} accessibilityRole="button" style={bs.fixRow}>
+          <Text style={bs.fixText}>Update your pilot profile ›</Text>
+        </Pressable>
+      )}
+      {needCheckout && !needProfile && (
+        <Pressable onPress={onCheckout} disabled={busy} accessibilityRole="button" style={bs.fixRow}>
+          <Text style={bs.fixText}>{busy ? 'Sending…' : `Ask the owner to check you out in ${plane.tail} ›`}</Text>
+        </Pressable>
+      )}
+      {waiting && <Text style={[bs.hint, { marginTop: 0 }]}>The owner reviews your pilot profile and confirms you’re checked out. You’ll get a notification. Usually you’ll fly a checkout with a CFI first: book one from this plane’s page.</Text>}
+      {!!err && <Text style={[bs.warn, { marginTop: 6 }]}>{err}</Text>}
+    </View>
   );
 }
 
@@ -73,12 +100,28 @@ export function RequestLesson({ nav, params }) {
   const repeat = isRepeat(requests, { cfiId: cfi?.id, planeId: plane?.id });
   const prepaid = method === 'wallet';
   const q = quote({ cfi, plane, flightHours, groundHours: cfi ? groundHours : 0, repeat, prepaid, cfiPro: cfi?.pro, method, affiliation: cfi ? affiliationFor(cfi.id) : null });
-  const checks = [
+  // Renting a real plane without an instructor: your pilot profile and the owner's checkout.
+  // (Sample listings keep the sample pilot so guests can try the flow.)
+  const me = usePilot();
+  const liveSolo = !cfi && !!plane && isLive(plane.id);
+  const checks = liveSolo ? [
+    ...(!me.signedIn ? [{ key: 'signin', label: 'Sign in to check you can rent this plane solo', ok: false, blocking: false }]
+      : me.loading ? [{ key: 'loading', label: 'Checking your pilot profile…', ok: false, blocking: true }]
+      : renterChecks({ profile: me.profile, checkout: me.checkoutFor(plane.id), plane, flightHours, start: start || new Date() })),
+    { label: 'Aircraft registration & insurance verified', ok: planeVerified(plane, docs), blocking: true },
+  ] : [
     ...bookingChecks({ pilot, cfi, plane, flightHours }),
     ...(cfi?.live ? [{ label: 'Instructor verified by RightSeat', ok: !!cfi.verified, blocking: true }] : []),
     ...(plane ? [{ label: 'Aircraft registration & insurance verified', ok: planeVerified(plane, docs), blocking: true }] : []),
     ...(!cfi && plane ? [{ label: 'Medical verified in RightSeat', ok: docs.me?.medical?.status === 'approved', blocking: true }] : []),
   ];
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [checkoutErr, setCheckoutErr] = useState('');
+  const askCheckout = async () => {
+    setCheckoutErr(''); setCheckoutBusy(true);
+    try { await requestCheckout(plane.id); } catch (e) { setCheckoutErr(e.message); }
+    setCheckoutBusy(false);
+  };
   const blocked = checks.some((c) => c.blocking && !c.ok);
   const walletShort = method === 'wallet' && available < q.total;
 
@@ -343,7 +386,8 @@ export function RequestLesson({ nav, params }) {
           <Icon name={showChecks || blocked ? 'down' : 'chevron'} size={18} color="#94A3B8" />
         </Pressable>
         {(showChecks || blocked) && <CheckList checks={blocked && !showChecks ? checks.filter((c) => !c.ok) : checks} />}
-        {blocked && !cfi && plane && (
+        {liveSolo && me.signedIn && <RenterFixes checks={checks} plane={plane} nav={nav} onCheckout={askCheckout} busy={checkoutBusy} err={checkoutErr} />}
+        {blocked && !cfi && plane && !liveSolo && (
           <Pressable onPress={() => setCfiId(planeOptions.length && getPlane(plane.id) ? (cfis.find((c) => c.aircraftIds.includes(plane.id))?.id || cfis[0].id) : cfis[0].id)}>
             <Text style={{ color: C.blue, fontWeight: '700', marginBottom: 8 }}>Book a checkout with a CFI instead ›</Text>
           </Pressable>
@@ -570,8 +614,9 @@ export function Lessons({ nav }) {
 // The invited pilot's side of a shared rental: the same checks as renting solo, a
 // confirmation that they're current, and the deposit for their share.
 export function SplitInvite({ nav, params }) {
-  const { getRequest, getPlane, pilot, docs, refreshLive } = useStore();
+  const { getRequest, getPlane, refreshLive } = useStore();
   const r = getRequest(params.id);
+  const me = usePilot();
   const payDeposit = useSplitDeposit();
   const [attest, setAttest] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -589,10 +634,14 @@ export function SplitInvite({ nav, params }) {
   const sp = r.split;
   const plane = getPlane(r.planeId);
   const booker = sp.bookerName.split(' ')[0];
-  const checks = plane ? [
-    ...bookingChecks({ pilot, cfi: null, plane, flightHours: r.flightHours }),
-    { label: 'Medical verified in RightSeat', ok: docs.me?.medical?.status === 'approved', blocking: true },
-  ] : [];
+  const checks = plane ? renterChecks({ profile: me.profile, checkout: me.checkoutFor(plane.id), plane, flightHours: r.flightHours, start: new Date(r.when) }) : [];
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [checkoutErr, setCheckoutErr] = useState('');
+  const askCheckout = async () => {
+    setCheckoutErr(''); setCheckoutBusy(true);
+    try { await requestCheckout(plane.id); } catch (e) { setCheckoutErr(e.message); }
+    setCheckoutBusy(false);
+  };
   const blocked = checks.some((c) => c.blocking && !c.ok);
   const openInvite = sp.status === 'invited' && r.status === 'Pending' && (!sp.holdUntil || new Date(sp.holdUntil) > new Date());
 
@@ -652,7 +701,8 @@ export function SplitInvite({ nav, params }) {
 
         <SectionTitle>Your rental checks</SectionTitle>
         <Text style={[bs.hint, { marginTop: 0, marginBottom: 6 }]}>The same checks as renting {plane?.tail || 'the plane'} solo.</Text>
-        <CheckList checks={checks} />
+        {me.loading ? <Text style={bs.hint}>Checking your pilot profile…</Text> : <CheckList checks={checks} />}
+        {plane && !me.loading && <RenterFixes checks={checks} plane={plane} nav={nav} onCheckout={askCheckout} busy={checkoutBusy} err={checkoutErr} />}
 
         <Card style={{ marginTop: 12 }}>
           <Toggle label="I’m current and meet this plane’s rental requirements" value={attest} onValueChange={setAttest}
@@ -666,8 +716,8 @@ export function SplitInvite({ nav, params }) {
       {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', paddingHorizontal: 16, paddingBottom: 6, backgroundColor: '#fff' }} accessibilityLiveRegion="polite">{err}</Text>}
       <View style={bs.cta}>
         <Button title="Decline" variant="outline" style={{ paddingHorizontal: 18, marginRight: 10 }} disabled={busy || !openInvite} onPress={decline} />
-        <Button title={busy ? 'Working…' : blocked ? 'Checks not met' : !attest ? 'Confirm you’re current' : `Pay ${money2(sp.partnerEst)} deposit`}
-          style={{ flex: 1 }} disabled={busy || blocked || !attest || !openInvite} onPress={accept} />
+        <Button title={busy ? 'Working…' : me.loading ? 'Checking…' : blocked ? 'Checks not met' : !attest ? 'Confirm you’re current' : `Pay ${money2(sp.partnerEst)} deposit`}
+          style={{ flex: 1 }} disabled={busy || me.loading || blocked || !attest || !openInvite} onPress={accept} />
       </View>
     </View>
   );
@@ -1002,6 +1052,9 @@ export function LeaveReview({ nav, params }) {
 }
 
 const bs = StyleSheet.create({
+  fixes: { marginBottom: 10 },
+  fixRow: { minHeight: 40, justifyContent: 'center' },
+  fixText: { color: C.blue, fontWeight: '800' },
   split: { backgroundColor: '#EEF4FF', borderRadius: 12, padding: 12, marginTop: 10 },
   stepNum: { width: 24, height: 24, borderRadius: 12, backgroundColor: C.blue, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   summary: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 14, marginTop: 18, marginBottom: 8, borderWidth: 1, borderColor: '#D1FAE5' },
