@@ -54,7 +54,11 @@ export function profileGaps(p) {
 //   checkout: { status: 'requested' | 'approved' | 'declined' | 'revoked', soloUntil } or null
 //   plane:    { tail, soloRental, insuranceMinHours, hobbsTotal, next100At }
 // Each check: { key, label, ok, blocking, fix: 'profile' | 'checkout' | null }
-export function renterChecks({ profile, checkout, plane, flightHours = 1, start = new Date(), tz = 'America/New_York' }) {
+// forCheckout: the checkout flight itself, flown with the owner on board. Being checked out
+// isn't required for it, but student pilots need a CFI (only a CFI can endorse them for solo).
+export const CHECKOUT_BY = ['cfi', 'owner', 'either'];
+export const ownerChecksOut = (plane) => ['owner', 'either'].includes(plane?.checkoutBy);
+export function renterChecks({ profile, checkout, plane, flightHours = 1, start = new Date(), tz = 'America/New_York', forCheckout = false }) {
   const day = ymdIn(start, tz);
   const tail = plane?.tail || 'this plane';
   const out = [];
@@ -82,11 +86,17 @@ export function renterChecks({ profile, checkout, plane, flightHours = 1, start 
     }
     const min = Number(plane?.insuranceMinHours || 0);
     if (min > 0) out.push({ key: 'insurance', label: `Meets insurance minimum (${min} hrs total; you have ${Number(profile.totalHours)})`, ok: Number(profile.totalHours) >= min, blocking: true, fix: 'profile' });
-    if (student) {
+    if (student && forCheckout) {
+      out.push({ key: 'student', label: 'Student pilots get checked out by a CFI (for the solo endorsement)', ok: false, blocking: true, fix: null });
+    } else if (student) {
       const until = checkout?.status === 'approved' ? checkout.soloUntil : null;
       out.push({ key: 'endorsement', label: until ? `Solo endorsement for ${tail} (through ${fmt(until)})` : `Solo endorsement for ${tail} (shown to the owner at checkout)`,
         ok: !!until && until >= day, blocking: true, fix: 'checkout' });
     }
+  }
+  if (forCheckout) {
+    out.push({ key: 'ownerCheckout', label: `${tail}’s owner does checkouts`, ok: ownerChecksOut(plane), blocking: true, fix: null });
+    return out;
   }
   const st = checkout?.status;
   out.push({ key: 'checkout', label: st === 'approved' ? `Checked out in ${tail} by the owner` : st === 'requested' ? `Checkout in ${tail} requested · waiting for the owner` : `Checked out in ${tail}`,

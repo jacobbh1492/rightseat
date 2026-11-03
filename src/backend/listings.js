@@ -34,7 +34,7 @@ export function planeFromRow(row, photos = []) {
     engineSMOH: d.engineSMOH || 0, tbo: d.tbo || 2000, last100hr: d.last100hr || '',
     hobbsTotal: Number(row.hobbs_total || 0), next100At: Number(row.next_100_at || 0), squawks: [],
     ownerName: d.ownerName || 'Private owner', ownerType: row.owner_type, insuranceMinHours: d.insuranceMinHours || 0,
-    checkoutRequired: d.checkoutRequired || 'Checkout with a listed CFI', soloRental: d.soloRental !== false,
+    checkoutRequired: d.checkoutRequired || 'Checkout with a listed CFI', soloRental: d.soloRental !== false, checkoutBy: ['owner', 'either'].includes(d.checkoutBy) ? d.checkoutBy : 'cfi',
     rating: 0, reviewCount: 0, reviews: [], notes: d.notes || '', monthEarnings: 0, schoolId: row.school_id || null,
   };
 }

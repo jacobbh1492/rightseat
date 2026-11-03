@@ -154,6 +154,7 @@ export function Teaching({ nav, asTab }) {
               <Text style={{ color: C.blue, fontWeight: '700' }}>Message {r.studentName.split(' ')[0]} ›</Text>
             </Pressable>
             {!r.cardReady && <Text style={ts.warn}>Waiting for the student to finish adding their card.</Text>}
+            {r.checkoutFlight && <Text style={[ts.sub, { color: C.navy, fontWeight: '700', marginTop: 6 }]}>✈︎ Checkout flight: you fly along. Mark the result when you close it out.</Text>}
             {r.split?.pending && <Text style={ts.warn}>Shared flight: waiting for {r.split.partnerName.split(' ')[0]} to accept and pay their deposit.</Text>}
             {r.split?.status === 'accepted' && <Text style={ts.sub}>Shared flight: {r.split.bookerName.split(' ')[0]} {r.split.bookerPct}% · {r.split.partnerName.split(' ')[0]} {r.split.partnerPct}%. Both pilots are checked like solo renters.</Text>}
             {review(r)}
@@ -193,6 +194,7 @@ export function Teaching({ nav, asTab }) {
             </View>
             <Text style={ts.sub}>{r.date} · {r.time}</Text>
             <Text style={ts.sub}>{who(r)} · {hours(r)} booked</Text>
+            {r.checkoutFlight && <Text style={[ts.sub, { color: C.navy, fontWeight: '700' }]}>✈︎ Checkout flight with you on board</Text>}
             <Pressable onPress={() => nav.push('Chat', { key: r.studentId, other: r.studentId, name: r.studentName })} style={{ marginTop: 6 }} accessibilityRole="button">
               <Text style={{ color: C.blue, fontWeight: '700' }}>Message {r.studentName.split(' ')[0]} ›</Text>
             </Pressable>
@@ -250,6 +252,7 @@ export function LiveCloseOut({ nav, params }) {
   const [xc, setXc] = useState(/cross/i.test(r?.goal || ''));
   const [inst, setInst] = useState(0);
   const [debrief, setDebrief] = useState({ wentWell: '', needsWork: '', nextPlan: '' });
+  const [checkoutResult, setCheckoutResult] = useState(null); // checkout flight: 'approved' | 'more'
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [result, setResult] = useState(null);
@@ -269,6 +272,7 @@ export function LiveCloseOut({ nav, params }) {
       const res = await bookingAction(r.id, 'complete', {
         flightHours: fh, groundHours: r.cfiId ? ground : 0, night, xc, instrumentHours: r.cfiId ? inst : 0,
         debrief: r.role === 'cfi' && debriefDone ? { ...debrief, flownOn: r.when.slice(0, 10) } : undefined,
+        checkoutResult: r.checkoutFlight ? checkoutResult : undefined,
       });
       setResult(res);
       refreshLive().catch(() => {});
@@ -283,7 +287,7 @@ export function LiveCloseOut({ nav, params }) {
     const sh = result.shared;
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>
-        <Header nav={nav} title="Lesson closed out" />
+        <Header nav={nav} title={r.role === 'owner' ? 'Flight closed out' : 'Lesson closed out'} />
         <ScrollView contentContainerStyle={{ padding: 16 }}>
           <Card>
             <Text style={{ fontWeight: '900', fontSize: 20, color: C.text }}>Done ✓</Text>
@@ -291,7 +295,7 @@ export function LiveCloseOut({ nav, params }) {
               {sh ? `${r.studentName.split(' ')[0]} and ${r.split?.partnerName?.split(' ')[0] || 'the other pilot'} were charged their shares` : `${r.studentName}’s card was charged`} for {fh} hr{r.cfiId && ground ? ` + ${ground} hr ground` : ''}.
             </Text>
             <View style={{ marginTop: 10 }}>
-              <Row label={sh ? 'Pilots paid' : 'Student paid'} value={money2(result.total)} />
+              <Row label={sh ? 'Pilots paid' : r.role === 'owner' ? 'Renter paid' : 'Student paid'} value={money2(result.total)} />
               {sh && <Row label={`  ${r.studentName.split(' ')[0]} · ${r.split?.bookerPct}%`} value={money2(sh.bookerAmount + (sh.coveredByBooker || 0))} />}
               {sh && <Row label={`  ${r.split?.partnerName?.split(' ')[0] || 'Other pilot'} · ${r.split?.partnerPct}%`} value={money2(sh.coveredByBooker ? sh.partnerShare - sh.coveredByBooker : sh.partnerShare)} />}
               <Row bold label="Your share" value={money2(mine)} />
@@ -300,6 +304,7 @@ export function LiveCloseOut({ nav, params }) {
               {waiting ? 'Waiting for your debrief. Write it to release your pay.' : held ? 'Held for you until you set up payouts.' : 'On its way to your bank (usually 2 business days).'}
             </Text>
             {r.role === 'cfi' && result.debriefReleased && <Text style={[ts.sub, { marginTop: 8 }]}>Debrief saved to {r.studentName.split(' ')[0]}’s training record.</Text>}
+            {result.checkoutResult && <Text style={[ts.sub, { marginTop: 8, fontWeight: '700', color: result.checkoutResult === 'approved' ? C.green : C.navy }]}>{result.checkoutResult === 'approved' ? `${r.studentName.split(' ')[0]} is checked out in ${r.tail || 'your plane'} and can rent it solo.` : `${r.studentName.split(' ')[0]} needs more time. They can book another checkout flight with you.`}</Text>}
             {waiting && <Button title="Write debrief now" style={{ marginTop: 14 }} onPress={() => nav.replace ? nav.replace('WriteDebrief', { id: r.id }) : nav.push('WriteDebrief', { id: r.id })} />}
             {r.role === 'cfi' && <Button title={`Book ${r.studentName.split(' ')[0]}’s next lesson`} variant="outline" style={{ marginTop: 8 }} onPress={() => nav.replace('ProposeLesson', { studentId: r.studentId, planeId: r.planeId, goal: r.goal })} />}
             <Button title="Done" variant={waiting ? 'outline' : undefined} style={{ marginTop: waiting ? 8 : 14 }} onPress={nav.pop} />
@@ -343,9 +348,24 @@ export function LiveCloseOut({ nav, params }) {
           </>
         )}
 
+        {r.checkoutFlight && r.role === 'owner' && (
+          <>
+            <SectionTitle>Checkout result</SectionTitle>
+            <Text style={[ts.sub, { marginBottom: 8 }]}>Can {r.studentName.split(' ')[0]} rent {r.tail || 'the plane'} solo now?</Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {[['approved', 'Checked out ✓'], ['more', 'Needs more time']].map(([k, l]) => (
+                <Pressable key={k} onPress={() => setCheckoutResult(k)} style={[ts.choice, checkoutResult === k && (k === 'approved' ? ts.choiceGo : ts.choiceMore)]} accessibilityRole="radio" accessibilityState={{ checked: checkoutResult === k }}>
+                  <Text style={{ fontWeight: '800', color: checkoutResult === k ? '#fff' : C.text }}>{l}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={[ts.sub, { marginTop: 6 }]}>{checkoutResult === 'more' ? 'They stay unapproved; they can book another checkout flight with you.' : 'Checked out = they can book this plane solo from now on. You can remove it later in Renter checkouts.'}</Text>
+          </>
+        )}
+
         {est && (
           <>
-            <SectionTitle>The student will be charged</SectionTitle>
+            <SectionTitle>{r.role === 'owner' ? 'The renter will be charged' : 'The student will be charged'}</SectionTitle>
             <Card>
               {est.instruction > 0 && <Row label={`Instruction · ${fh} hr`} value={money2(est.instruction)} />}
               {est.ground > 0 && <Row label={`Ground · ${ground} hr`} value={money2(est.ground)} />}
@@ -360,7 +380,7 @@ export function LiveCloseOut({ nav, params }) {
         {!!err && <Text style={ts.err} accessibilityLiveRegion="polite">{err}</Text>}
       </ScrollView>
       <View style={ts.cta}>
-        <Button title={busy ? 'Charging…' : !valid ? 'Enter Hobbs times' : r.role === 'cfi' && !debriefDone ? `Close out ${fh} hr · debrief later` : `Close out ${fh} hr & charge`} disabled={busy || !valid} style={{ flex: 1 }} onPress={submit} />
+        <Button title={busy ? 'Charging…' : !valid ? 'Enter Hobbs times' : r.checkoutFlight && r.role === 'owner' && !checkoutResult ? 'Pick the checkout result' : r.role === 'cfi' && !debriefDone ? `Close out ${fh} hr · debrief later` : `Close out ${fh} hr & charge`} disabled={busy || !valid || (r.checkoutFlight && r.role === 'owner' && !checkoutResult)} style={{ flex: 1 }} onPress={submit} />
       </View>
     </View>
   );
@@ -435,5 +455,8 @@ const ts = StyleSheet.create({
   err: { color: '#B91C1C', fontWeight: '600', marginTop: 10 },
   empty: { color: C.sub },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  choice: { flex: 1, minHeight: 48, borderRadius: 12, borderWidth: 1.5, borderColor: C.line, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  choiceGo: { backgroundColor: C.green, borderColor: C.green },
+  choiceMore: { backgroundColor: C.navy, borderColor: C.navy },
   cta: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', padding: 16, paddingBottom: 28, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: C.line },
 });

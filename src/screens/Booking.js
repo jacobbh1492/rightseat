@@ -22,7 +22,7 @@ import { useLibrary } from '../library/useLibrary';
 import { ReviewChip } from './Library';
 import { useOpenTimes } from '../useOpenTimes';
 import { usePilot, requestCheckout } from '../backend/pilot';
-import { renterChecks } from '../renterChecks';
+import { renterChecks, ownerChecksOut } from '../renterChecks';
 import { MonthCalendar, cmpDate, shortDate, longDate } from '../calendarUi';
 import { DEFAULT_TZ, todayIn, addDays, dateKey, timeIn, tzAbbrev } from '../schedule';
 
@@ -50,11 +50,13 @@ export function CheckList({ checks }) {
 }
 
 // What to do about failing renter checks: fill in the pilot profile, or ask the owner for a checkout.
-export function RenterFixes({ checks, plane, nav, onCheckout, busy, err }) {
+export function RenterFixes({ checks, plane, nav, onCheckout, busy, err, onCheckoutFlight, student }) {
   const bad = checks.filter((c) => c.blocking && !c.ok);
   const needProfile = bad.some((c) => c.fix === 'profile');
-  const needCheckout = bad.some((c) => c.fix === 'checkout');
+  const needCheckout = bad.some((c) => c.fix === 'checkout') || checks.some((c) => c.key === 'checkout' && !c.ok);
   const waiting = checks.some((c) => c.key === 'checkout' && !c.ok && !c.fix);
+  // The owner does checkouts: book a checkout flight with them (not for student pilots).
+  const flightWithOwner = onCheckoutFlight && needCheckout && !needProfile && !student && ownerChecksOut(plane);
   if (!needProfile && !needCheckout && !waiting) return null;
   return (
     <View style={bs.fixes}>
@@ -63,12 +65,17 @@ export function RenterFixes({ checks, plane, nav, onCheckout, busy, err }) {
           <Text style={bs.fixText}>Update your pilot profile ›</Text>
         </Pressable>
       )}
-      {needCheckout && !needProfile && (
+      {flightWithOwner && (
+        <Pressable onPress={onCheckoutFlight} accessibilityRole="button" style={bs.fixRow}>
+          <Text style={bs.fixText}>Book a checkout flight with the owner ›</Text>
+        </Pressable>
+      )}
+      {needCheckout && !needProfile && !waiting && !(flightWithOwner && plane.checkoutBy === 'owner') && (
         <Pressable onPress={onCheckout} disabled={busy} accessibilityRole="button" style={bs.fixRow}>
           <Text style={bs.fixText}>{busy ? 'Sending…' : `Ask the owner to check you out in ${plane.tail} ›`}</Text>
         </Pressable>
       )}
-      {waiting && <Text style={[bs.hint, { marginTop: 0 }]}>The owner reviews your pilot profile and confirms you’re checked out. You’ll get a notification. Usually you’ll fly a checkout with a CFI first: book one from this plane’s page.</Text>}
+      {waiting && <Text style={[bs.hint, { marginTop: 0 }]}>{ownerChecksOut(plane) ? 'The owner reviews your pilot profile and confirms you’re checked out, usually after a checkout flight with them.' : 'The owner reviews your pilot profile and confirms you’re checked out. Usually you’ll fly a checkout with a CFI first: book one from this plane’s page.'} You’ll get a notification.</Text>}
       {!!err && <Text style={[bs.warn, { marginTop: 6 }]}>{err}</Text>}
     </View>
   );
@@ -90,6 +97,8 @@ export function RequestLesson({ nav, params }) {
   const [moreGoals, setMoreGoals] = useState(false);
   const [showChecks, setShowChecks] = useState(false);
   const [showCost, setShowCost] = useState(false);
+  // A checkout flight with the plane's owner on board (for planes whose owner does checkouts).
+  const [checkoutFlight, setCheckoutFlight] = useState(!!params.checkout);
   // Shared solo rental: invite another pilot and pick your share (50–90%).
   const [shareOn, setShareOn] = useState(false);
   const [shareEmail, setShareEmail] = useState('');
@@ -107,7 +116,7 @@ export function RequestLesson({ nav, params }) {
   const checks = liveSolo ? [
     ...(!me.signedIn ? [{ key: 'signin', label: 'Sign in to check you can rent this plane solo', ok: false, blocking: false }]
       : me.loading ? [{ key: 'loading', label: 'Checking your pilot profile…', ok: false, blocking: true }]
-      : renterChecks({ profile: me.profile, checkout: me.checkoutFor(plane.id), plane, flightHours, start: start || new Date() })),
+      : renterChecks({ profile: me.profile, checkout: me.checkoutFor(plane.id), plane, flightHours, start: start || new Date(), forCheckout: checkoutFlight && !cfi })),
     { label: 'Aircraft registration & insurance verified', ok: planeVerified(plane, docs), blocking: true },
   ] : [
     ...bookingChecks({ pilot, cfi, plane, flightHours }),
@@ -164,7 +173,7 @@ export function RequestLesson({ nav, params }) {
   const [busy, setBusy] = useState(false);
   const [payErr, setPayErr] = useState('');
   const live = isLive(cfi?.id) || isLive(plane?.id);
-  const canShare = live && !cfi && !!plane;
+  const canShare = live && !cfi && !!plane && !checkoutFlight;
   const sharing = canShare && shareOn;
   const shareEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shareEmail.trim());
   const myShare = sharing ? r2(q.total * sharePct / 100) : q.total;
@@ -177,11 +186,12 @@ export function RequestLesson({ nav, params }) {
       if (!CARD_PAYMENTS_SUPPORTED) { setPayErr('Book from the RightSeat iPhone or Android app.'); return; }
       setBusy(true); setPayErr('');
       try {
-        const res = await payForBooking({ cfiId: cfi?.id || null, planeId: plane?.id || null, startsAt: when, goal: cfi ? goal : sharing ? 'Shared rental' : 'Solo rental', flightHours, groundHours: cfi ? groundHours : 0, prepaid,
-          split: sharing ? { email: shareEmail.trim(), bookerPct: sharePct } : undefined });
+        const rentalGoal = checkoutFlight ? 'Checkout flight with the owner' : sharing ? 'Shared rental' : 'Solo rental';
+        const res = await payForBooking({ cfiId: cfi?.id || null, planeId: plane?.id || null, startsAt: when, goal: cfi ? goal : rentalGoal, flightHours, groundHours: cfi ? groundHours : 0, prepaid,
+          split: sharing ? { email: shareEmail.trim(), bookerPct: sharePct } : undefined, checkout: checkoutFlight && !cfi ? true : undefined });
         setBusy(false);
         if (res.cancelled) { setPayErr('Card not saved, so the request wasn’t sent. Tap Send request to try again.'); return; }
-        const r = { id: res.booking.id, cfiId: cfi?.id || null, planeId: plane?.id || null, when, date: dateLabel(when), time: timeLabel(when), goal: cfi ? goal : sharing ? 'Shared rental' : 'Solo rental', flightHours, groundHours: cfi ? groundHours : 0, total: res.quote.total, repeat, prepaid, method: 'card', deposit: res.quote.deposit, status: 'Pending', live: true, role: 'student',
+        const r = { id: res.booking.id, cfiId: cfi?.id || null, planeId: plane?.id || null, when, date: dateLabel(when), time: timeLabel(when), goal: cfi ? goal : rentalGoal, flightHours, groundHours: cfi ? groundHours : 0, total: res.quote.total, repeat, prepaid, method: 'card', deposit: res.quote.deposit, status: 'Pending', live: true, role: 'student',
           split: res.split ? { status: 'invited', bookerPct: res.split.bookerPct, partnerPct: 100 - res.split.bookerPct, partnerName: shareEmail.trim(), holdUntil: res.split.holdUntil, pending: true, bookerEst: res.split.booker, partnerEst: res.split.partner } : null,
           myTotal: res.split ? res.split.booker : res.quote.total };
         addRequest(r);
@@ -223,7 +233,7 @@ export function RequestLesson({ nav, params }) {
           <Text style={{ color: C.sub, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
             {sent.split
               ? `We sent the invite to ${sent.split.partnerName}. ${plane.tail} is held until ${new Date(sent.split.holdUntil).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}. Once they accept and pay their deposit, the owner gets your request.`
-              : <>{cfi ? `${cfi.name.split(' ')[0]} will confirm ${sent.date} at ${sent.time}` : `The owner will confirm ${sent.date} at ${sent.time}`}{plane ? ` and ${plane.tail} is held for you.` : '.'}</>}
+              : <>{cfi ? `${cfi.name.split(' ')[0]} will confirm ${sent.date} at ${sent.time}` : checkoutFlight ? `The owner will confirm your checkout flight on ${sent.date} at ${sent.time}` : `The owner will confirm ${sent.date} at ${sent.time}`}{plane ? ` and ${plane.tail} is held for you.` : '.'}</>}
           </Text>
           {sent.split && (
             <Card style={{ alignSelf: 'stretch', marginTop: 18 }}>
@@ -353,6 +363,18 @@ export function RequestLesson({ nav, params }) {
         <Text style={bs.hint}>Live calendar: {cfi ? `${cfi.name.split(' ')[0]}’s working hours and bookings` : 'no instructor'}{plane ? ` + ${plane.tail}’s bookings` : ''}. {cfi ? `They confirm every request.` : ''}</Text>
 
 
+        {checkoutFlight && !cfi && plane && (
+          <View style={bs.checkoutCard}>
+            <Text style={{ fontWeight: '800', color: C.navy }}>✈︎ Checkout flight with the owner</Text>
+            <Text style={{ color: C.navy, fontSize: 13, marginTop: 4, lineHeight: 18 }}>
+              {plane.ownerName && plane.ownerName !== 'Private owner' ? plane.ownerName : 'The owner'} flies along. You pay the normal rental for the Hobbs time; at the end they mark you checked out, and you can rent {plane.tail} solo after that.
+            </Text>
+            <Pressable onPress={() => setCheckoutFlight(false)} accessibilityRole="button" style={{ minHeight: 36, justifyContent: 'center' }}>
+              <Text style={{ color: C.blue, fontWeight: '700' }}>Not a checkout? Book a solo rental instead</Text>
+            </Pressable>
+          </View>
+        )}
+
         {canShare && (
           <>
             <Step n={4} title="Share the cost?" done={!shareOn || shareEmailOk} />
@@ -386,7 +408,8 @@ export function RequestLesson({ nav, params }) {
           <Icon name={showChecks || blocked ? 'down' : 'chevron'} size={18} color="#94A3B8" />
         </Pressable>
         {(showChecks || blocked) && <CheckList checks={blocked && !showChecks ? checks.filter((c) => !c.ok) : checks} />}
-        {liveSolo && me.signedIn && <RenterFixes checks={checks} plane={plane} nav={nav} onCheckout={askCheckout} busy={checkoutBusy} err={checkoutErr} />}
+        {liveSolo && me.signedIn && !checkoutFlight && <RenterFixes checks={checks} plane={plane} nav={nav} onCheckout={askCheckout} busy={checkoutBusy} err={checkoutErr}
+          onCheckoutFlight={() => setCheckoutFlight(true)} student={me.profile?.certificate === 'Student'} />}
         {blocked && !cfi && plane && !liveSolo && (
           <Pressable onPress={() => setCfiId(planeOptions.length && getPlane(plane.id) ? (cfis.find((c) => c.aircraftIds.includes(plane.id))?.id || cfis[0].id) : cfis[0].id)}>
             <Text style={{ color: C.blue, fontWeight: '700', marginBottom: 8 }}>Book a checkout with a CFI instead ›</Text>
@@ -1091,6 +1114,7 @@ export function LeaveReview({ nav, params }) {
 }
 
 const bs = StyleSheet.create({
+  checkoutCard: { backgroundColor: '#EEF4FF', borderRadius: 12, padding: 12, marginTop: 16 },
   proposal: { backgroundColor: '#F5F0FF', borderRadius: 12, padding: 12, marginTop: 10 },
   fixes: { marginBottom: 10 },
   fixRow: { minHeight: 40, justifyContent: 'center' },

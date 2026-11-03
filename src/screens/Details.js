@@ -236,7 +236,13 @@ export function PlaneDetail({ nav, params }) {
           <Card>
             <Row label="Solo rental allowed" value={p.soloRental ? 'Yes, after checkout' : 'No — fly with a CFI'} />
             <Row label="Insurance minimum" value={p.insuranceMinHours ? `${p.insuranceMinHours} hrs TT` : 'Student pilots OK'} />
+            {p.soloRental && <Row label="Checkout by" value={p.checkoutBy === 'owner' ? 'The owner' : p.checkoutBy === 'either' ? 'The owner or a CFI' : 'A CFI'} />}
             <Text style={[ds.body, { marginTop: 6 }]}>{p.checkoutRequired}</Text>
+            {p.soloRental && ['owner', 'either'].includes(p.checkoutBy) && (
+              <Pressable onPress={() => nav.push('Request', { cfiId: null, planeId: p.id, checkout: true })} accessibilityRole="button" style={{ minHeight: 40, justifyContent: 'center', marginTop: 4 }}>
+                <Text style={{ color: C.blue, fontWeight: '800' }}>Book a checkout flight with the owner ›</Text>
+              </Pressable>
+            )}
           </Card>
 
           {p.notes ? (

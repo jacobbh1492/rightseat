@@ -11,7 +11,7 @@ const dateLabel = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month
 
 export async function fetchMyBookings(userId) {
   const { data: rows, error } = await supabase.from('bookings')
-    .select('id, student_id, cfi_id, plane_id, starts_at, goal, flight_hours, ground_hours, status, quote, actual_hobbs, final_split, card_ready, cancel_reason, cancelled_by, conditions, split_pending, hold_until, proposed_by, proposal_expires')
+    .select('id, student_id, cfi_id, plane_id, starts_at, goal, flight_hours, ground_hours, status, quote, actual_hobbs, final_split, card_ready, cancel_reason, cancelled_by, conditions, split_pending, hold_until, proposed_by, proposal_expires, purpose')
     .order('starts_at', { ascending: false }).limit(200);
   if (error) throw error;
   const planeIds = [...new Set(rows.map((b) => b.plane_id).filter(Boolean))];
@@ -62,6 +62,7 @@ export async function fetchMyBookings(userId) {
       status: STATUS[b.status] || 'Pending', rawStatus: b.status, cardReady: !!b.card_ready,
       // Booked by the instructor for the student, waiting for the student to accept.
       proposal: b.status === 'proposed' ? { expires: b.proposal_expires, by: b.proposed_by } : null,
+      checkoutFlight: b.purpose === 'checkout', // a rental flown with the owner to check the renter out
       quote: b.quote, total: final ? final.total : b.quote?.total || 0, final, split,
       // what this person pays on a shared rental (the whole thing otherwise)
       myTotal: split && split.status === 'accepted' && role !== 'owner'

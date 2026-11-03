@@ -208,16 +208,34 @@ serve(async (req, body) => {
   await admin.from('bookings').update({ status: 'completed', actual_hobbs: actual.flightHours, conditions, final_split: { ...q.split, final: finalLine }, payment_intent_id: pi.id, charge_id: chargeId }).eq('id', b.id);
   if (q.split.platform) await admin.from('ledger').insert({ booking_id: b.id, kind: 'fee', amount: q.split.platform });
 
+  // A checkout flight with the owner: record the result. A pass checks the renter out.
+  let checkoutResult: string | null = null;
+  if (b.purpose === 'checkout' && plane) {
+    checkoutResult = body.checkoutResult === 'approved' ? 'approved' : 'more';
+    await admin.from('plane_checkouts').upsert({
+      plane_id: plane.id, pilot_id: b.student_id, status: checkoutResult === 'approved' ? 'approved' : 'requested',
+      note: checkoutResult === 'approved' ? 'Checked out by the owner on a checkout flight' : 'Needs more time before solo',
+      decided_by: user.id, decided_at: new Date().toISOString(),
+    }, { onConflict: 'plane_id,pilot_id' });
+    await admin.from('notifications').insert({
+      user_id: b.student_id, kind: checkoutResult === 'approved' ? 'checkout_approved' : 'checkout_more',
+      title: checkoutResult === 'approved' ? 'You’re checked out ✓' : 'Checkout: a bit more time',
+      body: checkoutResult === 'approved' ? `You can rent ${plane.tail} solo now.` : `The owner of ${plane.tail} wants another checkout flight before you rent it solo.`,
+      data: { screen: 'Lessons' },
+    });
+  }
+
   // The owner is paid now. On a lesson, the instructor's and school's shares wait for the debrief.
   const paid = await payShares({ b, plane, schoolId, split: q.split, charges, kind: 'final', awaitDebrief: !!b.cfi_id });
   let released = null;
   if (b.cfi_id && body.debrief && await saveDebrief(b, body.debrief)) released = await releaseDebrief(b, schoolId);
-  await audit(user.id, 'booking.completed', b.id, { total: q.total, actual, shared: !!shared });
+  await audit(user.id, 'booking.completed', b.id, { total: q.total, actual, shared: !!shared, checkoutResult });
   return json({
     status: 'completed', total: q.total, split: q.split, held: paid.held,
     awaitingDebrief: b.cfi_id && !released ? (q.split.cfi || 0) : 0,
     debriefReleased: released,
     shared: shared ? { bookerAmount, partnerShare, settle, coveredByBooker } : null,
+    checkoutResult,
   });
 });
 

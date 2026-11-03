@@ -5,7 +5,7 @@ import { money2 } from '../logic';
 import { AIRPORTS, CERTS, SPECIALTIES, AVIONICS, OWNER_TYPES } from '../data';
 import { useAuth } from '../backend/auth';
 import { saveCfiProfile, savePlaneListing } from '../backend/profiles';
-import { C, Card, Field, MultiSelect, Toggle, Button, SectionTitle, Avatar, pickImages, ListRow, Icon } from '../ui';
+import { C, Card, Field, MultiSelect, Toggle, Button, SectionTitle, Avatar, pickImages, ListRow, Icon, Chip } from '../ui';
 import { Header } from './Details';
 import { CfiCard, PlaneCard, SchoolCard } from './Explore';
 import { WeeklyHours } from './Availability';
@@ -418,7 +418,7 @@ export function PlaneForm({ nav }) {
     tail: '', year: '', make: '', model: '', category: ['Single'], homeAirport: ['KPIE'],
     wetRate: '', dryRate: '', blockRate: '', avionics: [], ifr: true, seats: '4', usefulLoad: '', cruise: '', fuelBurn: '',
     engineSMOH: '', tbo: '2000', last100hr: '', ownerName: '', ownerType: ['Private owner'], insuranceMinHours: '0',
-    checkoutRequired: '', soloRental: true, notes: '', onMyProfile: true, photos: [],
+    checkoutRequired: '', soloRental: true, checkoutBy: 'cfi', notes: '', onMyProfile: true, photos: [],
   });
   const set = (k) => (v) => setF((prev) => ({ ...prev, [k]: v }));
   const valid = f.tail.trim() && f.make.trim() && f.model.trim() && num(f.wetRate) > 0;
@@ -453,8 +453,9 @@ export function PlaneForm({ nav }) {
       ownerName: f.ownerName || 'You',
       ownerType: f.ownerType[0],
       insuranceMinHours: num(f.insuranceMinHours),
-      checkoutRequired: f.checkoutRequired || 'Checkout with a listed CFI',
+      checkoutRequired: f.checkoutRequired || (f.checkoutBy === 'cfi' ? 'Checkout with a listed CFI' : f.checkoutBy === 'owner' ? 'Checkout flight with the owner' : 'Checkout with the owner or a listed CFI'),
       soloRental: f.soloRental,
+      checkoutBy: f.checkoutBy,
       rating: 5.0,
       reviewCount: 0,
       notes: f.notes,
@@ -522,7 +523,19 @@ export function PlaneForm({ nav }) {
         <SectionTitle>Renter rules</SectionTitle>
         <Toggle label="Allow solo rental" hint="Off = renters must fly with a CFI" value={f.soloRental} onValueChange={set('soloRental')} />
         <Field label="Insurance min. total time (hrs)" keyboardType="numeric" value={f.insuranceMinHours} onChangeText={set('insuranceMinHours')} />
-        <Field label="Checkout requirement" value={f.checkoutRequired} onChangeText={set('checkoutRequired')} placeholder="1 hr checkout with a listed CFI" />
+        {f.soloRental && (
+          <>
+            <Text style={ms.fieldLabel}>Who does checkouts?</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 }}>
+              {[['cfi', 'A CFI'], ['owner', 'Me (the owner)'], ['either', 'Either']].map(([k, l]) => <Chip key={k} small label={l} active={f.checkoutBy === k} onPress={() => set('checkoutBy')(k)} />)}
+            </View>
+            <Text style={[ms.hint, { marginBottom: 12 }]}>
+              {f.checkoutBy === 'cfi' ? 'Renters fly a checkout with an instructor, then you approve them in Renter checkouts.'
+                : 'Renters can book a checkout flight with you: a rental where you fly along. At close-out you mark them checked out. Student pilots still need a CFI for their solo endorsement.'}
+            </Text>
+          </>
+        )}
+        <Field label="Checkout requirement" value={f.checkoutRequired} onChangeText={set('checkoutRequired')} placeholder={f.checkoutBy === 'cfi' ? '1 hr checkout with a listed CFI' : '1 hr checkout flight with me, pattern work + maneuvers'} />
 
         <SectionTitle>Owner</SectionTitle>
         <MultiSelect single label="Owner type" options={OWNER_TYPES} selected={f.ownerType} onChange={set('ownerType')} />
@@ -681,6 +694,7 @@ const ms = StyleSheet.create({
   h1: { fontSize: 28, fontWeight: '900', color: C.text, marginBottom: 14, marginTop: 6 },
   two: { flexDirection: 'row' },
   hint: { color: C.sub, fontSize: 12, marginBottom: 10 },
+  fieldLabel: { color: C.sub, fontSize: 13, fontWeight: '700', marginBottom: 6 },
   planeRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 10, marginBottom: 8, borderWidth: 1.5, borderColor: C.line },
   cta: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#fff', padding: 14, paddingBottom: 24, borderTopWidth: 1, borderTopColor: C.line, flexDirection: 'row' },
 });

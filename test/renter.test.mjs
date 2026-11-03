@@ -64,3 +64,15 @@ test('flight review lasts 24 calendar months (61.56)', () => {
 test('dates use the local calendar day of the flight', () => {
   assert.equal(ymdIn(new Date('2026-11-11T03:00:00Z'), 'America/New_York'), '2026-11-10');
 });
+
+test('checkout flight with the owner: no checkout needed, owner must do checkouts, no student pilots', async () => {
+  const { ownerChecksOut } = await import('../src/renterChecks.js');
+  const ownerPlane = { ...plane, checkoutBy: 'owner' };
+  assert.deepEqual(keys(renterChecks({ profile: pvt, checkout: null, plane: ownerPlane, start, forCheckout: true })), []);
+  assert.deepEqual(keys(renterChecks({ profile: pvt, checkout: null, plane: { ...plane, checkoutBy: 'cfi' }, start, forCheckout: true })), ['ownerCheckout']);
+  assert.deepEqual(keys(renterChecks({ profile: { ...pvt, medicalExpires: '2026-01-01' }, checkout: null, plane: ownerPlane, start, forCheckout: true })), ['medical']); // still current
+  const stu = { certificate: 'Student', medicalClass: '3rd class', medicalExpires: '2028-05-31', flightReviewDate: null, totalHours: 120 };
+  assert.deepEqual(keys(renterChecks({ profile: stu, checkout: null, plane: ownerPlane, start, forCheckout: true })), ['student']);
+  assert.equal(ownerChecksOut({ checkoutBy: 'either' }), true);
+  assert.equal(ownerChecksOut({}), false);
+});
