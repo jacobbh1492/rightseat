@@ -4,14 +4,14 @@ import { supabase, callFn } from './supabase';
 
 // Live bookings the signed-in user is part of: as the student, the instructor,
 // the plane owner, or the other pilot on a shared rental (role 'partner'). Row-level security on the server decides what's visible.
-const STATUS = { requested: 'Pending', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', no_show: 'Cancelled', disputed: 'Completed' };
+const STATUS = { proposed: 'Proposed', requested: 'Pending', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', no_show: 'Cancelled', disputed: 'Completed' };
 
 const timeLabel = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 const dateLabel = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
 export async function fetchMyBookings(userId) {
   const { data: rows, error } = await supabase.from('bookings')
-    .select('id, student_id, cfi_id, plane_id, starts_at, goal, flight_hours, ground_hours, status, quote, actual_hobbs, final_split, card_ready, cancel_reason, cancelled_by, conditions, split_pending, hold_until')
+    .select('id, student_id, cfi_id, plane_id, starts_at, goal, flight_hours, ground_hours, status, quote, actual_hobbs, final_split, card_ready, cancel_reason, cancelled_by, conditions, split_pending, hold_until, proposed_by, proposal_expires')
     .order('starts_at', { ascending: false }).limit(200);
   if (error) throw error;
   const planeIds = [...new Set(rows.map((b) => b.plane_id).filter(Boolean))];
@@ -60,6 +60,8 @@ export async function fetchMyBookings(userId) {
       when: b.starts_at, date: dateLabel(when), time: timeLabel(when),
       goal: b.goal, flightHours: Number(b.flight_hours), groundHours: Number(b.ground_hours),
       status: STATUS[b.status] || 'Pending', rawStatus: b.status, cardReady: !!b.card_ready,
+      // Booked by the instructor for the student, waiting for the student to accept.
+      proposal: b.status === 'proposed' ? { expires: b.proposal_expires, by: b.proposed_by } : null,
       quote: b.quote, total: final ? final.total : b.quote?.total || 0, final, split,
       // what this person pays on a shared rental (the whole thing otherwise)
       myTotal: split && split.status === 'accepted' && role !== 'owner'
@@ -81,6 +83,10 @@ export async function fetchMyBookings(userId) {
 
 // confirm | decline | cancel | complete | debrief  (see supabase/functions/booking-action)
 export const bookingAction = (bookingId, action, extra = {}) => callFn('booking-action', { bookingId, action, ...extra });
+
+// An instructor books a lesson for one of their students (see supabase/functions/propose).
+export const proposeLesson = ({ studentId, planeId, startsAt, flightHours, groundHours, goal }) =>
+  callFn('propose', { studentId, planeId: planeId || null, startsAt, flightHours, groundHours, goal });
 
 // Shared rentals: accept is in payments (it needs Stripe's sheet); decline | leave | solo here.
 export const splitAction = (bookingId, action) => callFn('split', { bookingId, action });

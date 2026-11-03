@@ -84,3 +84,34 @@ export function useSplitDeposit() {
     return { status: 'accepted', deposit: res.deposit };
   };
 }
+
+// A lesson the instructor booked: the student saves a card for it, which confirms it.
+export function useAcceptProposal() {
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  return async (bookingId) => {
+    const res = await callFn('booking-action', { bookingId, action: 'accept' });
+    if (res.status === 'confirmed') return { status: 'confirmed' };
+    const { error: initErr } = await initPaymentSheet({
+      merchantDisplayName: 'RightSeat',
+      customerId: res.payment.customer,
+      customerEphemeralKeySecret: res.payment.ephemeralKey,
+      setupIntentClientSecret: res.payment.setupIntentClientSecret,
+      allowsDelayedPaymentMethods: false,
+      returnURL: Linking.createURL('stripe-redirect'),
+      primaryButtonLabel: 'Save card & accept lesson',
+    });
+    if (initErr) throw new Error(initErr.message);
+    const { error } = await presentPaymentSheet();
+    if (error) {
+      if (error.code === 'Canceled') return { cancelled: true };
+      throw new Error(error.message);
+    }
+    let check = { bookingStatus: 'proposed' };
+    for (let i = 0; i < 3 && check.bookingStatus !== 'confirmed'; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 1500));
+      check = await callFn('booking-action', { bookingId, action: 'card' });
+    }
+    if (check.bookingStatus !== 'confirmed') throw new Error('Your card is still being saved. Check back in a minute.');
+    return { status: 'confirmed' };
+  };
+}

@@ -55,7 +55,7 @@ serve(async (req, body) => {
       ok(await admin.from('booking_splits').update({ status: sp.status === 'accepted' ? 'left' : 'declined', responded_at: new Date().toISOString() }).eq('id', sp.id));
     }
   }
-  const { data: open } = await admin.from('bookings').select('id, student_id').or(mine).eq('status', 'requested');
+  const { data: open } = await admin.from('bookings').select('id, student_id').or(mine).in('status', ['requested', 'proposed']);
   for (const b of open || []) {
     const sp = (splits || []).find((x: any) => x.booking_id === b.id && x.booker_id === uid);
     if (sp) { await refundDeposit(sp, 'account deleted'); ok(await admin.from('booking_splits').update({ status: 'cancelled' }).eq('id', sp.id)); }

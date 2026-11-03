@@ -67,6 +67,8 @@ export function Teaching({ nav, asTab }) {
 
   const requests = teaching.filter((r) => r.status === 'Pending').sort((a, b) => new Date(a.when) - new Date(b.when));
   const upcoming = teaching.filter((r) => r.status === 'Confirmed').sort((a, b) => new Date(a.when) - new Date(b.when));
+  const proposed = teaching.filter((r) => r.status === 'Proposed').sort((a, b) => new Date(a.when) - new Date(b.when));
+  const byWhen = (iso) => new Date(iso).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
   const done = teaching.filter((r) => ['Completed', 'Cancelled'].includes(r.status)).sort((a, b) => new Date(b.when) - new Date(a.when)).slice(0, asTab ? 5 : 20);
   const held = teaching.filter((r) => r.payout === 'held').reduce((a, r) => a + (r.share || 0), 0);
   const needDebrief = teaching.filter((r) => r.payout === 'debrief');
@@ -160,6 +162,23 @@ export function Teaching({ nav, asTab }) {
                 onPress={() => act(r, 'decline', { reason: `Declined by ${role(r)}` })} />
               <Button title={busy === `${r.id}:confirm` ? 'Confirming…' : 'Confirm'} disabled={!!busy || !r.cardReady || !!r.split?.pending} style={{ flex: 1, paddingVertical: 10 }}
                 onPress={() => act(r, 'confirm')} />
+            </View>
+          </Card>
+        ))}
+
+        {proposed.length > 0 && <SectionTitle>Waiting on students</SectionTitle>}
+        {proposed.map((r) => (
+          <Card key={r.id}>
+            <View style={ts.rowTop}>
+              <Text style={ts.title}>{r.goal}</Text>
+              <Tag label="Sent" color="#7C3AED" bg="#F1E8FF" />
+            </View>
+            <Text style={ts.sub}>{r.date} · {r.time}</Text>
+            <Text style={ts.sub}>{who(r)} · {hours(r)}</Text>
+            <Text style={[ts.sub, { marginTop: 4 }]}>You booked this. {r.studentName.split(' ')[0]} has until {byWhen(r.proposal.expires)} to accept; it’s confirmed as soon as they do.</Text>
+            <View style={{ flexDirection: 'row', marginTop: 10 }}>
+              <Button title={busy === `${r.id}:cancel` ? 'Withdrawing…' : 'Withdraw'} variant="outline" disabled={!!busy} style={{ flex: 1, paddingVertical: 10 }}
+                onPress={() => act(r, 'cancel', { reason: 'Withdrawn by instructor' })} />
             </View>
           </Card>
         ))}
@@ -282,6 +301,7 @@ export function LiveCloseOut({ nav, params }) {
             </Text>
             {r.role === 'cfi' && result.debriefReleased && <Text style={[ts.sub, { marginTop: 8 }]}>Debrief saved to {r.studentName.split(' ')[0]}’s training record.</Text>}
             {waiting && <Button title="Write debrief now" style={{ marginTop: 14 }} onPress={() => nav.replace ? nav.replace('WriteDebrief', { id: r.id }) : nav.push('WriteDebrief', { id: r.id })} />}
+            {r.role === 'cfi' && <Button title={`Book ${r.studentName.split(' ')[0]}’s next lesson`} variant="outline" style={{ marginTop: 8 }} onPress={() => nav.replace('ProposeLesson', { studentId: r.studentId, planeId: r.planeId, goal: r.goal })} />}
             <Button title="Done" variant={waiting ? 'outline' : undefined} style={{ marginTop: waiting ? 8 : 14 }} onPress={nav.pop} />
           </Card>
         </ScrollView>
@@ -376,7 +396,8 @@ export function WriteDebrief({ nav, params }) {
             <Text style={[ts.sub, { marginTop: 8, color: heldNow ? '#B45309' : C.green, fontWeight: '700' }]}>
               {heldNow ? `${money2(amount)} is held for you until you set up payouts.` : `${money2(done ? done.paid || amount : amount)} is on its way to your bank (usually 2 business days).`}
             </Text>
-            <Button title="Done" style={{ marginTop: 14 }} onPress={nav.pop} />
+            <Button title={`Book ${r.studentName.split(' ')[0]}’s next lesson`} style={{ marginTop: 14 }} onPress={() => nav.replace('ProposeLesson', { studentId: r.studentId, planeId: r.planeId })} />
+            <Button title="Done" variant="outline" style={{ marginTop: 8 }} onPress={nav.pop} />
           </Card>
         </ScrollView>
       </View>

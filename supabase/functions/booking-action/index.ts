@@ -9,6 +9,7 @@
 // Shared solo rentals (see the split function): the booker pays their share and the other
 // pilot's deposit covers theirs, with any difference charged or refunded at close-out.
 import { serve, json, admin, stripe, requireUser, audit, customerFor } from '../_shared/server.ts';
+import { confirmProposalIfReady } from '../_shared/proposals.ts';
 import { assertTransition, roleIn, finalPrice, validateActuals, cancellationFee, cents, parseDebrief, splitShares, partnerSettlement, HttpError } from '../_shared/bookings.js';
 import { payShares, releaseDebrief, type Charge } from '../_shared/payouts.ts';
 import { loadSplit, refundDeposit } from '../_shared/splits.ts';
@@ -75,15 +76,42 @@ serve(async (req, body) => {
   // Stripe directly instead of trusting the sheet, so a request is only "sent" with a saved card.
   if (action === 'card') {
     if (role !== 'student') throw new HttpError(403, 'This isn’t your booking.');
-    if (b.card_ready) return json({ cardReady: true });
+    if (b.card_ready) return json({ cardReady: true, bookingStatus: b.status === 'proposed' ? await confirmProposalIfReady(b.id) : b.status });
     if (!b.setup_intent_id) return json({ cardReady: false });
     const si = await stripe.setupIntents.retrieve(b.setup_intent_id);
     const ready = si.status === 'succeeded' && !!si.payment_method;
     if (ready) await admin.from('bookings').update({ card_ready: true }).eq('id', b.id);
-    return json({ cardReady: ready, status: si.status });
+    // A lesson the instructor proposed is confirmed the moment the student's card is saved.
+    const status = ready && b.status === 'proposed' ? await confirmProposalIfReady(b.id) : b.status;
+    return json({ cardReady: ready, status: si.status, bookingStatus: status });
   }
 
   assertTransition(action, b, role);
+
+  // The student accepts a lesson their instructor booked: save a card for it (Stripe's
+  // sheet), then the app calls "card", which confirms the lesson.
+  if (action === 'accept') {
+    if (b.proposal_expires && new Date(b.proposal_expires).getTime() <= Date.now()) throw new HttpError(409, 'This lesson wasn’t accepted in time. Ask your instructor to book it again.');
+    const { data: me } = await admin.auth.admin.getUserById(user.id);
+    const customer = await customerFor({ id: user.id, email: me?.user?.email });
+    let si = b.setup_intent_id ? await stripe.setupIntents.retrieve(b.setup_intent_id) : null;
+    if (!si || si.status === 'canceled') {
+      si = await stripe.setupIntents.create({ customer, usage: 'off_session', payment_method_types: ['card'], metadata: { booking_id: b.id, user_id: user.id } }, { idempotencyKey: 'si-' + b.id });
+      await admin.from('bookings').update({ setup_intent_id: si.id }).eq('id', b.id);
+    }
+    if (si.status === 'succeeded') {
+      await admin.from('bookings').update({ card_ready: true }).eq('id', b.id);
+      return json({ status: await confirmProposalIfReady(b.id) });
+    }
+    const ek = await stripe.ephemeralKeys.create({ customer }, { apiVersion: '2024-12-18.acacia' });
+    return json({ status: 'proposed', payment: { setupIntentClientSecret: si.client_secret, customer, ephemeralKey: ek.secret } });
+  }
+
+  if (action === 'reject') {
+    await admin.from('bookings').update({ status: 'cancelled', cancelled_by: user.id, cancel_reason: String(body.reason || 'Student declined').slice(0, 300) }).eq('id', b.id).eq('status', 'proposed');
+    await audit(user.id, 'booking.proposal_declined', b.id);
+    return json({ status: 'cancelled' });
+  }
 
   if (action === 'confirm') {
     if (!b.card_ready) throw new HttpError(409, 'Waiting for the student to finish adding their card.');

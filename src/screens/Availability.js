@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useStore } from '../store';
 import { useAuth } from '../backend/auth';
-import { C, Card, Button, Chip, Field, Toggle, Icon, SectionTitle } from '../ui';
+import { C, Card, Button, Chip, Field, Toggle, Icon, SectionTitle, Sheet } from '../ui';
 import { Header } from './Details';
 import { fetchSchedule, saveSchedule, fetchTimeOff, addTimeOff, removeTimeOff, onScheduleChange } from '../backend/schedule';
 import {
@@ -323,7 +323,7 @@ export function BlockTime({ nav, params }) {
 // timeline of lessons, requests and blocked time against working hours, and change it in
 // place: tap an open hour to block it, take the day off, or edit hours.
 const HOUR_H = 46;
-const LESSON_COLORS = { Pending: ['#FEF3C7', '#B45309'], Confirmed: ['#DCE8FF', C.blue], Completed: ['#E3F7EF', C.green] };
+const LESSON_COLORS = { Proposed: ['#F1E8FF', '#7C3AED'], Pending: ['#FEF3C7', '#B45309'], Confirmed: ['#DCE8FF', C.blue], Completed: ['#E3F7EF', C.green] };
 
 export function ScheduleCalendar({ nav, embedded }) {
   const cal = useMyCalendar();
@@ -336,10 +336,12 @@ export function ScheduleCalendar({ nav, embedded }) {
   const [showMonth, setShowMonth] = useState(false);
   const [month, setMonth] = useState({ y: today.y, m: today.m });
   const [picked, setPicked] = useState(null); // a time-off block tapped on the timeline
+  const [hourMenu, setHourMenu] = useState(null); // an open hour tapped: book a student or block it
+  const hasStudents = teaching.some((r) => r.role === 'cfi' && ['Pending', 'Confirmed', 'Completed'].includes(r.status));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
 
-  const lessons = teaching.filter((r) => r.role === 'cfi' && ['Pending', 'Confirmed', 'Completed'].includes(r.status));
+  const lessons = teaching.filter((r) => r.role === 'cfi' && ['Proposed', 'Pending', 'Confirmed', 'Completed'].includes(r.status));
   const dayOf = (d) => { const p = zonedParts(d, tz); return { y: p.y, m: p.m, d: p.d }; };
   const hasLesson = (dt) => lessons.some((r) => sameDate(dayOf(new Date(r.when)), dt) && r.status !== 'Completed');
   const dayStartOf = (dt) => zonedTime(dt.y, dt.m, dt.d, 0, tz);
@@ -412,6 +414,11 @@ export function ScheduleCalendar({ nav, embedded }) {
             {booked ? ` · ${booked} lesson${booked > 1 ? 's' : ''}` : ''}{` · ${tzAbbrev(tz, dayStart)}`}
           </Text>
         </View>
+        {hasStudents && (
+          <Pressable onPress={() => nav.push('Availability')} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'flex-end', paddingLeft: 10 }}>
+            <Text style={a.linkText}>Hours</Text>
+          </Pressable>
+        )}
       </View>
 
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
@@ -419,7 +426,9 @@ export function ScheduleCalendar({ nav, embedded }) {
           ? <Button title={busy ? 'Working…' : 'Work this day'} small variant="outline" style={a.dayBtn} disabled={busy} onPress={() => unblock(items.find((i) => i.kind === 'off' && i.start <= dayStart && i.end >= dayEnd).t)} />
           : <Button title={busy ? 'Working…' : 'Day off'} small variant="outline" style={a.dayBtn} disabled={busy || dayEnd <= new Date()} onPress={dayOff} />}
         <Button title="Block time" small variant="outline" style={a.dayBtn} onPress={() => nav.push('BlockTime', { tz, date: sel, allDay: false, startMin: ranges[0]?.[0] ?? 720, endMin: Math.min(1440, (ranges[0]?.[0] ?? 720) + 120) })} />
-        <Button title="Hours" small variant="outline" style={[a.dayBtn, { flex: 0.8 }]} onPress={() => nav.push('Availability')} />
+        {hasStudents
+          ? <Button title="+ Lesson" small style={[a.dayBtn, { flex: 0.9 }]} disabled={dayEnd <= new Date()} onPress={() => nav.push('ProposeLesson', { tz, date: sel })} />
+          : <Button title="Hours" small variant="outline" style={[a.dayBtn, { flex: 0.8 }]} onPress={() => nav.push('Availability')} />}
       </View>
       {!!msg && <Text style={[a.msg, { color: '#B91C1C' }]}>{msg}</Text>}
 
@@ -431,9 +440,9 @@ export function ScheduleCalendar({ nav, embedded }) {
           const tappable = !offAllDay && !past(h) && !busyAt(h);
           return (
             <Pressable key={h} disabled={!tappable}
-              onPress={() => nav.push('BlockTime', { tz, date: sel, allDay: false, startMin: h * 60, endMin: Math.min(1440, h * 60 + 60) })}
+              onPress={() => (hasStudents ? setHourMenu(h) : nav.push('BlockTime', { tz, date: sel, allDay: false, startMin: h * 60, endMin: Math.min(1440, h * 60 + 60) }))}
               style={[a.hourRow, { top: k * HOUR_H, height: HOUR_H }, !working && a.hourOff]}
-              accessibilityRole="button" accessibilityLabel={`${minutesLabel(h * 60)}${tappable ? ', tap to block' : ''}`}>
+              accessibilityRole="button" accessibilityLabel={`${minutesLabel(h * 60)}${tappable ? (hasStudents ? ', tap to book or block' : ', tap to block') : ''}`}>
               <Text style={a.hourLabel}>{minutesLabel(h * 60).replace(':00', '')}</Text>
             </Pressable>
           );
@@ -446,9 +455,9 @@ export function ScheduleCalendar({ nav, embedded }) {
             const [bg, fg] = LESSON_COLORS[it.r.status] || LESSON_COLORS.Confirmed;
             return (
               <View key={'l' + k} style={[a.block, { top, height, backgroundColor: bg, borderLeftColor: fg }]} accessible
-                accessibilityLabel={`${timeIn(it.start, tz)} to ${timeIn(it.end, tz)}, ${it.r.studentName}, ${it.r.goal}, ${it.r.status === 'Pending' ? 'request' : it.r.status}`}>
+                accessibilityLabel={`${timeIn(it.start, tz)} to ${timeIn(it.end, tz)}, ${it.r.studentName}, ${it.r.goal}, ${it.r.status === 'Pending' ? 'request' : it.r.status === 'Proposed' ? 'waiting for the student to accept' : it.r.status}`}>
                 <Text style={[a.blockTitle, { color: fg }]} numberOfLines={1}>{it.r.studentName} · {it.r.goal}</Text>
-                {height > 30 && <Text style={a.blockSub} numberOfLines={1}>{timeIn(it.start, tz)} – {timeIn(it.end, tz)}{it.r.status === 'Pending' ? ' · request' : ''}{it.r.tail ? ` · ${it.r.tail}` : ''}</Text>}
+                {height > 30 && <Text style={a.blockSub} numberOfLines={1}>{timeIn(it.start, tz)} – {timeIn(it.end, tz)}{it.r.status === 'Pending' ? ' · request' : it.r.status === 'Proposed' ? ' · waiting on student' : ''}{it.r.tail ? ` · ${it.r.tail}` : ''}</Text>}
               </View>
             );
           }
@@ -468,7 +477,14 @@ export function ScheduleCalendar({ nav, embedded }) {
         })}
         {sameDate(sel, today) && (() => { const m = minOf(new Date()); return m >= firstH * 60 && m <= lastH * 60 ? <View style={[a.nowLine, { top: y(m) }]} /> : null; })()}
       </View>
-      <Text style={[a.sub, { marginTop: 8 }]}>Tap an open hour to block it. Tap blocked time to unblock it. Students only see open times.</Text>
+      <Text style={[a.sub, { marginTop: 8 }]}>{hasStudents ? 'Tap an open hour to book a student or block it.' : 'Tap an open hour to block it.'} Tap blocked time to unblock it. Students only see open times.</Text>
+      {hourMenu != null && (
+        <Sheet visible title={`${shortDate(sel)} · ${minutesLabel(hourMenu * 60)}`} onClose={() => setHourMenu(null)}>
+          <Button title="Book a lesson for a student" onPress={() => { const h = hourMenu; setHourMenu(null); nav.push('ProposeLesson', { tz, date: sel, startMin: h * 60 }); }} />
+          <Button title={`Block ${minutesLabel(hourMenu * 60)} – ${minutesLabel(Math.min(1440, hourMenu * 60 + 60))}`} variant="outline" style={{ marginTop: 10 }}
+            onPress={() => { const h = hourMenu; setHourMenu(null); nav.push('BlockTime', { tz, date: sel, allDay: false, startMin: h * 60, endMin: Math.min(1440, h * 60 + 60) }); }} />
+        </Sheet>
+      )}
     </View>
   );
 }

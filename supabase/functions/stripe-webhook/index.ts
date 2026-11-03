@@ -1,5 +1,6 @@
 // POST /stripe-webhook — events from Stripe (signature-verified, each processed once).
-//  setup_intent.succeeded  → the student's card is saved; the request goes to the instructor.
+//  setup_intent.succeeded  → the student's card is saved; the request goes to the instructor
+//                            (or, for a lesson the instructor booked, it's confirmed).
 //  account.updated         → mark an instructor/owner/school ready (or not) for payouts.
 //  payment_intent.succeeded → a shared-flight deposit went through (if the app didn't report it).
 //  payment_intent.payment_failed → record it for follow-up.
@@ -8,6 +9,7 @@ import Stripe from 'npm:stripe@17';
 import { admin, stripe, releaseHeld } from '../_shared/server.ts';
 import { recordIdentity } from '../_shared/verification.ts';
 import { finalizeDeposit } from '../_shared/splits.ts';
+import { confirmProposalIfReady } from '../_shared/proposals.ts';
 
 const crypto = Stripe.createSubtleCryptoProvider();
 
@@ -30,7 +32,10 @@ Deno.serve(async (req) => {
   try {
     if (event.type === 'setup_intent.succeeded') {
       const si = event.data.object as Stripe.SetupIntent;
-      if (si.metadata?.booking_id) await admin.from('bookings').update({ card_ready: true }).eq('id', si.metadata.booking_id).eq('setup_intent_id', si.id);
+      if (si.metadata?.booking_id) {
+        await admin.from('bookings').update({ card_ready: true }).eq('id', si.metadata.booking_id).eq('setup_intent_id', si.id);
+        await confirmProposalIfReady(si.metadata.booking_id); // a lesson the instructor booked: accepted
+      }
     } else if (event.type === 'account.updated') {
       const a = event.data.object as Stripe.Account;
       const ready = !!(a.details_submitted && a.payouts_enabled && a.capabilities?.transfers === 'active');

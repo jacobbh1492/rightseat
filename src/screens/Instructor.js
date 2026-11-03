@@ -44,7 +44,7 @@ function studentsFrom(teaching) {
       st.completed += 1; st.hours += r.actualHobbs || 0;
       if (!st.last || r.when > st.last.when) st.last = r;
     }
-    if (['Pending', 'Confirmed'].includes(r.status) && new Date(r.when) > Date.now() - 6 * 3600e3 && (!st.next || r.when < st.next.when)) st.next = r;
+    if (['Proposed', 'Pending', 'Confirmed'].includes(r.status) && new Date(r.when) > Date.now() - 6 * 3600e3 && (!st.next || r.when < st.next.when)) st.next = r;
   }
   return Object.values(by).sort((a, b) => (a.next ? 0 : 1) - (b.next ? 0 : 1) || (b.last?.when || '').localeCompare(a.last?.when || ''));
 }
@@ -78,7 +78,7 @@ export function Students({ nav }) {
                 <Text style={s.title}>{st.name}</Text>
                 <Text style={s.sub}>{st.completed} lesson{st.completed === 1 ? '' : 's'} · {Math.round(st.hours * 10) / 10} hr with you</Text>
                 <Text style={[s.sub, st.next && { color: C.blue, fontWeight: '700' }]}>
-                  {st.next ? `Next: ${st.next.date} · ${st.next.time}${st.next.status === 'Pending' ? ' (request)' : ''}` : st.last ? `Last flew ${st.last.date}` : ''}
+                  {st.next ? `Next: ${st.next.date} · ${st.next.time}${st.next.status === 'Pending' ? ' (request)' : st.next.status === 'Proposed' ? ' (waiting on them)' : ''}` : st.last ? `Last flew ${st.last.date}` : ''}
                 </Text>
               </View>
               <Text style={{ color: '#94A3B8', fontSize: 22 }}>›</Text>
@@ -102,7 +102,7 @@ export function StudentDetail({ nav, params }) {
   if (!st) return null;
   const h = hoursFromFlights(st.lessons.filter((r) => r.status === 'Completed'));
   const lessons = [...st.lessons].sort((a, b) => b.when.localeCompare(a.when));
-  const tag = { Completed: [C.green, '#E3F7EF'], Confirmed: [C.green, '#E3F7EF'], Pending: ['#B45309', '#FEF3C7'], Cancelled: [C.sub, '#EEF1F5'] };
+  const tag = { Completed: [C.green, '#E3F7EF'], Confirmed: [C.green, '#E3F7EF'], Proposed: ['#7C3AED', '#F1E8FF'], Pending: ['#B45309', '#FEF3C7'], Cancelled: [C.sub, '#EEF1F5'] };
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title={st.name} />
@@ -117,7 +117,10 @@ export function StudentDetail({ nav, params }) {
               </View>
             ))}
           </View>
-          <Button title={`Message ${st.name.split(' ')[0]}`} variant="outline" style={{ marginTop: 14 }} onPress={() => nav.push('Chat', { key: st.id, other: st.id, name: st.name })} />
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+            <Button title="Book a lesson" style={{ flex: 1 }} onPress={() => nav.push('ProposeLesson', { studentId: st.id, planeId: st.last?.planeId || st.next?.planeId || null })} />
+            <Button title="Message" variant="outline" style={{ flex: 1 }} onPress={() => nav.push('Chat', { key: st.id, other: st.id, name: st.name })} />
+          </View>
         </Card>
 
         <SectionTitle>Your debriefs</SectionTitle>

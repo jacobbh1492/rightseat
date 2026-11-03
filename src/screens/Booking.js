@@ -15,7 +15,7 @@ function Step({ n, title, done }) {
 }
 import { PlaneImage } from '../art';
 import { useAuth } from '../backend/auth';
-import { useBookingPayment, useSplitDeposit, CARD_PAYMENTS_SUPPORTED } from '../backend/payments';
+import { useBookingPayment, useSplitDeposit, useAcceptProposal, CARD_PAYMENTS_SUPPORTED } from '../backend/payments';
 import { bookingAction, splitAction } from '../backend/bookings';
 import { postReview } from '../backend/profiles';
 import { useLibrary } from '../library/useLibrary';
@@ -508,23 +508,61 @@ function SplitBox({ r, nav, onChanged }) {
   );
 }
 
+// A lesson the instructor booked for this student: accept (add a card) or decline.
+function ProposalBox({ r, cfiName, onChanged }) {
+  const accept = useAcceptProposal();
+  const [busy, setBusy] = useState(null);
+  const [err, setErr] = useState('');
+  const by = new Date(r.proposal.expires).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  const open = new Date(r.proposal.expires) > new Date();
+  const run = async (kind) => {
+    setErr(''); setBusy(kind);
+    try {
+      if (kind === 'accept') {
+        if (!CARD_PAYMENTS_SUPPORTED) throw new Error('Accept lessons from the RightSeat iPhone or Android app.');
+        const res = await accept(r.id);
+        if (res.cancelled) { setErr('Card not saved, so the lesson isn’t accepted yet.'); setBusy(null); return; }
+      } else {
+        await bookingAction(r.id, 'reject', { reason: 'Can’t make it' });
+      }
+      await onChanged();
+    } catch (e) { setErr(e.message); }
+    setBusy(null);
+  };
+  return (
+    <View style={bs.proposal}>
+      <Text style={{ fontWeight: '800', color: '#5B21B6' }}>{cfiName} booked this lesson for you</Text>
+      <Text style={{ color: '#5B21B6', fontSize: 13, marginTop: 4, lineHeight: 18 }}>
+        {open ? `Accept by ${by} to lock it in. Accepting saves your card; it’s charged after the flight for actual Hobbs time.` : 'This lesson wasn’t accepted in time.'}
+      </Text>
+      {open && (
+        <View style={{ flexDirection: 'row', marginTop: 10 }}>
+          <Button title={busy === 'reject' ? 'Declining…' : 'Decline'} variant="outline" disabled={!!busy} style={{ flex: 0.6, marginRight: 8, paddingVertical: 10 }} onPress={() => run('reject')} />
+          <Button title={busy === 'accept' ? 'Accepting…' : 'Accept'} disabled={!!busy} style={{ flex: 1, paddingVertical: 10 }} onPress={() => run('accept')} />
+        </View>
+      )}
+      {!!err && <Text style={[bs.warn, { marginTop: 6 }]}>{err}</Text>}
+    </View>
+  );
+}
+
 export function Lessons({ nav }) {
   const { requests, getCfi, getPlane, updateRequest, debriefForRequest, refreshLive } = useStore();
   const lib = useLibrary();
   React.useEffect(() => { lib.refresh(); }, []);
   const reviewFor = (r) => (['Pending', 'Confirmed'].includes(r.status) ? lib.reviews.find((x) => x.bookingId === r.id && x.studentId === lib.uid) : null);
-  const upcoming =requests.filter((r) => ['Pending', 'Confirmed'].includes(r.status)).sort((a, b) => new Date(a.when) - new Date(b.when));
+  const upcoming = requests.filter((r) => ['Proposed', 'Pending', 'Confirmed'].includes(r.status)).sort((a, b) => (a.status === 'Proposed' ? 0 : 1) - (b.status === 'Proposed' ? 0 : 1) || new Date(a.when) - new Date(b.when));
   const past = requests.filter((r) => ['Completed', 'Cancelled'].includes(r.status)).sort((a, b) => new Date(b.when) - new Date(a.when));
 
   const card = (r) => {
     const c = getCfi(r.cfiId);
     const p = getPlane(r.planeId);
-    const colors = { Confirmed: [C.green, '#E3F7EF'], Completed: [C.green, '#E3F7EF'], Pending: ['#B45309', '#FEF3C7'], Cancelled: [C.sub, '#EEF1F5'] }[r.status];
+    const colors = { Proposed: ['#7C3AED', '#F1E8FF'], Confirmed: [C.green, '#E3F7EF'], Completed: [C.green, '#E3F7EF'], Pending: ['#B45309', '#FEF3C7'], Cancelled: [C.sub, '#EEF1F5'] }[r.status] || [C.sub, '#EEF1F5'];
     return (
       <Card key={r.id}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={{ fontWeight: '800', fontSize: 16, color: C.text, flex: 1 }}>{r.goal}</Text>
-          <Tag label={r.status} color={colors[0]} bg={colors[1]} />
+          <Tag label={r.status === 'Proposed' ? 'Needs you' : r.status} color={colors[0]} bg={colors[1]} />
         </View>
         <Text style={{ color: C.sub, marginTop: 2 }}>{r.date} · {r.time}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
@@ -545,6 +583,7 @@ export function Lessons({ nav }) {
         )}
         {r.dispute && <Text style={[bs.warn, { marginTop: 8 }]}>Dispute: {r.dispute.reason} · {r.dispute.status}</Text>}
         <SplitBox r={r} nav={nav} onChanged={() => refreshLive().catch(() => {})} />
+        {r.status === 'Proposed' && r.proposal && <ProposalBox r={r} cfiName={c ? c.name.split(' ')[0] : 'Your instructor'} onChanged={() => refreshLive().catch(() => {})} />}
         {reviewFor(r) && <ReviewChip review={reviewFor(r)} studied={lib.studied} onPress={() => nav.push('PreflightReview', { bookingId: r.id })} />}
 
         <View style={bs.actions}>
@@ -1052,6 +1091,7 @@ export function LeaveReview({ nav, params }) {
 }
 
 const bs = StyleSheet.create({
+  proposal: { backgroundColor: '#F5F0FF', borderRadius: 12, padding: 12, marginTop: 10 },
   fixes: { marginBottom: 10 },
   fixRow: { minHeight: 40, justifyContent: 'center' },
   fixText: { color: C.blue, fontWeight: '800' },

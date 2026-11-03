@@ -69,10 +69,11 @@ serve(async (req, body) => {
   // Double-booking check (instructor and plane), including turnaround buffer.
   const overlap = async (col: string, id: string) => {
     const { count } = await admin.from('bookings').select('id', { count: 'exact', head: true })
-      .eq(col, id).in('status', ['requested', 'confirmed'])
+      .eq(col, id).in('status', ['proposed', 'requested', 'confirmed'])
       .lt('starts_at', r.endsAt.toISOString()).gt('ends_at', r.startsAt.toISOString())
-      // a request whose card was never saved stops holding the slot after 30 minutes
-      .or(`card_ready.eq.true,status.eq.confirmed,created_at.gt.${new Date(Date.now() - 30 * 60 * 1000).toISOString()}`)
+      // a request whose card was never saved stops holding the slot after 30 minutes;
+      // a lesson an instructor proposed holds it until the student's deadline
+      .or(`card_ready.eq.true,status.eq.confirmed,and(status.eq.proposed,proposal_expires.gt.${new Date().toISOString()}),and(status.eq.requested,created_at.gt.${new Date(Date.now() - 30 * 60 * 1000).toISOString()})`)
       // a shared rental waiting on the other pilot holds the slot until its invite runs out
       .or(`split_pending.eq.false,hold_until.gt.${new Date().toISOString()}`);
     return (count || 0) > 0;
