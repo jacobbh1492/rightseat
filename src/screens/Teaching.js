@@ -82,6 +82,7 @@ export function Teaching({ nav, asTab }) {
       {!asTab && <Header nav={nav} title="Lesson requests" />}
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: asTab ? 110 : 60 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         {asTab && <Text style={ts.h1}>Schedule</Text>}
+        {asTab && auth?.session && <CalendarCard nav={nav} />}
         {asTab && !auth?.session && (
           <Card style={{ borderWidth: 1.5, borderColor: C.blue }}>
             <Text style={ts.title}>Sign in to see your lessons</Text>
@@ -128,7 +129,6 @@ export function Teaching({ nav, asTab }) {
             </Card>
           </Pressable>
         )}
-        {asTab && auth?.session && <CalendarCard nav={nav} />}
         {auth?.session && (myPlaneIds || []).length > 0 && (
           <Pressable onPress={() => nav.push('Checkouts')} accessibilityRole="button">
             <Card><Text style={ts.title}>Renter checkouts ›</Text><Text style={ts.sub}>Approve who can rent your plane{myPlaneIds.length > 1 ? 's' : ''} solo.</Text></Card>
