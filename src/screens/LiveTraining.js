@@ -29,7 +29,8 @@ export default function LiveTraining({ nav }) {
   };
   useEffect(() => { load(); }, [uid]);
 
-  const flights = requests.filter((r) => r.live && r.status === 'Completed').sort((a, b) => new Date(b.when) - new Date(a.when));
+  // A shared rental is logged by the pilot who booked it (they're the renter and PIC of record).
+  const flights = requests.filter((r) => r.live && r.status === 'Completed' && r.role !== 'partner').sort((a, b) => new Date(b.when) - new Date(a.when));
   const H = hoursFromFlights(flights);
   const met = SHOWN.filter((m) => H[m.key] >= m.req).length;
   const instructors = [...new Set(flights.map((f) => f.cfiId).filter(Boolean))];

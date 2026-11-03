@@ -15,8 +15,8 @@ function Step({ n, title, done }) {
 }
 import { PlaneImage } from '../art';
 import { useAuth } from '../backend/auth';
-import { useBookingPayment, CARD_PAYMENTS_SUPPORTED } from '../backend/payments';
-import { bookingAction } from '../backend/bookings';
+import { useBookingPayment, useSplitDeposit, CARD_PAYMENTS_SUPPORTED } from '../backend/payments';
+import { bookingAction, splitAction } from '../backend/bookings';
 import { postReview } from '../backend/profiles';
 import { useLibrary } from '../library/useLibrary';
 import { ReviewChip } from './Library';
@@ -48,7 +48,7 @@ export function CheckList({ checks }) {
 }
 
 export function RequestLesson({ nav, params }) {
-  const { cfis, planes, getCfi, getPlane, addRequest, requests, pilot, available, training, docs, setSharing, affiliationFor } = useStore();
+  const { cfis, planes, getCfi, getPlane, addRequest, requests, pilot, available, training, docs, setSharing, affiliationFor, refreshLive } = useStore();
   const [shareRecord, setShareRecord] = useState(true);
   const [cfiId, setCfiId] = useState(params.cfiId);
   const [planeId, setPlaneId] = useState(params.planeId);
@@ -63,6 +63,10 @@ export function RequestLesson({ nav, params }) {
   const [moreGoals, setMoreGoals] = useState(false);
   const [showChecks, setShowChecks] = useState(false);
   const [showCost, setShowCost] = useState(false);
+  // Shared solo rental: invite another pilot and pick your share (50–90%).
+  const [shareOn, setShareOn] = useState(false);
+  const [shareEmail, setShareEmail] = useState('');
+  const [sharePct, setSharePct] = useState(50);
 
   const cfi = getCfi(cfiId);
   const plane = ownPlane ? null : getPlane(planeId);
@@ -117,6 +121,10 @@ export function RequestLesson({ nav, params }) {
   const [busy, setBusy] = useState(false);
   const [payErr, setPayErr] = useState('');
   const live = isLive(cfi?.id) || isLive(plane?.id);
+  const canShare = live && !cfi && !!plane;
+  const sharing = canShare && shareOn;
+  const shareEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shareEmail.trim());
+  const myShare = sharing ? r2(q.total * sharePct / 100) : q.total;
 
   const submit = async () => {
     const when = start.toISOString();
@@ -126,11 +134,15 @@ export function RequestLesson({ nav, params }) {
       if (!CARD_PAYMENTS_SUPPORTED) { setPayErr('Book from the RightSeat iPhone or Android app.'); return; }
       setBusy(true); setPayErr('');
       try {
-        const res = await payForBooking({ cfiId: cfi?.id || null, planeId: plane?.id || null, startsAt: when, goal: cfi ? goal : 'Solo rental', flightHours, groundHours: cfi ? groundHours : 0, prepaid });
+        const res = await payForBooking({ cfiId: cfi?.id || null, planeId: plane?.id || null, startsAt: when, goal: cfi ? goal : sharing ? 'Shared rental' : 'Solo rental', flightHours, groundHours: cfi ? groundHours : 0, prepaid,
+          split: sharing ? { email: shareEmail.trim(), bookerPct: sharePct } : undefined });
         setBusy(false);
         if (res.cancelled) { setPayErr('Card not saved, so the request wasn’t sent. Tap Send request to try again.'); return; }
-        const r = { id: res.booking.id, cfiId: cfi?.id || null, planeId: plane?.id || null, when, date: dateLabel(when), time: timeLabel(when), goal: cfi ? goal : 'Solo rental', flightHours, groundHours: cfi ? groundHours : 0, total: res.quote.total, repeat, prepaid, method: 'card', deposit: res.quote.deposit, status: 'Pending', live: true };
+        const r = { id: res.booking.id, cfiId: cfi?.id || null, planeId: plane?.id || null, when, date: dateLabel(when), time: timeLabel(when), goal: cfi ? goal : sharing ? 'Shared rental' : 'Solo rental', flightHours, groundHours: cfi ? groundHours : 0, total: res.quote.total, repeat, prepaid, method: 'card', deposit: res.quote.deposit, status: 'Pending', live: true, role: 'student',
+          split: res.split ? { status: 'invited', bookerPct: res.split.bookerPct, partnerPct: 100 - res.split.bookerPct, partnerName: shareEmail.trim(), holdUntil: res.split.holdUntil, pending: true, bookerEst: res.split.booker, partnerEst: res.split.partner } : null,
+          myTotal: res.split ? res.split.booker : res.quote.total };
         addRequest(r);
+        refreshLive?.().catch(() => {});
         setSent(r);
       } catch (e) { setBusy(false); setPayErr(e.message || 'Something went wrong. Try again.'); }
       return;
@@ -166,11 +178,19 @@ export function RequestLesson({ nav, params }) {
           <View style={bs.check}><Text style={{ color: '#fff', fontSize: 40, fontWeight: '900' }}>✓</Text></View>
           <Text style={{ fontSize: 22, fontWeight: '900', color: C.text, marginTop: 16 }}>Request sent!</Text>
           <Text style={{ color: C.sub, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
-            {cfi ? `${cfi.name.split(' ')[0]} will confirm ${sent.date} at ${sent.time}` : `The owner will confirm ${sent.date} at ${sent.time}`}
-            {plane ? ` and ${plane.tail} is held for you.` : '.'}
+            {sent.split
+              ? `We sent the invite to ${sent.split.partnerName}. ${plane.tail} is held until ${new Date(sent.split.holdUntil).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}. Once they accept and pay their deposit, the owner gets your request.`
+              : <>{cfi ? `${cfi.name.split(' ')[0]} will confirm ${sent.date} at ${sent.time}` : `The owner will confirm ${sent.date} at ${sent.time}`}{plane ? ` and ${plane.tail} is held for you.` : '.'}</>}
           </Text>
+          {sent.split && (
+            <Card style={{ alignSelf: 'stretch', marginTop: 18 }}>
+              <Row label={`Your share · ${sent.split.bookerPct}%`} value={money2(sent.split.bookerEst)} />
+              <Row label={`Their share · ${sent.split.partnerPct}% (deposit when they accept)`} value={money2(sent.split.partnerEst)} />
+              <Text style={{ color: C.sub, fontSize: 12, marginTop: 6 }}>Estimates. After the flight you each pay your % of the actual Hobbs time. If they don’t accept in time, the hold is released and nothing is charged.</Text>
+            </Card>
+          )}
           <Card style={{ alignSelf: 'stretch', marginTop: 18 }}>
-            <Row label={sent.method === 'wallet' ? 'Held in your wallet' : 'Card hold (Visa •• 4242)'} value={money2(sent.total)} />
+            <Row label={sent.method === 'wallet' ? 'Held in your wallet' : sent.live ? 'Card saved (charged after the flight)' : 'Card hold (Visa •• 4242)'} value={money2(sent.myTotal ?? sent.total)} />
             {sent.deposit > 0 && <Row label="Damage deposit hold" value={money2(sent.deposit)} />}
             <Text style={{ color: C.sub, fontSize: 12, marginTop: 6 }}>
               You’re only charged for actual Hobbs time after the flight. Weather cancellations are always free.
@@ -290,6 +310,31 @@ export function RequestLesson({ nav, params }) {
         <Text style={bs.hint}>Live calendar: {cfi ? `${cfi.name.split(' ')[0]}’s working hours and bookings` : 'no instructor'}{plane ? ` + ${plane.tail}’s bookings` : ''}. {cfi ? `They confirm every request.` : ''}</Text>
 
 
+        {canShare && (
+          <>
+            <Step n={4} title="Share the cost?" done={!shareOn || shareEmailOk} />
+            <Card>
+              <Toggle label="Fly with another pilot and split the cost" value={shareOn} onValueChange={setShareOn}
+                hint="They pay a deposit to accept. Your request goes to the owner once they do." />
+              {shareOn && (
+                <>
+                  <Field label="Their RightSeat email" value={shareEmail} onChangeText={setShareEmail} placeholder="pilot@example.com"
+                    keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+                  <Text style={{ fontWeight: '800', color: C.text, marginTop: 10 }}>Your share</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 }}>
+                    {[50, 55, 60, 65, 70, 75, 80, 85, 90].map((pct) => <Chip key={pct} small label={`${pct}%`} active={sharePct === pct} onPress={() => setSharePct(pct)} />)}
+                  </View>
+                  <Row label={`You · ${sharePct}%`} value={money2(r2(q.total * sharePct / 100))} />
+                  <Row label={`Them · ${100 - sharePct}%`} value={money2(r2(q.total - r2(q.total * sharePct / 100)))} />
+                  <Text style={[bs.hint, { marginTop: 6 }]}>
+                    FAA rule 61.113(c): a private pilot can’t pay less than their pro rata share of a flight’s operating expenses. As the pilot in command you pay at least half. Only one of you logs PIC for any part of the flight.
+                  </Text>
+                </>
+              )}
+            </Card>
+          </>
+        )}
+
         <Pressable onPress={() => setShowChecks(!showChecks)} style={[bs.summary, blocked && { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' }]} accessibilityRole="button" accessibilityLabel="Safety and insurance checks">
           <Icon name={blocked ? 'info' : 'shieldCheck'} size={20} color={blocked ? '#DC2626' : C.green} />
           <Text style={{ flex: 1, marginLeft: 10, fontWeight: '700', color: blocked ? '#DC2626' : C.text }}>
@@ -304,7 +349,7 @@ export function RequestLesson({ nav, params }) {
           </Pressable>
         )}
 
-        <Step n={cfi ? 5 : 4} title="Pay with" done />
+        <Step n={cfi ? 5 : canShare ? 5 : 4} title="Pay with" done />
         <Pressable onPress={() => setMethod('wallet')} style={[bs.pay, method === 'wallet' && bs.pickOn]}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: '800', color: C.text }}>RightSeat wallet · {money2(available)}</Text>
@@ -368,13 +413,13 @@ export function RequestLesson({ nav, params }) {
       {!!payErr && <Text style={{ color: '#B91C1C', fontWeight: '600', paddingHorizontal: 16, paddingBottom: 6, backgroundColor: '#fff' }} accessibilityLiveRegion="polite">{payErr}</Text>}
       <View style={bs.cta}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: '900', fontSize: 20, color: C.navy }}>{money2(q.total)}</Text>
-          <Text style={{ color: C.sub, fontSize: 12 }}>{start && date ? `${shortDate(date)} · ${timeIn(start, tz)}` : 'Pick a time'}</Text>
+          <Text style={{ fontWeight: '900', fontSize: 20, color: C.navy }}>{money2(myShare)}</Text>
+          <Text style={{ color: C.sub, fontSize: 12 }}>{sharing ? `Your ${sharePct}% · ` : ''}{start && date ? `${shortDate(date)} · ${timeIn(start, tz)}` : 'Pick a time'}</Text>
         </View>
         <Button
-          title={busy ? 'Sending…' : blocked ? 'Checks not met' : !start ? 'Pick a time' : 'Send request'}
+          title={busy ? 'Sending…' : blocked ? 'Checks not met' : !start ? 'Pick a time' : sharing && !shareEmailOk ? 'Add their email' : sharing ? 'Send invite' : 'Send request'}
           style={{ paddingHorizontal: 22 }}
-          disabled={busy || blocked || !start || (!cfi && !plane) || (!live && walletShort)}
+          disabled={busy || blocked || !start || (!cfi && !plane) || (!live && walletShort) || (sharing && !shareEmailOk)}
           onPress={submit}
         />
       </View>
@@ -382,8 +427,45 @@ export function RequestLesson({ nav, params }) {
   );
 }
 
+// Shared rental status on a lesson card, for the booker or the other pilot.
+function SplitBox({ r, nav, onChanged }) {
+  const sp = r.split;
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  if (!sp) return null;
+  const partner = r.role === 'partner';
+  const other = partner ? sp.bookerName.split(' ')[0] : sp.partnerName.split(' ')[0];
+  const by = sp.holdUntil ? new Date(sp.holdUntil).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : null;
+  const act = async (action) => {
+    setErr(''); setBusy(true);
+    try { await splitAction(r.id, action); await onChanged(); } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  const open = ['Pending', 'Confirmed'].includes(r.status);
+  let line;
+  if (sp.status === 'invited') line = partner ? `${other} invited you to share this flight. You’d pay ${sp.partnerPct}% (about ${money2(sp.partnerEst)}).${by ? ` Reply by ${by}.` : ''}` : `Waiting for ${other} to accept and pay their ${sp.partnerPct}% deposit${by ? ` by ${by}` : ''}. The owner gets your request once they do.`;
+  else if (sp.status === 'declined') line = partner ? 'You declined this flight.' : `${other} can’t make it. Fly solo (you pay 100%) or cancel at no charge.`;
+  else if (sp.status === 'expired') line = partner ? 'This invite expired.' : `${other} didn’t accept in time, so the plane was released.`;
+  else if (r.status === 'Completed') line = `Split ${sp.bookerPct}/${sp.partnerPct} with ${other}. Your share: ${money2(partner ? sp.partnerFinal ?? sp.partnerEst : sp.bookerFinal ?? sp.bookerEst)}.`;
+  else line = partner ? `You’re in. Deposit paid: ${money2(sp.deposit || 0)} (${sp.partnerPct}%). The difference is settled after the flight.` : `${other} is in and paid their ${sp.partnerPct}% deposit.`;
+  return (
+    <View style={bs.split}>
+      <Text style={{ fontWeight: '800', color: C.navy }}>👥 Shared flight · {sp.bookerPct}/{sp.partnerPct}</Text>
+      <Text style={{ color: C.navy, fontSize: 13, marginTop: 4, lineHeight: 18 }}>{line}</Text>
+      {open && (
+        <View style={{ flexDirection: 'row', marginTop: 8, flexWrap: 'wrap' }}>
+          {partner && sp.status === 'invited' && <Button title="Review invite" style={{ paddingVertical: 9, marginRight: 8 }} onPress={() => nav.push('SplitInvite', { id: r.id })} />}
+          {partner && sp.status === 'accepted' && <Button title={busy ? 'Leaving…' : 'Leave flight'} variant="outline" disabled={busy} style={{ paddingVertical: 9 }} onPress={() => act('leave')} />}
+          {!partner && ['invited', 'declined'].includes(sp.status) && <Button title={busy ? 'Updating…' : 'Fly solo instead'} variant="outline" disabled={busy} style={{ paddingVertical: 9 }} onPress={() => act('solo')} />}
+        </View>
+      )}
+      {!!err && <Text style={[bs.warn, { marginTop: 6 }]}>{err}</Text>}
+    </View>
+  );
+}
+
 export function Lessons({ nav }) {
-  const { requests, getCfi, getPlane, updateRequest, debriefForRequest } = useStore();
+  const { requests, getCfi, getPlane, updateRequest, debriefForRequest, refreshLive } = useStore();
   const lib = useLibrary();
   React.useEffect(() => { lib.refresh(); }, []);
   const reviewFor = (r) => (['Pending', 'Confirmed'].includes(r.status) ? lib.reviews.find((x) => x.bookingId === r.id && x.studentId === lib.uid) : null);
@@ -405,12 +487,12 @@ export function Lessons({ nav }) {
           {c && <Avatar initials={c.initials} color={c.color} size={36} photo={c.photo} />}
           {p && <View style={{ marginLeft: c ? 8 : 0 }}><PlaneImage plane={p} size={36} style={{ borderRadius: 10 }} /></View>}
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={{ color: C.text, fontWeight: '600' }}>{c ? c.name : 'Solo'}{p ? ` · ${p.tail}` : r.ownPlane ? ' · Own aircraft' : ''}</Text>
+            <Text style={{ color: C.text, fontWeight: '600' }}>{c ? c.name : r.split && ['invited', 'accepted'].includes(r.split.status) ? `With ${(r.role === 'partner' ? r.split.bookerName : r.split.partnerName).split(' ')[0]}` : 'Solo'}{p ? ` · ${p.tail}` : r.ownPlane ? ' · Own aircraft' : ''}</Text>
             <Text style={{ color: C.sub, fontSize: 12 }}>
               {r.flightHours} hr flight{r.groundHours ? ` + ${r.groundHours} hr ground` : ''} · {r.method === 'wallet' ? 'Wallet' : 'Card'}
             </Text>
           </View>
-          <Text style={{ fontWeight: '900', color: C.navy, fontSize: 16 }}>{money2(r.status === 'Cancelled' ? r.cancel?.fee || 0 : r.total)}</Text>
+          <Text style={{ fontWeight: '900', color: C.navy, fontSize: 16 }}>{money2(r.status === 'Cancelled' ? r.cancel?.fee || 0 : r.myTotal ?? r.total)}</Text>
         </View>
         {r.status === 'Cancelled' && (
           <Text style={{ color: C.sub, fontSize: 12, marginTop: 8 }}>
@@ -418,13 +500,14 @@ export function Lessons({ nav }) {
           </Text>
         )}
         {r.dispute && <Text style={[bs.warn, { marginTop: 8 }]}>Dispute: {r.dispute.reason} · {r.dispute.status}</Text>}
+        <SplitBox r={r} nav={nav} onChanged={() => refreshLive().catch(() => {})} />
         {reviewFor(r) && <ReviewChip review={reviewFor(r)} studied={lib.studied} onPress={() => nav.push('PreflightReview', { bookingId: r.id })} />}
 
         <View style={bs.actions}>
           {(c || p) && r.status !== 'Cancelled' && (
             <Pressable onPress={() => nav.push('Chat', { key: c ? c.id : p.id })} style={bs.action}><Text style={bs.actionText}>Message</Text></Pressable>
           )}
-          {['Pending', 'Confirmed'].includes(r.status) && (
+          {['Pending', 'Confirmed'].includes(r.status) && r.role !== 'partner' && (
             <Pressable onPress={() => nav.push('Cancel', { id: r.id })} style={bs.action}><Text style={[bs.actionText, { color: '#DC2626' }]}>Cancel</Text></Pressable>
           )}
           {debriefForRequest(r.id) && (
@@ -437,8 +520,8 @@ export function Lessons({ nav }) {
           )}
         </View>
 
-        {r.live && r.status === 'Pending' && <Text style={[bs.hint, { marginTop: 8 }]}>Waiting for {c ? c.name.split(' ')[0] : 'the owner'} to confirm. Your card is saved and charged only after the flight.</Text>}
-        {r.live && r.status === 'Completed' && <Text style={[bs.hint, { marginTop: 8 }]}>Charged {money2(r.total)}{r.actualHobbs ? ` for ${r.actualHobbs} hr on the Hobbs` : ''}.</Text>}
+        {r.live && r.status === 'Pending' && !r.split?.pending && r.role !== 'partner' && <Text style={[bs.hint, { marginTop: 8 }]}>Waiting for {c ? c.name.split(' ')[0] : 'the owner'} to confirm. Your card is saved and charged only after the flight.</Text>}
+        {r.live && r.status === 'Completed' && <Text style={[bs.hint, { marginTop: 8 }]}>Charged {money2(r.myTotal ?? r.total)}{r.actualHobbs ? ` for ${r.actualHobbs} hr on the Hobbs` : ''}.</Text>}
         {!r.live && r.status === 'Pending' && (
           <Pressable onPress={() => updateRequest(r.id, { status: 'Confirmed' })} style={bs.demo}>
             <Text style={bs.demoText}>Demo: {c ? 'CFI' : 'owner'} confirms ›</Text>
@@ -449,7 +532,7 @@ export function Lessons({ nav }) {
             <Text style={bs.demoText}>Demo: {c ? 'CFI closes out flight (Hobbs, lesson, endorsements)' : 'close out rental (Hobbs, squawks)'} ›</Text>
           </Pressable>
         )}
-        {r.status === 'Completed' && (
+        {r.status === 'Completed' && r.role !== 'partner' && (
           <View style={bs.reviewBox}>
             <Text style={{ color: C.text, fontWeight: '800', marginBottom: 8 }}>How did it go?</Text>
             <View style={{ flexDirection: 'row' }}>
@@ -481,6 +564,112 @@ export function Lessons({ nav }) {
       <SectionTitle>Past</SectionTitle>
       {past.map(card)}
     </ScrollView>
+  );
+}
+
+// The invited pilot's side of a shared rental: the same checks as renting solo, a
+// confirmation that they're current, and the deposit for their share.
+export function SplitInvite({ nav, params }) {
+  const { getRequest, getPlane, pilot, docs, refreshLive } = useStore();
+  const r = getRequest(params.id);
+  const payDeposit = useSplitDeposit();
+  const [attest, setAttest] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [done, setDone] = useState(null);
+  useEffect(() => { if (!r) refreshLive().catch(() => {}); }, []);
+  if (!r || !r.split) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Header nav={nav} title="Shared flight" />
+        <Text style={{ color: C.sub, padding: 24, textAlign: 'center' }}>Loading the invite…</Text>
+      </View>
+    );
+  }
+  const sp = r.split;
+  const plane = getPlane(r.planeId);
+  const booker = sp.bookerName.split(' ')[0];
+  const checks = plane ? [
+    ...bookingChecks({ pilot, cfi: null, plane, flightHours: r.flightHours }),
+    { label: 'Medical verified in RightSeat', ok: docs.me?.medical?.status === 'approved', blocking: true },
+  ] : [];
+  const blocked = checks.some((c) => c.blocking && !c.ok);
+  const openInvite = sp.status === 'invited' && r.status === 'Pending' && (!sp.holdUntil || new Date(sp.holdUntil) > new Date());
+
+  const accept = async () => {
+    if (!CARD_PAYMENTS_SUPPORTED) { setErr('Pay your deposit from the RightSeat iPhone or Android app.'); return; }
+    setErr(''); setBusy(true);
+    try {
+      const res = await payDeposit(r.id);
+      if (res.cancelled) setErr('Deposit not paid, so you haven’t joined yet. Tap Pay deposit to try again.');
+      else { await refreshLive().catch(() => {}); setDone('accepted'); }
+    } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  const decline = async () => {
+    setErr(''); setBusy(true);
+    try { await splitAction(r.id, 'decline'); await refreshLive().catch(() => {}); setDone('declined'); } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+
+  if (done) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Header nav={nav} title="Shared flight" />
+        <ScrollView contentContainerStyle={{ padding: 24, alignItems: 'center' }}>
+          <View style={[bs.check, done === 'declined' && { backgroundColor: C.sub }]}><Text style={{ color: '#fff', fontSize: 40, fontWeight: '900' }}>{done === 'accepted' ? '✓' : '–'}</Text></View>
+          <Text style={{ fontSize: 22, fontWeight: '900', color: C.text, marginTop: 16 }}>{done === 'accepted' ? 'You’re in!' : 'Invite declined'}</Text>
+          <Text style={{ color: C.sub, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
+            {done === 'accepted' ? `Deposit paid. ${booker}’s request is now with the owner, and you’ll both hear when it’s confirmed.` : `We let ${booker} know. Nothing was charged.`}
+          </Text>
+          <Button title="View my lessons" style={{ alignSelf: 'stretch', marginTop: 16 }} onPress={() => nav.goTab('Lessons')} />
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <Header nav={nav} title="Shared flight invite" />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 150 }}>
+        <Text style={bs.h1}>{booker} wants to split a flight</Text>
+        <Card>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {plane && <PlaneImage plane={plane} size={44} style={{ borderRadius: 10 }} />}
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={{ fontWeight: '800', color: C.text }}>{plane ? `${plane.tail} · ${plane.make} ${plane.model}` : r.goal}</Text>
+              <Text style={{ color: C.sub, marginTop: 2 }}>{r.date} · {r.time} · {r.flightHours} hr</Text>
+            </View>
+          </View>
+          <View style={{ height: 10 }} />
+          <Row label={`${booker} · ${sp.bookerPct}%`} value={money2(sp.bookerEst)} />
+          <Row label={`You · ${sp.partnerPct}%`} value={money2(sp.partnerEst)} />
+          <Text style={{ color: C.sub, fontSize: 12, marginTop: 6, lineHeight: 17 }}>
+            You pay {money2(sp.partnerEst)} now as a deposit. After the flight you pay {sp.partnerPct}% of the actual Hobbs time: we charge the difference to the same card, or refund it. Cancelled or declined by the owner: full refund.
+          </Text>
+        </Card>
+        {sp.holdUntil && openInvite && <Text style={bs.hint}>Reply by {new Date(sp.holdUntil).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}. Until then the plane is held for you both.</Text>}
+
+        <SectionTitle>Your rental checks</SectionTitle>
+        <Text style={[bs.hint, { marginTop: 0, marginBottom: 6 }]}>The same checks as renting {plane?.tail || 'the plane'} solo.</Text>
+        <CheckList checks={checks} />
+
+        <Card style={{ marginTop: 12 }}>
+          <Toggle label="I’m current and meet this plane’s rental requirements" value={attest} onValueChange={setAttest}
+            hint={`Medical, flight review, checkout and insurance minimums. Agree with ${booker} before the flight who is pilot in command; only one of you logs PIC for any part of it.`} />
+          <Text style={{ color: C.sub, fontSize: 12, marginTop: 4, lineHeight: 17 }}>
+            FAA rule 61.113(c): private pilots may share a flight’s operating expenses, and each pays at least their pro rata share.
+          </Text>
+        </Card>
+        {!openInvite && <Text style={[bs.warn, { marginTop: 12 }]}>This invite is no longer open.</Text>}
+      </ScrollView>
+      {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', paddingHorizontal: 16, paddingBottom: 6, backgroundColor: '#fff' }} accessibilityLiveRegion="polite">{err}</Text>}
+      <View style={bs.cta}>
+        <Button title="Decline" variant="outline" style={{ paddingHorizontal: 18, marginRight: 10 }} disabled={busy || !openInvite} onPress={decline} />
+        <Button title={busy ? 'Working…' : blocked ? 'Checks not met' : !attest ? 'Confirm you’re current' : `Pay ${money2(sp.partnerEst)} deposit`}
+          style={{ flex: 1 }} disabled={busy || blocked || !attest || !openInvite} onPress={accept} />
+      </View>
+    </View>
   );
 }
 
@@ -813,6 +1002,7 @@ export function LeaveReview({ nav, params }) {
 }
 
 const bs = StyleSheet.create({
+  split: { backgroundColor: '#EEF4FF', borderRadius: 12, padding: 12, marginTop: 10 },
   stepNum: { width: 24, height: 24, borderRadius: 12, backgroundColor: C.blue, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   summary: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 14, marginTop: 18, marginBottom: 8, borderWidth: 1, borderColor: '#D1FAE5' },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#CBD5E1', alignItems: 'center', justifyContent: 'center' },

@@ -195,7 +195,7 @@ export function Stars({ rating, count }) {
   );
 }
 
-export function Field({ label, value, onChangeText, placeholder, keyboardType, multiline, prefix }) {
+export function Field({ label, value, onChangeText, placeholder, keyboardType, multiline, prefix, autoCapitalize, autoCorrect }) {
   return (
     <View style={{ marginBottom: 14 }}>
       {label ? <Text style={s.label}>{label}</Text> : null}
@@ -207,6 +207,8 @@ export function Field({ label, value, onChangeText, placeholder, keyboardType, m
           placeholder={placeholder}
           placeholderTextColor="#9AA3B2"
           keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={autoCorrect}
           multiline={multiline}
           style={[s.input, multiline && { minHeight: 80, textAlignVertical: 'top' }]}
         />

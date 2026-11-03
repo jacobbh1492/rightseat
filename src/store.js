@@ -120,8 +120,9 @@ export function StoreProvider({ children }) {
     const uid = auth?.session?.user?.id;
     if (!uid) { setTeaching([]); setRequests((prev) => prev.filter((r) => !r.live)); return; }
     const rows = await fetchMyBookings(uid);
-    setRequests((prev) => [...rows.filter((r) => r.role === 'student'), ...prev.filter((r) => !r.live)]);
-    setTeaching(rows.filter((r) => r.role !== 'student'));
+    // The other pilot on a shared rental sees it with their own lessons.
+    setRequests((prev) => [...rows.filter((r) => r.role === 'student' || r.role === 'partner'), ...prev.filter((r) => !r.live)]);
+    setTeaching(rows.filter((r) => r.role !== 'student' && r.role !== 'partner'));
   };
   useEffect(() => { refreshLive().catch(() => {}); }, [auth?.session?.user?.id]);
 

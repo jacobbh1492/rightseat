@@ -67,8 +67,9 @@ export function validateActuals(body, booked) {
 }
 
 // Who may do what to a booking.
-export function roleIn(booking, userId, { planeOwnerId, schoolAdmin } = {}) {
+export function roleIn(booking, userId, { planeOwnerId, schoolAdmin, partnerId } = {}) {
   if (booking.student_id === userId) return 'student';
+  if (partnerId && partnerId === userId) return 'partner'; // the other pilot on a shared rental
   if (booking.cfi_id && booking.cfi_id === userId) return 'cfi';
   if (booking.plane_id && planeOwnerId === userId) return 'owner';
   if (schoolAdmin) return 'school';
@@ -82,6 +83,7 @@ const TRANSITIONS = {
   confirm: { from: ['requested'], by: ['approver'] },
   decline: { from: ['requested'], by: ['approver'] },
   cancel: { from: ['requested', 'confirmed'], by: ['student', 'cfi', 'owner', 'school'] },
+  debrief: { from: ['completed'], by: ['cfi'] },
   complete: { from: ['confirmed'], by: ['approver'] },
 };
 export function assertTransition(action, booking, role) {
@@ -119,3 +121,64 @@ export function payoutPlan(split, { cfiAccount, ownerAccount, schoolAccount }) {
 }
 
 export const cents = (dollars) => Math.round(dollars * 100);
+
+// ---- Debrief before pay: an instructor's share of a lesson is released once the
+// debrief has all three parts.
+export function parseDebrief(d) {
+  const clean = (s) => String(s || '').trim().slice(0, 2000);
+  const out = { wentWell: clean(d?.wentWell), needsWork: clean(d?.needsWork), nextPlan: clean(d?.nextPlan) };
+  return { ...out, complete: !!(out.wentWell && out.needsWork && out.nextPlan) };
+}
+// Shares that wait for the debrief on a lesson with an instructor (instruction money:
+// the instructor's and the school's). Plane rental is paid at close-out as usual.
+export const DEBRIEF_PARTIES = ['cfi', 'school'];
+
+// ---- Shared solo rentals: two pilots split the cost of one rental.
+export const SPLIT_MIN_PCT = 50;  // the booker pays at least half (FAR 61.113(c) pro rata)
+export const SPLIT_MAX_PCT = 90;
+export const SPLIT_HOLD_HOURS = 24; // how long an invite holds the plane
+export function parseSplit(split, { cfiId } = {}) {
+  if (!split) return null;
+  if (cfiId) bad('Cost sharing is for solo rentals (no instructor).');
+  const email = String(split.email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad('Enter the other pilot’s email.');
+  const bookerPct = Number(split.bookerPct);
+  if (!(bookerPct >= SPLIT_MIN_PCT && bookerPct <= SPLIT_MAX_PCT && bookerPct % 5 === 0)) bad(`Your share must be ${SPLIT_MIN_PCT}–${SPLIT_MAX_PCT}%, in steps of 5.`);
+  return { email, bookerPct };
+}
+// The invite holds the plane for up to 24 hours, but never past 2 hours before the flight.
+export function splitHoldUntil(startsAt, now = new Date()) {
+  const t = Math.min(now.getTime() + SPLIT_HOLD_HOURS * 3600e3, new Date(startsAt).getTime() - 2 * 3600e3);
+  if (t <= now.getTime() + 15 * 60e3) bad('That’s too soon to invite another pilot. Book at least 3 hours ahead to share the cost.');
+  return new Date(t);
+}
+export function splitShares(total, bookerPct) {
+  const booker = r2(total * bookerPct / 100);
+  return { booker, partner: r2(total - booker) };
+}
+// At close-out: what the partner still owes (> 0, charged to their saved card) or
+// gets back (< 0, refunded from the deposit).
+export function partnerSettlement(partnerShare, deposit) {
+  return r2(partnerShare - deposit);
+}
+
+// Pay each party from one or more charges (a shared rental is paid by two people).
+// Stripe transfers are tied to the charge the money came from, and a transfer can't be
+// bigger than its charge, so each party's amount is spread across the charges in order.
+// Returns [{ party, amount, chargeId }].
+export function allocateToCharges(lines, charges) {
+  const left = charges.map((c) => ({ id: c.id, left: cents(c.amount) }));
+  const out = [];
+  for (const l of lines) {
+    let need = cents(l.amount);
+    for (const c of left) {
+      if (need <= 0) break;
+      const take = Math.min(need, c.left);
+      if (take <= 0) continue;
+      out.push({ party: l.party, amount: take / 100, chargeId: c.id });
+      c.left -= take; need -= take;
+    }
+    if (need > 0) throw new HttpError(500, 'Payout is larger than what was charged.');
+  }
+  return out;
+}
