@@ -98,6 +98,9 @@ Payments are in Stripe **test mode** — use card `4242 4242 4242 4242`, any fut
 ## Launch checklist
 
 - [ ] Switch Stripe to live keys: `STRIPE_SECRET_KEY` and both webhook signing secrets in Supabase, and `STRIPE_PUBLISHABLE_KEY` in `src/backend/config.js`.
+- [ ] Set up the live Stripe webhooks (pointing at `.../functions/v1/stripe-webhook`) with the same events as test mode:
+  - Account events: `setup_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.succeeded` (shared-flight deposits), `identity.verification_session.verified`, `identity.verification_session.requires_input`.
+  - Connected-account events: `account.updated`.
 - [ ] Remove the test listing and test bookings (`supabase/seed/test_listing.sql` rows, Test Instructor, N0TEST).
 - [ ] **First live test of payout setup.** Stripe's legacy test mode can't open onboarding for Accounts v2 payout accounts, so in test mode the app says payout setup turns on at launch. With live keys, set up payouts on a real instructor account, close out a small lesson, and confirm the transfer arrives. Held pay from earlier lessons is released automatically when setup finishes.
 - [ ] TestFlight / Play internal testing builds (EAS).
