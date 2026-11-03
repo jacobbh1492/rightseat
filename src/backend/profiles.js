@@ -80,7 +80,7 @@ export async function savePlaneListing(uid, plane, { publish, addToMyCfiProfile 
       art: plane.art, blockRate: plane.blockRate, avionics: plane.avionics, ifr: plane.ifr, seats: plane.seats,
       usefulLoad: plane.usefulLoad, fuelBurn: plane.fuelBurn, cruise: plane.cruise, engineSMOH: plane.engineSMOH,
       tbo: plane.tbo, last100hr: plane.last100hr, ownerName: plane.ownerName, insuranceMinHours: plane.insuranceMinHours,
-      checkoutRequired: plane.checkoutRequired, soloRental: plane.soloRental, notes: plane.notes,
+      checkoutRequired: plane.checkoutRequired, soloRental: plane.soloRental, checkoutBy: plane.checkoutBy || 'cfi', notes: plane.notes,
     },
   };
   const { data, error } = await supabase.from('planes').insert(row).select('id').single();

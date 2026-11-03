@@ -14,6 +14,10 @@ serve(async (req, body) => {
   const r = parseBookingRequest(body);
   // Optional: share a solo rental with another pilot ({ email, bookerPct }).
   const share = parseSplit(body.split, { cfiId: r.cfiId });
+  // Optional: this rental is the renter's checkout flight, with the owner on board.
+  const checkoutFlight = body.checkout === true;
+  if (checkoutFlight && (r.cfiId || !r.planeId)) throw new HttpError(400, 'A checkout flight with the owner is a plane rental without an instructor.');
+  if (checkoutFlight && share) throw new HttpError(400, 'A checkout flight can’t be shared.');
 
   const [cfiRes, planeRes] = await Promise.all([
     r.cfiId ? admin.from('cfis').select('*').eq('id', r.cfiId).single() : Promise.resolve({ data: null }),
@@ -31,7 +35,12 @@ serve(async (req, body) => {
 
   // Renting without an instructor: the pilot's profile (medical, flight review, hours) and
   // the owner's checkout in this plane.
-  if (plane && !cfi) await assertRenterReady(user.id, plane, r.flightHours, r.startsAt);
+  if (checkoutFlight) {
+    if (!['owner', 'either'].includes(plane.details?.checkoutBy)) throw new HttpError(409, 'This plane’s checkouts are done with a CFI. Book one with an instructor.');
+    const { data: done } = await admin.from('plane_checkouts').select('status').eq('plane_id', plane.id).eq('pilot_id', user.id).maybeSingle();
+    if (done?.status === 'approved') throw new HttpError(409, 'You’re already checked out in this plane. Book it as a solo rental.');
+    await assertRenterReady(user.id, plane, r.flightHours, r.startsAt, 'You', { forCheckout: true });
+  } else if (plane && !cfi) await assertRenterReady(user.id, plane, r.flightHours, r.startsAt);
 
   let partnerId: string | null = null, holdUntil: Date | null = null;
   if (share) {
@@ -98,8 +107,13 @@ serve(async (req, body) => {
     starts_at: r.startsAt.toISOString(), ends_at: r.endsAt.toISOString(), goal: r.goal,
     flight_hours: r.flightHours, ground_hours: r.groundHours, status: 'requested', quote: q,
     split_pending: !!share, hold_until: holdUntil?.toISOString() || null,
+    purpose: checkoutFlight ? 'checkout' : null,
   }).select().single();
   if (error) throw error;
+  // A checkout flight also puts the renter on the owner's checkout list.
+  if (checkoutFlight) {
+    await admin.from('plane_checkouts').upsert({ plane_id: plane.id, pilot_id: user.id, status: 'requested', note: 'Checkout flight booked' }, { onConflict: 'plane_id,pilot_id' });
+  }
   // The invite is sent once the booker's card is saved (notify_booking).
   if (share) {
     const { error: se } = await admin.from('booking_splits').insert({ booking_id: booking.id, booker_id: user.id, partner_id: partnerId, booker_pct: share.bookerPct });
