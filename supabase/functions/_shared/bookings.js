@@ -82,7 +82,10 @@ export const approverRole = (booking) => (booking.cfi_id ? 'cfi' : 'owner');
 const TRANSITIONS = {
   confirm: { from: ['requested'], by: ['approver'] },
   decline: { from: ['requested'], by: ['approver'] },
-  cancel: { from: ['requested', 'confirmed'], by: ['student', 'cfi', 'owner', 'school'] },
+  cancel: { from: ['proposed', 'requested', 'confirmed'], by: ['student', 'cfi', 'owner', 'school'] },
+  // A lesson the instructor proposed: the student accepts (and adds their card) or turns it down.
+  accept: { from: ['proposed'], by: ['student'] },
+  reject: { from: ['proposed'], by: ['student'] },
   debrief: { from: ['completed'], by: ['cfi'] },
   complete: { from: ['confirmed'], by: ['approver'] },
 };
@@ -181,4 +184,18 @@ export function allocateToCharges(lines, charges) {
     if (need > 0) throw new HttpError(500, 'Payout is larger than what was charged.');
   }
   return out;
+}
+
+// ---- Lessons an instructor books for a student ("proposed" until the student accepts).
+export const PROPOSAL_HOURS = 24;
+// The student has 24 hours to accept, but never later than 2 hours before the lesson.
+export function proposalExpires(startsAt, now = new Date()) {
+  const t = Math.min(now.getTime() + PROPOSAL_HOURS * 3600e3, new Date(startsAt).getTime() - 2 * 3600e3);
+  if (t <= now.getTime() + 15 * 60e3) bad('That’s too soon for the student to accept. Propose a lesson at least 3 hours ahead.');
+  return new Date(t);
+}
+export function parseProposal(body, now = new Date()) {
+  const studentId = String(body?.studentId || '');
+  if (!/^[0-9a-f-]{36}$/i.test(studentId)) bad('Pick a student.');
+  return { studentId, ...parseBookingRequest({ ...body, cfiId: 'self' }, now) };
 }

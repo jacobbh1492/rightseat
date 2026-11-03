@@ -28,3 +28,6 @@ verify_jwt = false
 
 [functions.booking-sweep]
 verify_jwt = false
+
+[functions.propose]
+verify_jwt = false
