@@ -77,6 +77,7 @@ export function WeeklyHours({ weekly, onChange }) {
   };
   const copyToWeekdays = (k) => onChange({ ...weekly, ...Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri'].map((d) => [d, weekly[k].map((r) => [...r])])) });
   const copyToAll = (k) => onChange(Object.fromEntries(ORDER.map((d) => [d, weekly[k].map((r) => [...r])])));
+  const firstOn = ORDER.find((k) => weekly[k].length); // copy links show under the first working day only
   return (
     <>
       <View style={a.list}>
@@ -107,10 +108,8 @@ export function WeeklyHours({ weekly, onChange }) {
                 {on && (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, marginTop: 2 }}>
                     <Pressable onPress={() => addRange(k)} style={a.link} accessibilityRole="button"><Text style={a.linkText}>+ Add hours</Text></Pressable>
-                    {['mon', 'tue', 'wed', 'thu', 'fri'].includes(k) && (
-                      <Pressable onPress={() => copyToWeekdays(k)} style={a.link} accessibilityRole="button"><Text style={a.linkText}>Copy to Mon–Fri</Text></Pressable>
-                    )}
-                    <Pressable onPress={() => copyToAll(k)} style={a.link} accessibilityRole="button"><Text style={a.linkText}>Copy to every day</Text></Pressable>
+                    {k === firstOn && <Pressable onPress={() => copyToWeekdays(k)} style={a.link} accessibilityRole="button"><Text style={a.linkText}>Copy to Mon–Fri</Text></Pressable>}
+                    {k === firstOn && <Pressable onPress={() => copyToAll(k)} style={a.link} accessibilityRole="button"><Text style={a.linkText}>Copy to every day</Text></Pressable>}
                   </View>
                 )}
               </View>
@@ -362,8 +361,11 @@ export function ScheduleCalendar({ nav, embedded }) {
   const offAllDay = offAll(sel);
   const minOf = (d) => Math.max(0, Math.min(1440, Math.round((d - dayStart) / 60000)));
   // Show 6 AM – 9 PM, stretched to fit working hours and anything booked.
-  const firstH = Math.min(6, ...ranges.map((r) => Math.floor(r[0] / 60)), ...items.map((i) => Math.floor(minOf(i.start) / 60)));
-  const lastH = Math.max(21, ...ranges.map((r) => Math.ceil(r[1] / 60)), ...items.map((i) => Math.ceil(minOf(i.end) / 60)));
+  // Lessons stretch it; blocked time doesn't (a day off would otherwise run midnight to midnight).
+  const lessonItems = items.filter((i) => i.kind === 'lesson');
+  const firstH = Math.min(6, ...ranges.map((r) => Math.floor(r[0] / 60)), ...lessonItems.map((i) => Math.floor(minOf(i.start) / 60)));
+  const lastH = Math.max(21, ...ranges.map((r) => Math.ceil(r[1] / 60)), ...lessonItems.map((i) => Math.ceil(minOf(i.end) / 60)));
+  const clip = (m) => Math.max(firstH * 60, Math.min(lastH * 60, m));
   const y = (min) => ((min - firstH * 60) / 60) * HOUR_H;
   const past = (h) => dayStartOf(sel).getTime() + (h + 1) * 3600e3 <= Date.now();
   const busyAt = (h) => items.some((i) => minOf(i.start) < (h + 1) * 60 && minOf(i.end) > h * 60);
@@ -412,12 +414,12 @@ export function ScheduleCalendar({ nav, embedded }) {
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
         {offAllDay
-          ? <Button title={busy ? 'Working…' : 'Work this day'} small variant="outline" disabled={busy} onPress={() => unblock(items.find((i) => i.kind === 'off' && i.start <= dayStart && i.end >= dayEnd).t)} />
-          : <Button title={busy ? 'Working…' : 'Take the day off'} small variant="outline" disabled={busy || dayEnd <= new Date()} onPress={dayOff} />}
-        <Button title="Block time" small variant="outline" onPress={() => nav.push('BlockTime', { tz, date: sel, allDay: false, startMin: ranges[0]?.[0] ?? 720, endMin: Math.min(1440, (ranges[0]?.[0] ?? 720) + 120) })} />
-        <Button title="Hours" small variant="outline" onPress={() => nav.push('Availability')} />
+          ? <Button title={busy ? 'Working…' : 'Work this day'} small variant="outline" style={a.dayBtn} disabled={busy} onPress={() => unblock(items.find((i) => i.kind === 'off' && i.start <= dayStart && i.end >= dayEnd).t)} />
+          : <Button title={busy ? 'Working…' : 'Day off'} small variant="outline" style={a.dayBtn} disabled={busy || dayEnd <= new Date()} onPress={dayOff} />}
+        <Button title="Block time" small variant="outline" style={a.dayBtn} onPress={() => nav.push('BlockTime', { tz, date: sel, allDay: false, startMin: ranges[0]?.[0] ?? 720, endMin: Math.min(1440, (ranges[0]?.[0] ?? 720) + 120) })} />
+        <Button title="Hours" small variant="outline" style={[a.dayBtn, { flex: 0.8 }]} onPress={() => nav.push('Availability')} />
       </View>
       {!!msg && <Text style={[a.msg, { color: '#B91C1C' }]}>{msg}</Text>}
 
@@ -437,7 +439,9 @@ export function ScheduleCalendar({ nav, embedded }) {
           );
         })}
         {items.map((it, k) => {
-          const top = y(minOf(it.start)) + 1, height = Math.max(22, y(minOf(it.end)) - y(minOf(it.start)) - 2);
+          const m0 = clip(minOf(it.start)), m1 = clip(minOf(it.end));
+          if (m1 <= m0) return null; // blocked time entirely outside the hours shown
+          const top = y(m0) + 1, height = Math.max(22, y(m1) - y(m0) - 2);
           if (it.kind === 'lesson') {
             const [bg, fg] = LESSON_COLORS[it.r.status] || LESSON_COLORS.Confirmed;
             return (
@@ -518,6 +522,7 @@ const a = StyleSheet.create({
   navBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: C.sky },
   item: { borderLeftWidth: 4, marginTop: 10 },
   itemTime: { color: C.sub, fontWeight: '800', fontSize: 12, marginBottom: 2 },
+  dayBtn: { flex: 1, paddingHorizontal: 6 },
   calHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   calTitle: { fontWeight: '900', fontSize: 18, color: C.text, marginRight: 4 },
   todayBtn: { minHeight: 44, paddingHorizontal: 10, justifyContent: 'center' },
