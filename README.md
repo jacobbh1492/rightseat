@@ -39,6 +39,12 @@ Cross-platform (iPhone + Android) app built with React Native + Expo.
 - **History & focus areas:** all debriefs by date and instructor, plus "recurring focus areas", meaning maneuvers flagged across multiple debriefs.
 - **Changing CFIs:** the record belongs to the student. Booking a new CFI offers "Share my training record & debriefs". The new CFI sees a Student file: hours, progress, endorsements, where they left off (last plan + what they were working on), recurring focus areas and every past debrief. Students control who can see it, can turn debrief sharing off, and can preview exactly what a CFI sees.
 
+## Learning Library & pre-flight reviews
+- **Library (free for every student, no account needed):** Training tab → Learning Library. 44 pre-flight study lessons: every Private, Commercial, Instrument and Multi-Engine flight task. Each has a flight-path diagram, why it matters, step-by-step technique, the checkride standards (Private/Commercial toggle where both apply), common errors, a quick check with tap-to-reveal answers, and the FAA references. Search by name or ACS code, filter by certificate, and mark lessons studied (saved to the account when signed in, on the phone for guests).
+- **Sources:** FAA only: Airplane Flying Handbook (FAA-H-8083-3C), PHAK (-25C), Instrument Flying Handbook (-15B), Instrument Procedures Handbook (-16B), Flying Light Twins Safely (FAA-P-8740-66), the AIM, 14 CFR 91 and the ACS (FAA-S-ACS-6C, 7B, 8C). Content was fact-checked Nov 2, 2026; edit it in `src/library/content.js` and run `node --test test/library.test.mjs`.
+- **Pre-flight reviews:** on any requested or confirmed lesson in Schedule, the instructor taps "+ Assign pre-flight review", picks up to 12 lessons (filtered to the lesson's goal, with what the student has already studied) and adds an optional note. The student gets a notification, sees the review on the lesson card and in the library, and works through it lesson by lesson. Lessons count once studied after the review was assigned. When everything is studied the instructor is notified and the lesson card shows "done ✓". Changing the lessons restarts it; a note-only edit doesn't.
+- **Server:** `lesson_progress` and `preflight_reviews` (migration `20261102000000_learning_library.sql`). Only the lesson's own instructor can assign, only while it's upcoming; student and instructor are filled in from the booking; students can only write their own progress; instructors see a student's progress once they share a booking.
+
 ## Verification
 - **Verification center (Account):** every required document for pilots, instructors and aircraft, with live status (Verified · auto, In review, Needs attention, Expires in N days).
 - **Upload screens:** one per document. ID + selfie (Stripe Identity), FAA registry lookups (certificates, N-number), photo/PDF upload read by Document AI with a "confirm what we read" step, consent for background checks. Checks run live and the result is shown: approved automatically, sent to review, or rejected with what to fix.
@@ -75,7 +81,8 @@ Browser-based back office: overview, bookings, payments, disputes, users, listin
 - `src/logic.js` – fees, quotes, safety checks, scheduling, message guardrails, ranking, metrics
 - `src/store.js` – app state and actions (booking, close-out, wallet, messages, payouts)
 - `src/ui.js` – shared components
-- `src/screens/` – Explore, Details (CFI/plane/school), Booking (request, lessons, cancel, close-out, receipt, reviews), Training, Inbox (chat + wallet), Dashboards (CFI, owner, plans, credentials, metrics), Me (account + forms)
+- `src/library/` – Learning Library content (`content.js`), order and helpers (`index.js`), diagram renderer, studied/review state
+- `src/screens/` – Library (library, lesson, pre-flight review, assign review), Explore, Details (CFI/plane/school), Booking (request, lessons, cancel, close-out, receipt, reviews), Training, Inbox (chat + wallet), Dashboards (CFI, owner, plans, credentials, metrics), Me (account + forms)
 
 ## Next steps for production
 Backend + accounts (e.g. Supabase/Firebase), photo uploads, payments (Stripe Connect for CFI/owner payouts), messaging, calendar sync, CFI certificate verification, then build with `eas build` and submit to the App Store / Play Store.

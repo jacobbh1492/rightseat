@@ -8,6 +8,7 @@ import { C, Card, Avatar, SectionTitle, Button, Row, Tag, Chip, Toggle } from '.
 import { DebriefCard, FocusAreas } from './Debrief';
 import { useAuth } from '../backend/auth';
 import LiveTraining from './LiveTraining';
+import { LibraryCard } from './Library';
 
 function Bar({ value, extra = 0, max, color = C.blue }) {
   const a = Math.max(0, Math.min(1, max ? value / max : 0));
@@ -73,6 +74,7 @@ function DemoTraining({ nav }) {
       </View>
 
       <View style={{ padding: 16 }}>
+        <LibraryCard nav={nav} />
         {prior ? (
           <Card style={{ borderLeftWidth: 4, borderLeftColor: prior.status === 'confirmed' ? C.green : '#60A5FA' }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
