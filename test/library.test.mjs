@@ -50,3 +50,17 @@ test('search finds lessons by name and ACS code', () => {
   assert.ok(searchLessons('IR.III.B').includes('ir-holding'));
   assert.equal(searchLessons('').length, 44);
 });
+
+test('diagram callouts: every label has a key entry, and markers sit inside the picture without overlapping', async () => {
+  const { calloutsFor, mergeLabels } = await import('../src/library/callouts.js');
+  const { CALLOUT_POS } = await import('../src/library/callout-positions.js');
+  for (const id of ALL_IDS) {
+    const d = DIAG[id]();
+    assert.equal((CALLOUT_POS[id] || []).length, mergeLabels(d).length, `${id}: positions match labels (run scripts/place-callouts.mjs)`);
+    const cs = calloutsFor(id, d).filter((c) => c.n);
+    for (const c of cs) assert.ok(c.x >= 7 && c.x <= 313 && c.y >= 7 && c.y <= 163, `${id} #${c.n} inside`);
+    for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
+      assert.ok(Math.hypot(cs[i].x - cs[j].x, cs[i].y - cs[j].y) >= 14, `${id} #${cs[i].n} and #${cs[j].n} overlap`);
+    }
+  }
+});

@@ -529,7 +529,7 @@ const LESSONS = {
 
 "ir-flight": {
   kind: "ir", area: "Instrument · Flight by Reference to Instruments", title: "Attitude Instrument Flying", min: 3, acsP: "IR.IV.A", acsC: null,
-  view: "Side view", alt: "Level flight transitioning to a climb and level-off", ref: G2, track: "M20 100 H110 Q140 100 160 80 L220 50 Q235 42 260 42 H300",
+  view: "Instrument panel", alt: "The six basic flight instruments, with the attitude indicator at the center of the scan", ref: G2, track: "M20 100 H110 Q140 100 160 80 L220 50 Q235 42 260 42 H300",
   cap: "Straight-and-level, standard-rate turns, climbs and descents, with instruments alone.",
   why: "Everything in instrument flying sits on this skill: controlling the airplane precisely with no outside reference, using a disciplined scan instead of feel.",
   setup: ["View-limiting device", "Cross-check · interpret · control", "Standard-rate turns"],
@@ -550,7 +550,7 @@ const LESSONS = {
 },
 "ir-unusual": {
   kind: "ir", area: "Instrument · Flight by Reference to Instruments", title: "Recovery from Unusual Flight Attitudes", min: 3, acsP: "IR.IV.B", acsC: null,
-  view: "Side view", alt: "A nose-high climb, then a nose-low dive, each recovered to level flight", ref: G2, track: "M30 110 Q90 20 150 70 Q190 110 240 80 L300 75",
+  view: "Attitude indicator", alt: "Two attitude indicators: one nose high, one nose low", ref: G2, track: "M30 110 Q90 20 150 70 Q190 110 240 80 L300 75",
   cap: "Nose high: power up, nose down, wings level. Nose low: power back, wings level, then raise the nose.",
   why: "Distraction, turbulence or spatial disorientation can put you in an attitude you didn't intend. A fast, correct recovery by instruments alone can save the flight.",
   setup: ["Confirm on 2+ instruments", "Know nose-high vs nose-low", "Partial panel too"],
@@ -757,7 +757,7 @@ const LESSONS = {
 },
 "ir-partial": {
   kind: "ir", area: "Instrument · Emergency Operations", title: "Approach with Loss of Primary Flight Instrument Indicators", min: 3, acsP: "IR.VII.D", acsC: null,
-  view: "Side view", alt: "Step-down descent to the MDA, flown partial panel", ref: MDA, track: "M20 25 H70 L120 70 H170 L210 100 H275",
+  view: "Instrument panel", alt: "The six basic flight instruments with the attitude and heading indicators covered", ref: MDA, track: "M20 25 H70 L120 70 H170 L210 100 H275",
   cap: "A nonprecision approach flown with the primary flight instruments covered or failed.",
   why: "If the attitude indicator or PFD fails, you still have to get down safely. Recognizing the failure early and flying the backups smoothly is the whole task.",
   setup: ["Recognize & cover failures", "Backups: turn coord., ASI, alt, VSI", "Ask ATC for no-gyro"],
@@ -904,7 +904,7 @@ const LESSONS = {
 },
 "me-oei-instruments": {
   kind: "ir", me: true, area: "Multi-Engine · Instrument", title: "One Engine Inoperative by Reference to Instruments", min: 3, acsP: "IR.VII.B", acsC: null,
-  view: "Side view", alt: "Level flight into a turn on one engine", ref: G2, track: "M20 75 H120 Q160 75 180 55 Q200 35 240 35 H300",
+  view: "Instrument panel", alt: "The six basic flight instruments, in a slight bank toward the operating engine", ref: G2, track: "M20 75 H120 Q160 75 180 55 Q200 35 240 35 H300",
   cap: "Same engine-out flow, flown entirely on instruments, then straight-and-level and turns.",
   why: "An engine failure in IMC stacks two hard tasks. A practiced flow on instruments keeps you from losing control while you sort it out.",
   setup: ["Instruments only", "Control → configure → identify", "Zero sideslip"],
@@ -978,18 +978,20 @@ function ai(cx, cy, r, bank, off) {
 function sixpack(bank, covered) {
   const A = ai(160, 58, 32, bank, 0);
   const I = { ASI: [90, 58], ALT: [230, 58], TC: [90, 128], HI: [160, 128], VSI: [230, 128] };
+  const NAME = { ASI: "Airspeed", ALT: "Altimeter", TC: "Turn coordinator", HI: "Heading indicator", VSI: "Vertical speed", AI: "Attitude indicator" };
+  const out = covered || [];
   let ref = A.ref, dash = "", surface = "", track = A.track;
   const labels = [];
   Object.keys(I).forEach((k) => {
     const [x, y] = I[k], dx = x - 160, dy = y - 58, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
     ref += " " + circ(x, y, 22);
     dash += " M" + R(160 + ux * 35) + " " + R(58 + uy * 35) + " L" + R(x - ux * 25) + " " + R(y - uy * 25);
-    labels.push([x, y + 3.5, k, "middle"]);
+    labels.push(out.includes(k) ? [x, y + 3.5, NAME[k] + " (failed · covered)", "middle", 1] : [x, y + 3.5, NAME[k], "middle"]);
   });
-  (covered || []).forEach((k) => {
+  out.forEach((k) => {
     const [x, y] = k === "AI" ? [160, 58] : I[k], h = k === "AI" ? 34 : 24;
     surface += " M" + (x - h) + " " + (y - h) + " H" + (x + h) + " V" + (y + h) + " H" + (x - h) + " Z";
-    labels.push([x, y + (k === "AI" ? 4 : 14), "INOP", "middle", 1]);
+    if (k === "AI") labels.push([160, 61.5, NAME.AI + " (failed · covered)", "middle", 1]);
   });
   return { sky: A.sky, brown: (covered || []).includes("AI") ? "" : A.brown, ref, dash, surface, track: (covered || []).includes("AI") ? "" : track, labels };
 }
