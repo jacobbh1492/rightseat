@@ -82,6 +82,21 @@ export function slotStatus({ cfi, plane, day, hour, requests, ignoreId }) {
   return 'free';
 }
 
+// Sample (demo) instructors and planes have no real bookings, so mark some 2-hour
+// blocks busy in a stable pattern so their calendars look realistic.
+export function demoBusy({ cfi, plane, from, days }) {
+  const out = [];
+  for (let i = 0; i < days; i++) {
+    const day = new Date(from.getFullYear(), from.getMonth(), from.getDate() + i);
+    const k = dayKey(day);
+    for (const s of SLOTS) {
+      const hit = (cfi && !cfi.live && hash(cfi.id + k + s.h) % 10 < 3) || (plane && !plane.live && hash(plane.id + k + s.h) % 10 < 2);
+      if (hit) out.push({ start: new Date(day.getFullYear(), day.getMonth(), day.getDate(), s.h), end: new Date(day.getFullYear(), day.getMonth(), day.getDate(), s.h + 2) });
+    }
+  }
+  return out;
+}
+
 // Messaging guardrails: hide contact info before the first booking; nudge on off-app payment talk.
 const PHONE = /(\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g;
 const EMAIL = /[\w.+-]+@[\w-]+\.[\w.]+/g;

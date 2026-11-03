@@ -354,7 +354,19 @@ export function CfiForm({ nav, params }) {
         <Toggle label="I carry CFI / non-owner insurance" value={f.insured} onValueChange={set('insured')} />
 
         <SectionTitle>Availability</SectionTitle>
-        <MultiSelect label="Days" options={DAYS} selected={f.availability} onChange={set('availability')} />
+        {uid && existing?.live ? (
+          <Pressable onPress={() => nav.push('Availability')} accessibilityRole="button" style={{ marginBottom: 14 }}>
+            <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontWeight: '800', color: C.text }}>Working hours & time off</Text>
+                <Text style={{ color: C.sub, fontSize: 13, marginTop: 2 }}>Set your hours by day, booking notice, buffer between lessons, and block time off.</Text>
+              </View>
+              <Text style={{ color: '#94A3B8', fontSize: 22 }}>›</Text>
+            </Card>
+          </Pressable>
+        ) : (
+          <MultiSelect label="Days" options={DAYS} selected={f.availability} onChange={set('availability')} />
+        )}
         <MultiSelect label="Preferred times" options={TIMES} selected={f.timeOfDay} onChange={set('timeOfDay')} />
 
         <SectionTitle>About you</SectionTitle>
