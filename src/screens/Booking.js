@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useStore, money } from '../store';
 import { SYLLABUS } from '../data';
-import { quote, isRepeat, bookingChecks, slotStatus, SLOTS, money2, dateLabel, timeLabel, hoursUntil, FEES, r2 } from '../logic';
+import { quote, isRepeat, bookingChecks, money2, dateLabel, timeLabel, hoursUntil, FEES, r2 } from '../logic';
 import { C, Card, Avatar, Chip, Row, SectionTitle, Button, Stepper, Tag, StarPicker, Field, VerifiedBadge, Toggle, Icon } from '../ui';
 
 function Step({ n, title, done }) {
@@ -20,6 +20,9 @@ import { bookingAction } from '../backend/bookings';
 import { postReview } from '../backend/profiles';
 import { useLibrary } from '../library/useLibrary';
 import { ReviewChip } from './Library';
+import { useOpenTimes } from '../useOpenTimes';
+import { MonthCalendar, cmpDate, shortDate, longDate } from '../calendarUi';
+import { DEFAULT_TZ, todayIn, addDays, dateKey, timeIn, tzAbbrev } from '../schedule';
 
 // Listings stored in the live database have UUID ids; the built-in sample listings don't.
 const isLive = (id) => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(id);
@@ -30,11 +33,6 @@ import { DebriefEditor, emptyDebrief } from './Debrief';
 import { focusAreas, isEmptyDebrief } from '../debrief';
 
 const GOALS = ['Assessment flight', 'Discovery flight', 'Private Pilot lesson', 'Dual cross-country', 'Night flying', 'Instrument lesson', 'Commercial maneuvers', 'Multi-engine', 'Flight review (BFR)', 'IPC', 'Aircraft checkout', 'Tailwheel'];
-
-function nextDays(n = 12) {
-  const d = new Date();
-  return Array.from({ length: n }, (_, i) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + i));
-}
 
 export function CheckList({ checks }) {
   return (
@@ -55,14 +53,8 @@ export function RequestLesson({ nav, params }) {
   const [cfiId, setCfiId] = useState(params.cfiId);
   const [planeId, setPlaneId] = useState(params.planeId);
   const [ownPlane, setOwnPlane] = useState(false);
-  const days = nextDays();
-  const [dayIdx, setDayIdx] = useState(() => {
-    const c0 = getCfi(params.cfiId);
-    const p0 = getPlane(params.planeId);
-    const i = days.findIndex((d) => SLOTS.some((sl) => slotStatus({ cfi: c0, plane: p0, day: d, hour: sl.h, requests }) === 'free'));
-    return i < 0 ? 1 : i;
-  });
-  const [slot, setSlot] = useState(null);
+  const [date, setDate] = useState(null);   // calendar date in the instructor's time zone
+  const [start, setStart] = useState(null); // chosen start time (Date)
   const [goal, setGoal] = useState(params.goal || (params.cfiId && !isRepeat(requests, { cfiId: params.cfiId }) ? (hasPrior(training) ? 'Assessment flight' : 'Discovery flight') : 'Private Pilot lesson'));
   const [flightHours, setFlightHours] = useState(params.flightHours || 1.5);
   const [groundHours, setGroundHours] = useState(0.5);
@@ -85,7 +77,35 @@ export function RequestLesson({ nav, params }) {
   ];
   const blocked = checks.some((c) => c.blocking && !c.ok);
   const walletShort = method === 'wallet' && available < q.total;
-  const day = days[dayIdx];
+
+  // Calendar: open start times from the instructor's hours (or the plane's rental hours).
+  const durationMin = Math.round((flightHours + (cfi ? groundHours : 0)) * 60);
+  const ot = useOpenTimes({ cfi, plane, durationMin, requests });
+  const tz = ot.schedule?.timezone || DEFAULT_TZ;
+  const today = todayIn(tz);
+  const lastDay = ot.schedule ? addDays(today, ot.schedule.maxDaysAhead) : addDays(today, 60);
+  const [month, setMonth] = useState({ y: today.y, m: today.m });
+  const monthSlots = useMemo(() => {
+    const out = {};
+    if (!ot.schedule) return out;
+    const n = new Date(Date.UTC(month.y, month.m, 0)).getUTCDate();
+    for (let d = 1; d <= n; d++) {
+      const dt = { y: month.y, m: month.m, d };
+      if (cmpDate(dt, today) < 0 || cmpDate(dt, lastDay) > 0) continue;
+      out[dateKey(dt)] = ot.slotsFor(dt);
+    }
+    return out;
+  }, [ot.schedule, ot.busy.length, durationMin, month.y, month.m]);
+  const slots = date ? monthSlots[dateKey(date)] || ot.slotsFor(date) : [];
+  // Pick the first open day once the calendar loads; drop a time that no longer fits.
+  useEffect(() => {
+    if (date || ot.loading) return;
+    const first = Object.keys(monthSlots).sort().find((k) => monthSlots[k].length);
+    if (first) { const [y, m, d] = first.split('-').map(Number); setDate({ y, m, d }); }
+    else if (cmpDate({ y: month.y, m: month.m, d: 28 }, lastDay) < 0 && !ot.error) setMonth(({ y, m }) => (m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 }));
+  }, [ot.loading, monthSlots]);
+  useEffect(() => { if (start && !slots.some((x) => +x === +start)) setStart(null); }, [slots.map((x) => +x).join()]);
+  const localTz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return tz; } })();
 
   const planeOptions = cfi
     ? [...cfi.aircraftIds.map(getPlane).filter(Boolean), ...planes.filter((p) => !cfi.aircraftIds.includes(p.id))]
@@ -99,7 +119,7 @@ export function RequestLesson({ nav, params }) {
   const live = isLive(cfi?.id) || isLive(plane?.id);
 
   const submit = async () => {
-    const when = new Date(day.getFullYear(), day.getMonth(), day.getDate(), slot).toISOString();
+    const when = start.toISOString();
     if (live) {
       // Real booking: server prices it, then the student saves a card (charged after the flight).
       if (!auth?.session) { nav.push('SignIn', { reason: 'Sign in to book. We’ll email you a 6-digit code.' }); return; }
@@ -177,7 +197,7 @@ export function RequestLesson({ nav, params }) {
             </Pressable>
           )}
           {cfiOptions.map((c) => (
-            <Pressable key={c.id} onPress={() => { setCfiId(c.id); setSlot(null); }} style={[bs.pick, cfiId === c.id && bs.pickOn]}>
+            <Pressable key={c.id} onPress={() => { setCfiId(c.id); setStart(null); }} style={[bs.pick, cfiId === c.id && bs.pickOn]}>
               <Avatar initials={c.initials} color={c.color} size={44} photo={c.photo} />
               <Text style={bs.pickName} numberOfLines={1}>{c.name.split(' ')[0]}</Text>
               <Text style={bs.pickSub}>{money(c.flightRate)}/hr</Text>
@@ -196,7 +216,7 @@ export function RequestLesson({ nav, params }) {
             </Pressable>
           )}
           {planeOptions.map((p) => (
-            <Pressable key={p.id} onPress={() => { setPlaneId(p.id); setOwnPlane(false); setSlot(null); }} style={[bs.pick, !ownPlane && planeId === p.id && bs.pickOn]}>
+            <Pressable key={p.id} onPress={() => { setPlaneId(p.id); setOwnPlane(false); setStart(null); }} style={[bs.pick, !ownPlane && planeId === p.id && bs.pickOn]}>
               <PlaneImage plane={p} size={44} />
               <Text style={bs.pickName} numberOfLines={1}>{p.make} {p.model.split(' ')[0]}</Text>
               <Text style={bs.pickSub}>{money(p.wetRate)}/hr · {p.homeAirport}</Text>
@@ -235,39 +255,40 @@ export function RequestLesson({ nav, params }) {
           </>
         )}
 
-        <Step n={cfi ? 3 : 2} title="Date & time" done={!!slot} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {days.map((d, i) => {
-            const open = SLOTS.some((s) => slotStatus({ cfi, plane, day: d, hour: s.h, requests }) === 'free');
-            return (
-              <Pressable key={i} disabled={!open} onPress={() => { setDayIdx(i); setSlot(null); }} style={[bs.date, dayIdx === i && bs.pickOn, !open && { opacity: 0.35 }]}>
-                <Text style={{ fontWeight: '800', color: C.text }}>{d.toLocaleDateString('en-US', { weekday: 'short' })}</Text>
-                <Text style={{ color: C.sub, fontSize: 12 }}>{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-        <View style={bs.slots}>
-          {SLOTS.map((s) => {
-            const st = slotStatus({ cfi, plane, day, hour: s.h, requests });
-            const on = slot === s.h;
-            return (
-              <Pressable key={s.h} disabled={st !== 'free'} onPress={() => setSlot(s.h)} style={[bs.slot, on && { backgroundColor: C.blue, borderColor: C.blue }, st !== 'free' && bs.slotBusy]}>
-                <Text style={{ fontWeight: '800', color: on ? '#fff' : st === 'free' ? C.text : '#9AA3B2', fontSize: 13 }}>{s.label}</Text>
-                <Text style={{ fontSize: 10, color: on ? '#fff' : '#9AA3B2', marginTop: 1 }}>
-                  {st === 'free' ? 'Open' : st === 'cfi' ? 'CFI booked' : st === 'plane' ? 'Plane booked' : 'Unavailable'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Text style={bs.hint}>Live calendars: {cfi ? `${cfi.name.split(' ')[0]}’s schedule` : 'no instructor'}{plane ? ` + ${plane.tail}’s bookings` : ''}.</Text>
-
-        <Step n={cfi ? 4 : 3} title="How long" done />
+        <Step n={cfi ? 3 : 2} title="How long" done />
         <Card>
           <Stepper label="Flight (Hobbs)" value={flightHours} onChange={setFlightHours} min={0.5} />
           {cfi && <Stepper label="Ground / briefing" value={groundHours} onChange={setGroundHours} />}
         </Card>
+        <Step n={cfi ? 4 : 3} title="Date & time" done={!!start} />
+        <MonthCalendar month={month} onMonth={(mo) => { setMonth(mo); }} selected={date}
+          onSelect={(dt) => { setDate(dt); setStart(null); }}
+          enabled={(dt) => (monthSlots[dateKey(dt)] || []).length > 0}
+          minMonth={{ y: today.y, m: today.m }} maxMonth={{ y: lastDay.y, m: lastDay.m }} />
+        {ot.loading && <Text style={bs.hint}>Checking {cfi ? `${cfi.name.split(' ')[0]}’s` : 'the plane’s'} calendar…</Text>}
+        {!!ot.error && <Text style={[bs.hint, { color: '#B45309' }]}>{ot.error}</Text>}
+        {!ot.loading && date && (
+          <>
+            <Text style={{ fontWeight: '900', color: C.text, fontSize: 16, marginTop: 14 }}>{longDate(date)}</Text>
+            <Text style={[bs.hint, { marginTop: 2 }]}>
+              {slots.length ? `${slots.length} open start time${slots.length > 1 ? 's' : ''} for a ${r2(durationMin / 60)} hr lesson` : 'No times left that fit this lesson. Try another day or a shorter lesson.'}
+              {localTz !== tz ? ` · times in ${tzAbbrev(tz, slots[0] || new Date())}` : ''}
+            </Text>
+            <View style={bs.slots}>
+              {slots.map((t) => {
+                const on = start && +start === +t;
+                return (
+                  <Pressable key={+t} onPress={() => setStart(t)} style={[bs.slot, on && { backgroundColor: C.blue, borderColor: C.blue }]}
+                    accessibilityRole="button" accessibilityState={{ selected: !!on }} accessibilityLabel={`${timeIn(t, tz)}`}>
+                    <Text style={{ fontWeight: '800', color: on ? '#fff' : C.text, fontSize: 14 }}>{timeIn(t, tz)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
+        <Text style={bs.hint}>Live calendar: {cfi ? `${cfi.name.split(' ')[0]}’s working hours and bookings` : 'no instructor'}{plane ? ` + ${plane.tail}’s bookings` : ''}. {cfi ? `They confirm every request.` : ''}</Text>
+
 
         <Pressable onPress={() => setShowChecks(!showChecks)} style={[bs.summary, blocked && { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' }]} accessibilityRole="button" accessibilityLabel="Safety and insurance checks">
           <Icon name={blocked ? 'info' : 'shieldCheck'} size={20} color={blocked ? '#DC2626' : C.green} />
@@ -348,12 +369,12 @@ export function RequestLesson({ nav, params }) {
       <View style={bs.cta}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontWeight: '900', fontSize: 20, color: C.navy }}>{money2(q.total)}</Text>
-          <Text style={{ color: C.sub, fontSize: 12 }}>{slot ? `${dateLabel(day.toISOString())} · ${SLOTS.find((s) => s.h === slot).label}` : 'Pick a time'}</Text>
+          <Text style={{ color: C.sub, fontSize: 12 }}>{start && date ? `${shortDate(date)} · ${timeIn(start, tz)}` : 'Pick a time'}</Text>
         </View>
         <Button
-          title={busy ? 'Sending…' : blocked ? 'Checks not met' : !slot ? 'Pick a time' : 'Send request'}
+          title={busy ? 'Sending…' : blocked ? 'Checks not met' : !start ? 'Pick a time' : 'Send request'}
           style={{ paddingHorizontal: 22 }}
-          disabled={busy || blocked || !slot || (!cfi && !plane) || (!live && walletShort)}
+          disabled={busy || blocked || !start || (!cfi && !plane) || (!live && walletShort)}
           onPress={submit}
         />
       </View>

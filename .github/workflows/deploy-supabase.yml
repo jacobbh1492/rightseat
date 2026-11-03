@@ -20,7 +20,7 @@ jobs:
         with: { node-version: 22 }
       - run: npm ci
       - name: Tests
-        run: node --test test/bookings.test.mjs
+        run: node --test test/bookings.test.mjs test/schedule.test.mjs
       - name: Shared pricing is in sync
         run: node scripts/sync-shared.js && git diff --exit-code supabase/functions/_shared
       - name: Database migrations

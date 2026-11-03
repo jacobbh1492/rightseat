@@ -9,6 +9,7 @@ import { C, Card, Button, SectionTitle, Row, Tag, Field, Stepper, Toggle } from 
 import { Header } from './Details';
 import { useLibrary } from '../library/useLibrary';
 import { ReviewChip } from './Library';
+import { CalendarCard } from './Availability';
 
 // Instructor (and plane owner) side of live bookings: answer requests, close out
 // lessons with Hobbs time, see what you earned, and set up payouts.
@@ -115,6 +116,7 @@ export function Teaching({ nav, asTab }) {
           )}
         </Card>}
 
+        {asTab && auth?.session && <CalendarCard nav={nav} />}
         {!!err && <Text style={ts.err} accessibilityLiveRegion="polite">{err}</Text>}
 
         {(!asTab || auth?.session) && <>

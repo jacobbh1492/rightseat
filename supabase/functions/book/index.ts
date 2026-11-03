@@ -4,6 +4,7 @@
 // and creates the booking as "requested" for the instructor/owner to confirm.
 import { serve, json, admin, stripe, requireUser, customerFor, audit } from '../_shared/server.ts';
 import { parseBookingRequest, priceBooking, HttpError } from '../_shared/bookings.js';
+import { normalizeSchedule, checkBooking } from '../_shared/schedule.js';
 
 serve(async (req, body) => {
   const user = await requireUser(req);
@@ -22,6 +23,23 @@ serve(async (req, body) => {
   if (cfi && cfi.id === user.id) throw new HttpError(400, 'You can’t book yourself.');
   if (plane && !cfi && plane.owner_id === user.id) throw new HttpError(400, 'You can’t rent your own plane.');
   if (plane && !cfi && plane.details?.soloRental === false) throw new HttpError(400, 'This plane is dual-only. Add an instructor.');
+
+  // The instructor's calendar: working hours, notice, booking window and time off.
+  // Their buffer after each lesson sets how long the booking holds the slot.
+  if (cfi) {
+    const { data: row } = await admin.from('cfi_schedules').select('*').eq('cfi_id', cfi.id).maybeSingle();
+    const schedule = normalizeSchedule(row ? {
+      timezone: row.timezone, weekly: row.weekly, minNoticeHours: row.min_notice_hours,
+      maxDaysAhead: row.max_days_ahead, bufferMin: row.buffer_min, incrementMin: row.increment_min,
+    } : null, cfi.availability);
+    const durationMin = Math.round((r.flightHours + r.groundHours) * 60);
+    r.endsAt = new Date(r.startsAt.getTime() + (durationMin + schedule.bufferMin) * 60 * 1000);
+    const { data: off } = await admin.from('cfi_time_off').select('starts_at, ends_at').eq('cfi_id', cfi.id)
+      .lt('starts_at', r.endsAt.toISOString()).gt('ends_at', r.startsAt.toISOString());
+    const busy = (off || []).map((t: any) => ({ start: new Date(t.starts_at), end: new Date(t.ends_at) }));
+    const why = checkBooking({ schedule, start: r.startsAt, durationMin, busy, now: new Date() });
+    if (why) throw new HttpError(409, why);
+  }
 
   // Retrying? Drop this student's own earlier requests for an overlapping time whose card never saved.
   await admin.from('bookings').update({ status: 'cancelled', cancelled_by: user.id, cancel_reason: 'Replaced by a new request' })
