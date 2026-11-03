@@ -7,6 +7,8 @@ import { quote } from '../pricing';
 import { money2, r2 } from '../logic';
 import { C, Card, Button, SectionTitle, Row, Tag, Field, Stepper, Toggle } from '../ui';
 import { Header } from './Details';
+import { useLibrary } from '../library/useLibrary';
+import { ReviewChip } from './Library';
 
 // Instructor (and plane owner) side of live bookings: answer requests, close out
 // lessons with Hobbs time, see what you earned, and set up payouts.
@@ -24,12 +26,24 @@ export function Teaching({ nav, asTab }) {
   const [payoutBusy, setPayoutBusy] = useState(false);
   const ready = !!auth?.account?.payouts_ready;
 
+  const lib = useLibrary();
   const refresh = async () => {
     setRefreshing(true);
-    try { await refreshLive(); } catch (e) { setErr(e.message); }
+    try { await Promise.all([refreshLive(), lib.refresh()]); } catch (e) { setErr(e.message); }
     setRefreshing(false);
   };
   useEffect(() => { refresh(); }, []);
+  // Instructors can assign a pre-flight review from the Learning Library.
+  const review = (r) => {
+    if (r.role !== 'cfi') return null;
+    const rv = lib.reviews.find((x) => x.bookingId === r.id);
+    if (rv) return <ReviewChip review={rv} onPress={() => nav.push('AssignReview', { bookingId: r.id })} />;
+    return (
+      <Pressable onPress={() => nav.push('AssignReview', { bookingId: r.id })} style={ts.assign} accessibilityRole="button">
+        <Text style={{ color: C.blue, fontWeight: '700' }}>+ Assign pre-flight review</Text>
+      </Pressable>
+    );
+  };
 
   const act = async (r, action, extra) => {
     setErr(''); setBusy(`${r.id}:${action}`);
@@ -119,6 +133,7 @@ export function Teaching({ nav, asTab }) {
               <Text style={{ color: C.blue, fontWeight: '700' }}>Message {r.studentName.split(' ')[0]} ›</Text>
             </Pressable>
             {!r.cardReady && <Text style={ts.warn}>Waiting for the student to finish adding their card.</Text>}
+            {review(r)}
             <View style={{ flexDirection: 'row', marginTop: 12 }}>
               <Button title={busy === `${r.id}:decline` ? 'Declining…' : 'Decline'} variant="outline" disabled={!!busy} style={{ flex: 0.6, marginRight: 8, paddingVertical: 10 }}
                 onPress={() => act(r, 'decline', { reason: `Declined by ${role(r)}` })} />
@@ -141,6 +156,7 @@ export function Teaching({ nav, asTab }) {
             <Pressable onPress={() => nav.push('Chat', { key: r.studentId, other: r.studentId, name: r.studentName })} style={{ marginTop: 6 }} accessibilityRole="button">
               <Text style={{ color: C.blue, fontWeight: '700' }}>Message {r.studentName.split(' ')[0]} ›</Text>
             </Pressable>
+            {review(r)}
             <View style={{ flexDirection: 'row', marginTop: 12 }}>
               <Button title={busy === `${r.id}:cancel` ? 'Cancelling…' : 'Cancel'} variant="outline" disabled={!!busy} style={{ flex: 0.6, marginRight: 8, paddingVertical: 10 }}
                 onPress={() => act(r, 'cancel', { reason: `Cancelled by ${role(r)}` })} />
@@ -300,7 +316,8 @@ export function LiveCloseOut({ nav, params }) {
 }
 
 const ts = StyleSheet.create({
-  h1: { fontSize: 28, fontWeight: '900', color: C.text, marginTop: 6, marginBottom: 4 },
+  assign: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: '#9DBDF5', backgroundColor: C.sky, marginTop: 10 },
+  h1:{ fontSize: 28, fontWeight: '900', color: C.text, marginTop: 6, marginBottom: 4 },
   kicker: { color: C.sub, fontSize: 12, fontWeight: '700' },
   title: { fontWeight: '900', color: C.text, fontSize: 16, flex: 1 },
   sub: { color: C.sub, marginTop: 2, fontSize: 13, lineHeight: 18 },

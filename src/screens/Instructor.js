@@ -58,6 +58,15 @@ export function Students({ nav }) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
       <Text style={s.h1}>Students</Text>
+      <Pressable onPress={() => nav.push('Library')} accessibilityRole="button">
+        <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.title}>Learning Library</Text>
+            <Text style={s.sub}>Browse the lessons you can assign. To assign a pre-flight review, open a lesson on your Schedule.</Text>
+          </View>
+          <Text style={{ color: '#94A3B8', fontSize: 22 }}>›</Text>
+        </Card>
+      </Pressable>
       {!auth?.session ? <SignedOut nav={nav} what="your students" /> : list.length === 0 ? (
         <Text style={s.empty}>Students show up here once they book a lesson with you, with their lessons, hours and your debriefs.</Text>
       ) : list.map((st) => (

@@ -18,6 +18,8 @@ import { useAuth } from '../backend/auth';
 import { useBookingPayment, CARD_PAYMENTS_SUPPORTED } from '../backend/payments';
 import { bookingAction } from '../backend/bookings';
 import { postReview } from '../backend/profiles';
+import { useLibrary } from '../library/useLibrary';
+import { ReviewChip } from './Library';
 
 // Listings stored in the live database have UUID ids; the built-in sample listings don't.
 const isLive = (id) => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(id);
@@ -361,7 +363,10 @@ export function RequestLesson({ nav, params }) {
 
 export function Lessons({ nav }) {
   const { requests, getCfi, getPlane, updateRequest, debriefForRequest } = useStore();
-  const upcoming = requests.filter((r) => ['Pending', 'Confirmed'].includes(r.status)).sort((a, b) => new Date(a.when) - new Date(b.when));
+  const lib = useLibrary();
+  React.useEffect(() => { lib.refresh(); }, []);
+  const reviewFor = (r) => (['Pending', 'Confirmed'].includes(r.status) ? lib.reviews.find((x) => x.bookingId === r.id && x.studentId === lib.uid) : null);
+  const upcoming =requests.filter((r) => ['Pending', 'Confirmed'].includes(r.status)).sort((a, b) => new Date(a.when) - new Date(b.when));
   const past = requests.filter((r) => ['Completed', 'Cancelled'].includes(r.status)).sort((a, b) => new Date(b.when) - new Date(a.when));
 
   const card = (r) => {
@@ -392,6 +397,7 @@ export function Lessons({ nav }) {
           </Text>
         )}
         {r.dispute && <Text style={[bs.warn, { marginTop: 8 }]}>Dispute: {r.dispute.reason} · {r.dispute.status}</Text>}
+        {reviewFor(r) && <ReviewChip review={reviewFor(r)} studied={lib.studied} onPress={() => nav.push('PreflightReview', { bookingId: r.id })} />}
 
         <View style={bs.actions}>
           {(c || p) && r.status !== 'Cancelled' && (

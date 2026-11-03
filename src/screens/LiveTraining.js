@@ -5,6 +5,7 @@ import { useAuth } from '../backend/auth';
 import { hoursFromFlights, fetchDebriefs, acknowledgeDebrief } from '../backend/bookings';
 import { PPL_MINIMUMS } from '../logic';
 import { C, Card, SectionTitle, Button, Field, Tag } from '../ui';
+import { LibraryCard } from './Library';
 
 // The signed-in student's real training record: hours from completed RightSeat flights
 // (logged by the instructor at close-out) and their instructors' debriefs.
@@ -58,6 +59,7 @@ export default function LiveTraining({ nav }) {
 
       <View style={{ padding: 16 }}>
         {!!err && <Text style={l.err}>{err}</Text>}
+        <LibraryCard nav={nav} />
 
         <SectionTitle>Toward FAA minimums (61.109)</SectionTitle>
         <Card>
