@@ -4,6 +4,11 @@ import { normalizeSchedule, workingDays } from '../schedule';
 // Instructor calendars on the server: working hours, time off, and busy times.
 // See supabase/migrations/20261103000000_cfi_calendar.sql.
 
+// Open calendars refresh when hours or time off change on another screen.
+const listeners = new Set();
+export const onScheduleChange = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
+const changed = () => listeners.forEach((fn) => fn());
+
 const fromRow = (row) => (row ? {
   timezone: row.timezone, weekly: row.weekly, minNoticeHours: row.min_notice_hours,
   maxDaysAhead: row.max_days_ahead, bufferMin: row.buffer_min, incrementMin: row.increment_min,
@@ -23,6 +28,7 @@ export async function saveSchedule(cfiId, s) {
     max_days_ahead: clean.maxDaysAhead, buffer_min: clean.bufferMin, increment_min: clean.incrementMin,
   }, { onConflict: 'cfi_id' });
   if (error) throw error;
+  changed();
   return { schedule: clean, days: workingDays(clean) };
 }
 
@@ -41,12 +47,14 @@ export async function addTimeOff({ start, end, allDay, label }) {
     .insert({ starts_at: start.toISOString(), ends_at: end.toISOString(), all_day: !!allDay, label: (label || '').trim().slice(0, 80) })
     .select('id, starts_at, ends_at, all_day, label').single();
   if (error) throw error;
+  changed();
   return shapeOff(data);
 }
 
 export async function removeTimeOff(id) {
   const { error } = await supabase.from('cfi_time_off').delete().eq('id', id);
   if (error) throw error;
+  changed();
 }
 
 // Busy times (lessons and time off) without names or labels, for open slots.

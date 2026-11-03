@@ -4,7 +4,7 @@ import { useStore } from '../store';
 import { useAuth } from '../backend/auth';
 import { C, Card, Button, Chip, Field, Toggle, Icon, SectionTitle } from '../ui';
 import { Header } from './Details';
-import { fetchSchedule, saveSchedule, fetchTimeOff, addTimeOff, removeTimeOff } from '../backend/schedule';
+import { fetchSchedule, saveSchedule, fetchTimeOff, addTimeOff, removeTimeOff, onScheduleChange } from '../backend/schedule';
 import {
   DAY_KEYS, DAY_NAMES, NOTICE_OPTIONS, AHEAD_OPTIONS, BUFFER_OPTIONS, INCREMENT_OPTIONS, TIMEZONES,
   DEFAULT_SCHEDULE, cleanRanges, minutesLabel, zonedTime, zonedParts, todayIn, addDays, dayOfWeek, dateKey, timeIn, tzAbbrev,
@@ -41,6 +41,8 @@ function useMyCalendar() {
     } catch (e) { setState((s) => ({ ...s, loading: false, error: e.message })); }
   };
   useEffect(() => { load(); }, [uid, !!me, myCfiId]);
+  // Reload when hours or time off change on another screen (Block time, Hours, profile).
+  useEffect(() => onScheduleChange(() => { load(); }), [uid, !!me]);
   return { uid, me, ...state, reload: load, setState };
 }
 
@@ -54,32 +56,86 @@ function NotInstructor({ nav, signedIn }) {
   );
 }
 
-// ---------------------------------------------------------------- working hours + rules + time off
-export function Availability({ nav }) {
-  const cal = useMyCalendar();
-  const { refreshListings } = useStore();
-  const [s, setS] = useState(null);
+// ---------------------------------------------------------------- weekly hours editor
+// Each day on or off, with one or more time ranges (e.g. Mon 7 AM – 7 PM). Used on the
+// Hours screen and in the instructor profile form.
+export function WeeklyHours({ weekly, onChange }) {
   const [picker, setPicker] = useState(null); // { day, i, end }
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
-  useEffect(() => { if (cal.schedule) setS(cal.schedule); }, [cal.schedule]);
-  const dirty = s && cal.schedule && JSON.stringify(s) !== JSON.stringify(cal.schedule);
-
-  const setDay = (k, ranges) => setS((x) => ({ ...x, weekly: { ...x.weekly, [k]: ranges } }));
-  const toggleDay = (k) => setDay(k, s.weekly[k].length ? [] : [[480, 1080]]);
+  const setDay = (k, ranges) => onChange({ ...weekly, [k]: ranges });
+  const toggleDay = (k) => setDay(k, weekly[k].length ? [] : [[480, 1080]]);
   const addRange = (k) => {
-    const r = s.weekly[k];
+    const r = weekly[k];
     const last = r[r.length - 1];
     const startAt = last ? Math.min(last[1] + 60, 1380) : 480;
     setDay(k, cleanRanges([...r, [startAt, Math.min(startAt + 180, 1440)]]));
   };
   const setTime = (k, i, end, t) => {
-    const r = s.weekly[k].map((x) => [...x]);
+    const r = weekly[k].map((x) => [...x]);
     r[i][end ? 1 : 0] = t;
     if (r[i][1] - r[i][0] < 30) { if (end) r[i][0] = Math.max(0, t - 60); else r[i][1] = Math.min(1440, t + 60); }
     setDay(k, cleanRanges(r));
   };
-  const copyToWeekdays = (k) => setS((x) => ({ ...x, weekly: { ...x.weekly, ...Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri'].map((d) => [d, x.weekly[k].map((r) => [...r])])) } }));
+  const copyToWeekdays = (k) => onChange({ ...weekly, ...Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri'].map((d) => [d, weekly[k].map((r) => [...r])])) });
+  const copyToAll = (k) => onChange(Object.fromEntries(ORDER.map((d) => [d, weekly[k].map((r) => [...r])])));
+  const firstOn = ORDER.find((k) => weekly[k].length); // copy links show under the first working day only
+  return (
+    <>
+      <View style={a.list}>
+        {ORDER.map((k) => {
+          const on = weekly[k].length > 0;
+          return (
+            <View key={k} style={a.dayRow}>
+              <Pressable onPress={() => toggleDay(k)} style={a.dayToggle} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={DAY_NAMES[k]}>
+                <View style={[a.box, on && { backgroundColor: C.blue, borderColor: C.blue }]}>{on && <Icon name="check" size={14} color="#fff" strokeWidth={3} />}</View>
+                <Text style={[a.dayName, !on && { color: C.sub }]}>{DAY_NAMES[k].slice(0, 3)}</Text>
+              </Pressable>
+              <View style={{ flex: 1 }}>
+                {!on && <Text style={[a.sub, { marginTop: 12 }]}>Unavailable</Text>}
+                {weekly[k].map((r, i) => (
+                  <View key={i} style={a.rangeRow}>
+                    <Pressable onPress={() => setPicker({ day: k, i, end: false })} style={a.timeBtn} accessibilityRole="button" accessibilityLabel={`${DAY_NAMES[k]} start ${minutesLabel(r[0])}`}>
+                      <Text style={a.timeText}>{minutesLabel(r[0])}</Text>
+                    </Pressable>
+                    <Text style={{ color: C.sub, marginHorizontal: 6 }}>–</Text>
+                    <Pressable onPress={() => setPicker({ day: k, i, end: true })} style={a.timeBtn} accessibilityRole="button" accessibilityLabel={`${DAY_NAMES[k]} end ${minutesLabel(r[1])}`}>
+                      <Text style={a.timeText}>{r[1] === 1440 ? 'Midnight' : minutesLabel(r[1])}</Text>
+                    </Pressable>
+                    <Pressable onPress={() => setDay(k, weekly[k].filter((_, j) => j !== i))} style={a.iconBtn} accessibilityRole="button" accessibilityLabel="Remove these hours">
+                      <Icon name="x" size={18} color={C.sub} />
+                    </Pressable>
+                  </View>
+                ))}
+                {on && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, marginTop: 2 }}>
+                    <Pressable onPress={() => addRange(k)} style={a.link} accessibilityRole="button"><Text style={a.linkText}>+ Add hours</Text></Pressable>
+                    {k === firstOn && <Pressable onPress={() => copyToWeekdays(k)} style={a.link} accessibilityRole="button"><Text style={a.linkText}>Copy to Mon–Fri</Text></Pressable>}
+                    {k === firstOn && <Pressable onPress={() => copyToAll(k)} style={a.link} accessibilityRole="button"><Text style={a.linkText}>Copy to every day</Text></Pressable>}
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+      {picker && (
+        <TimeSheet visible title={`${DAY_NAMES[picker.day]} · ${picker.end ? 'until' : 'from'}`}
+          value={weekly[picker.day][picker.i]?.[picker.end ? 1 : 0]}
+          min={picker.end ? 30 : 0} max={picker.end ? 1440 : 1410}
+          onPick={(t) => setTime(picker.day, picker.i, picker.end, t)} onClose={() => setPicker(null)} />
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- working hours + rules + time off
+export function Availability({ nav }) {
+  const cal = useMyCalendar();
+  const { refreshListings } = useStore();
+  const [s, setS] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  useEffect(() => { if (cal.schedule) setS(cal.schedule); }, [cal.schedule]);
+  const dirty = s && cal.schedule && JSON.stringify(s) !== JSON.stringify(cal.schedule);
 
   const save = async () => {
     setBusy(true); setMsg('');
@@ -109,44 +165,7 @@ export function Availability({ nav }) {
             {!cal.saved && <Text style={[a.note, { marginTop: 8 }]}>You haven’t saved hours yet, so students see 8 AM – 6 PM on your working days. Adjust and save below.</Text>}
 
             <SectionTitle>Weekly hours</SectionTitle>
-            <View style={a.list}>
-              {ORDER.map((k) => {
-                const on = s.weekly[k].length > 0;
-                return (
-                  <View key={k} style={a.dayRow}>
-                    <Pressable onPress={() => toggleDay(k)} style={a.dayToggle} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={DAY_NAMES[k]}>
-                      <View style={[a.box, on && { backgroundColor: C.blue, borderColor: C.blue }]}>{on && <Icon name="check" size={14} color="#fff" strokeWidth={3} />}</View>
-                      <Text style={[a.dayName, !on && { color: C.sub }]}>{DAY_NAMES[k].slice(0, 3)}</Text>
-                    </Pressable>
-                    <View style={{ flex: 1 }}>
-                      {!on && <Text style={[a.sub, { marginTop: 12 }]}>Unavailable</Text>}
-                      {s.weekly[k].map((r, i) => (
-                        <View key={i} style={a.rangeRow}>
-                          <Pressable onPress={() => setPicker({ day: k, i, end: false })} style={a.timeBtn} accessibilityRole="button" accessibilityLabel={`${DAY_NAMES[k]} start ${minutesLabel(r[0])}`}>
-                            <Text style={a.timeText}>{minutesLabel(r[0])}</Text>
-                          </Pressable>
-                          <Text style={{ color: C.sub, marginHorizontal: 6 }}>–</Text>
-                          <Pressable onPress={() => setPicker({ day: k, i, end: true })} style={a.timeBtn} accessibilityRole="button" accessibilityLabel={`${DAY_NAMES[k]} end ${minutesLabel(r[1])}`}>
-                            <Text style={a.timeText}>{r[1] === 1440 ? 'Midnight' : minutesLabel(r[1])}</Text>
-                          </Pressable>
-                          <Pressable onPress={() => setDay(k, s.weekly[k].filter((_, j) => j !== i))} style={a.iconBtn} accessibilityRole="button" accessibilityLabel="Remove these hours">
-                            <Icon name="x" size={18} color={C.sub} />
-                          </Pressable>
-                        </View>
-                      ))}
-                      {on && (
-                        <View style={{ flexDirection: 'row', gap: 14, marginTop: 2 }}>
-                          <Pressable onPress={() => addRange(k)} style={a.link} accessibilityRole="button"><Text style={a.linkText}>+ Add hours</Text></Pressable>
-                          {['mon', 'tue', 'wed', 'thu', 'fri'].includes(k) && (
-                            <Pressable onPress={() => copyToWeekdays(k)} style={a.link} accessibilityRole="button"><Text style={a.linkText}>Copy to Mon–Fri</Text></Pressable>
-                          )}
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
+            <WeeklyHours weekly={s.weekly} onChange={(weekly) => setS((x) => ({ ...x, weekly }))} />
 
             <SectionTitle>Booking rules</SectionTitle>
             <Card>
@@ -192,12 +211,6 @@ export function Availability({ nav }) {
             <Button title={busy ? 'Saving…' : 'Save hours'} disabled={busy} style={{ flex: 1 }} onPress={save} />
           </View>
         </View>
-      )}
-      {picker && s && (
-        <TimeSheet visible title={`${DAY_NAMES[picker.day]} · ${picker.end ? 'until' : 'from'}`}
-          value={s.weekly[picker.day][picker.i]?.[picker.end ? 1 : 0]}
-          min={picker.end ? 30 : 0} max={picker.end ? 1440 : 1410}
-          onPick={(t) => setTime(picker.day, picker.i, picker.end, t)} onClose={() => setPicker(null)} />
       )}
     </View>
   );
@@ -306,22 +319,33 @@ export function BlockTime({ nav, params }) {
 }
 
 // ---------------------------------------------------------------- calendar (day view)
-export function CfiCalendar({ nav }) {
+// The instructor's calendar: pick a day (week strip, or the month), see that day as a
+// timeline of lessons, requests and blocked time against working hours, and change it in
+// place: tap an open hour to block it, take the day off, or edit hours.
+const HOUR_H = 46;
+const LESSON_COLORS = { Pending: ['#FEF3C7', '#B45309'], Confirmed: ['#DCE8FF', C.blue], Completed: ['#E3F7EF', C.green] };
+
+export function ScheduleCalendar({ nav, embedded }) {
   const cal = useMyCalendar();
-  const { teaching, refreshLive } = useStore();
+  const { teaching } = useStore();
   const s = cal.schedule;
   const tz = s?.timezone || DEFAULT_SCHEDULE.timezone;
   const today = todayIn(tz);
   const [sel, setSel] = useState(today);
-  const [weekStart, setWeekStart] = useState(today);
-  useEffect(() => { refreshLive().catch(() => {}); }, []);
+  const [weekStart, setWeekStart] = useState(() => addDays(today, -((dayOfWeek(today) + 6) % 7))); // weeks start Monday
+  const [showMonth, setShowMonth] = useState(false);
+  const [month, setMonth] = useState({ y: today.y, m: today.m });
+  const [picked, setPicked] = useState(null); // a time-off block tapped on the timeline
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
 
   const lessons = teaching.filter((r) => r.role === 'cfi' && ['Pending', 'Confirmed', 'Completed'].includes(r.status));
   const dayOf = (d) => { const p = zonedParts(d, tz); return { y: p.y, m: p.m, d: p.d }; };
   const hasLesson = (dt) => lessons.some((r) => sameDate(dayOf(new Date(r.when)), dt) && r.status !== 'Completed');
-  const dayStart = zonedTime(sel.y, sel.m, sel.d, 0, tz);
-  const n = addDays(sel, 1);
-  const dayEnd = zonedTime(n.y, n.m, n.d, 0, tz);
+  const dayStartOf = (dt) => zonedTime(dt.y, dt.m, dt.d, 0, tz);
+  const dayStart = dayStartOf(sel);
+  const dayEnd = dayStartOf(addDays(sel, 1));
+  const offAll = (dt) => { const a0 = dayStartOf(dt), a1 = dayStartOf(addDays(dt, 1)); return cal.timeOff.some((t) => t.start <= a0 && t.end >= a1); };
 
   const items = useMemo(() => {
     const out = [];
@@ -331,75 +355,143 @@ export function CfiCalendar({ nav }) {
     }
     for (const t of cal.timeOff) if (t.start < dayEnd && t.end > dayStart) out.push({ kind: 'off', start: t.start < dayStart ? dayStart : t.start, end: t.end > dayEnd ? dayEnd : t.end, t });
     return out.sort((x, y) => x.start - y.start);
-  }, [lessons.length, cal.timeOff, dateKey(sel)]);
+  }, [lessons.map((r) => r.id + r.status).join(), cal.timeOff, dateKey(sel), tz]);
 
   const ranges = s ? s.weekly[DAY_KEYS[dayOfWeek(sel)]] : [];
-  const offAllDay = items.some((i) => i.kind === 'off' && i.start <= dayStart && i.end >= dayEnd);
+  const offAllDay = offAll(sel);
+  const minOf = (d) => Math.max(0, Math.min(1440, Math.round((d - dayStart) / 60000)));
+  // Show 6 AM – 9 PM, stretched to fit working hours and anything booked.
+  // Lessons stretch it; blocked time doesn't (a day off would otherwise run midnight to midnight).
+  const lessonItems = items.filter((i) => i.kind === 'lesson');
+  const firstH = Math.min(6, ...ranges.map((r) => Math.floor(r[0] / 60)), ...lessonItems.map((i) => Math.floor(minOf(i.start) / 60)));
+  const lastH = Math.max(21, ...ranges.map((r) => Math.ceil(r[1] / 60)), ...lessonItems.map((i) => Math.ceil(minOf(i.end) / 60)));
+  const clip = (m) => Math.max(firstH * 60, Math.min(lastH * 60, m));
+  const y = (min) => ((min - firstH * 60) / 60) * HOUR_H;
+  const past = (h) => dayStartOf(sel).getTime() + (h + 1) * 3600e3 <= Date.now();
+  const busyAt = (h) => items.some((i) => minOf(i.start) < (h + 1) * 60 && minOf(i.end) > h * 60);
+  const pickDay = (dt) => { setSel(dt); setPicked(null); setMsg(''); setWeekStart(addDays(dt, -((dayOfWeek(dt) + 6) % 7))); setMonth({ y: dt.y, m: dt.m }); };
 
+  const dayOff = async () => {
+    setBusy(true); setMsg('');
+    try { await addTimeOff({ start: dayStart, end: dayEnd, allDay: true, label: 'Day off' }); }
+    catch (e) { setMsg(e.message); }
+    setBusy(false);
+  };
+  const unblock = async (t) => {
+    setBusy(true); setMsg('');
+    try { await removeTimeOff(t.id); setPicked(null); } catch (e) { setMsg(e.message); }
+    setBusy(false);
+  };
+  const booked = items.filter((i) => i.kind === 'lesson' && i.r.status !== 'Completed').length;
+
+  if (!cal.uid || (!cal.me && !cal.loading)) return embedded ? null : <NotInstructor nav={nav} signedIn={!!cal.uid} />;
+  return (
+    <View>
+      <View style={a.calHead}>
+        <Pressable onPress={() => { setShowMonth((v) => !v); setMonth({ y: sel.y, m: sel.m }); }} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', minHeight: 44 }}>
+          <Text style={a.calTitle}>{new Date(Date.UTC(sel.y, sel.m - 1, 1)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</Text>
+          <Icon name={showMonth ? 'down' : 'chevron'} size={16} color={C.blue} />
+        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {!sameDate(sel, today) && <Pressable onPress={() => pickDay(today)} accessibilityRole="button" style={a.todayBtn}><Text style={a.linkText}>Today</Text></Pressable>}
+          {!showMonth && <Pressable onPress={() => pickDay(addDays(sel, -7))} style={a.navBtn} accessibilityRole="button" accessibilityLabel="Previous week"><Icon name="back" size={20} color={C.blue} /></Pressable>}
+          {!showMonth && <Pressable onPress={() => pickDay(addDays(sel, 7))} style={a.navBtn} accessibilityRole="button" accessibilityLabel="Next week"><Icon name="chevron" size={20} color={C.blue} /></Pressable>}
+        </View>
+      </View>
+      {showMonth ? (
+        <MonthCalendar month={month} onMonth={setMonth} selected={sel} onSelect={(dt) => { pickDay(dt); setShowMonth(false); }} dot={(dt) => hasLesson(dt) || offAll(dt)} />
+      ) : (
+        <WeekStrip start={weekStart} selected={sel} onSelect={pickDay} dot={(dt) => hasLesson(dt) || offAll(dt)} />
+      )}
+
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 14 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={[a.title, { fontSize: 18 }]}>{sameDate(sel, today) ? 'Today' : longDate(sel)}</Text>
+          <Text style={a.sub}>
+            {offAllDay ? 'Day off' : ranges.length ? `Working ${ranges.map(rangeText).join(', ')}` : 'Not a working day'}
+            {booked ? ` · ${booked} lesson${booked > 1 ? 's' : ''}` : ''}{` · ${tzAbbrev(tz, dayStart)}`}
+          </Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+        {offAllDay
+          ? <Button title={busy ? 'Working…' : 'Work this day'} small variant="outline" style={a.dayBtn} disabled={busy} onPress={() => unblock(items.find((i) => i.kind === 'off' && i.start <= dayStart && i.end >= dayEnd).t)} />
+          : <Button title={busy ? 'Working…' : 'Day off'} small variant="outline" style={a.dayBtn} disabled={busy || dayEnd <= new Date()} onPress={dayOff} />}
+        <Button title="Block time" small variant="outline" style={a.dayBtn} onPress={() => nav.push('BlockTime', { tz, date: sel, allDay: false, startMin: ranges[0]?.[0] ?? 720, endMin: Math.min(1440, (ranges[0]?.[0] ?? 720) + 120) })} />
+        <Button title="Hours" small variant="outline" style={[a.dayBtn, { flex: 0.8 }]} onPress={() => nav.push('Availability')} />
+      </View>
+      {!!msg && <Text style={[a.msg, { color: '#B91C1C' }]}>{msg}</Text>}
+
+      {/* Day timeline */}
+      <View style={[a.timeline, { height: (lastH - firstH) * HOUR_H }]}>
+        {Array.from({ length: lastH - firstH }, (_, k) => {
+          const h = firstH + k;
+          const working = !offAllDay && ranges.some((r) => r[0] < (h + 1) * 60 && r[1] > h * 60);
+          const tappable = !offAllDay && !past(h) && !busyAt(h);
+          return (
+            <Pressable key={h} disabled={!tappable}
+              onPress={() => nav.push('BlockTime', { tz, date: sel, allDay: false, startMin: h * 60, endMin: Math.min(1440, h * 60 + 60) })}
+              style={[a.hourRow, { top: k * HOUR_H, height: HOUR_H }, !working && a.hourOff]}
+              accessibilityRole="button" accessibilityLabel={`${minutesLabel(h * 60)}${tappable ? ', tap to block' : ''}`}>
+              <Text style={a.hourLabel}>{minutesLabel(h * 60).replace(':00', '')}</Text>
+            </Pressable>
+          );
+        })}
+        {items.map((it, k) => {
+          const m0 = clip(minOf(it.start)), m1 = clip(minOf(it.end));
+          if (m1 <= m0) return null; // blocked time entirely outside the hours shown
+          const top = y(m0) + 1, height = Math.max(22, y(m1) - y(m0) - 2);
+          if (it.kind === 'lesson') {
+            const [bg, fg] = LESSON_COLORS[it.r.status] || LESSON_COLORS.Confirmed;
+            return (
+              <View key={'l' + k} style={[a.block, { top, height, backgroundColor: bg, borderLeftColor: fg }]} accessible
+                accessibilityLabel={`${timeIn(it.start, tz)} to ${timeIn(it.end, tz)}, ${it.r.studentName}, ${it.r.goal}, ${it.r.status === 'Pending' ? 'request' : it.r.status}`}>
+                <Text style={[a.blockTitle, { color: fg }]} numberOfLines={1}>{it.r.studentName} · {it.r.goal}</Text>
+                {height > 30 && <Text style={a.blockSub} numberOfLines={1}>{timeIn(it.start, tz)} – {timeIn(it.end, tz)}{it.r.status === 'Pending' ? ' · request' : ''}{it.r.tail ? ` · ${it.r.tail}` : ''}</Text>}
+              </View>
+            );
+          }
+          const on = picked && picked.id === it.t.id;
+          return (
+            <Pressable key={'o' + k} onPress={() => setPicked(on ? null : it.t)} style={[a.block, a.offBlock, { top, height }]} accessibilityRole="button"
+              accessibilityLabel={`${it.t.label || 'Time off'}, ${timeIn(it.start, tz)} to ${timeIn(it.end, tz)}. Tap to unblock.`}>
+              <Text style={[a.blockTitle, { color: '#475569' }]} numberOfLines={1}>{it.t.label || 'Blocked'}</Text>
+              {height > 30 && <Text style={a.blockSub} numberOfLines={1}>{it.t.allDay || (it.start <= dayStart && it.end >= dayEnd) ? 'All day' : `${timeIn(it.start, tz)} – ${timeIn(it.end, tz)}`}</Text>}
+              {on && (
+                <View style={a.offActions}>
+                  <Pressable onPress={() => unblock(it.t)} disabled={busy} style={a.unblockBtn} accessibilityRole="button"><Text style={{ color: '#fff', fontWeight: '800' }}>{busy ? '…' : 'Unblock'}</Text></Pressable>
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
+        {sameDate(sel, today) && (() => { const m = minOf(new Date()); return m >= firstH * 60 && m <= lastH * 60 ? <View style={[a.nowLine, { top: y(m) }]} /> : null; })()}
+      </View>
+      <Text style={[a.sub, { marginTop: 8 }]}>Tap an open hour to block it. Tap blocked time to unblock it. Students only see open times.</Text>
+    </View>
+  );
+}
+
+export function CfiCalendar({ nav }) {
+  const cal = useMyCalendar();
+  const { refreshLive } = useStore();
+  useEffect(() => { refreshLive().catch(() => {}); }, []);
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Calendar" right={<Pressable onPress={() => nav.push('Availability')} hitSlop={10} accessibilityRole="button"><Text style={a.linkText}>Hours</Text></Pressable>} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={cal.loading} onRefresh={() => { cal.reload(); refreshLive().catch(() => {}); }} />}>
-        {!cal.uid || (!cal.me && !cal.loading) ? <NotInstructor nav={nav} signedIn={!!cal.uid} /> : (
-          <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <Pressable onPress={() => setWeekStart(addDays(weekStart, -7))} style={a.navBtn} accessibilityRole="button" accessibilityLabel="Previous week"><Icon name="back" size={20} color={C.blue} /></Pressable>
-              <Pressable onPress={() => { setWeekStart(today); setSel(today); }} accessibilityRole="button"><Text style={a.linkText}>Today</Text></Pressable>
-              <Pressable onPress={() => setWeekStart(addDays(weekStart, 7))} style={a.navBtn} accessibilityRole="button" accessibilityLabel="Next week"><Icon name="chevron" size={20} color={C.blue} /></Pressable>
-            </View>
-            <WeekStrip start={weekStart} selected={sel} onSelect={setSel} dot={hasLesson} />
-
-            <Text style={[a.title, { marginTop: 16, fontSize: 18 }]}>{longDate(sel)}</Text>
-            <Text style={a.sub}>
-              {offAllDay ? 'Blocked all day' : ranges.length ? `Working ${ranges.map(rangeText).join(', ')}` : 'Not a working day'}{` · ${tzAbbrev(tz, dayStart)}`}
-            </Text>
-
-            {items.length === 0 && (
-              <Card style={{ marginTop: 12 }}>
-                <Text style={a.sub}>{ranges.length && !offAllDay ? 'Nothing booked. Students can request any open time.' : 'Nothing booked.'}</Text>
-              </Card>
-            )}
-            {items.map((it, i) => it.kind === 'lesson' ? (
-              <Card key={'l' + i} style={[a.item, { borderLeftColor: it.r.status === 'Pending' ? C.amber : it.r.status === 'Completed' ? C.green : C.blue }]}>
-                <Text style={a.itemTime}>{timeIn(it.start, tz)} – {timeIn(it.end, tz)}</Text>
-                <Text style={a.title}>{it.r.studentName} · {it.r.goal}</Text>
-                <Text style={a.sub}>{it.r.status === 'Pending' ? 'Request · confirm on Schedule' : it.r.status}{it.r.tail ? ` · ${it.r.tail}` : ''}</Text>
-              </Card>
-            ) : (
-              <Card key={'o' + i} style={[a.item, { borderLeftColor: '#94A3B8', backgroundColor: '#F1F4F8' }]}>
-                <Text style={a.itemTime}>{it.t.allDay || (it.start <= dayStart && it.end >= dayEnd) ? 'All day' : `${timeIn(it.start, tz)} – ${timeIn(it.end, tz)}`}</Text>
-                <Text style={a.title}>{it.t.label || 'Time off'}</Text>
-                <Pressable onPress={async () => { await removeTimeOff(it.t.id).catch(() => {}); cal.reload(); }} accessibilityRole="button" style={{ marginTop: 6, minHeight: 32, justifyContent: 'center' }}>
-                  <Text style={a.linkText}>Remove</Text>
-                </Pressable>
-              </Card>
-            ))}
-
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-              <Button title="Block time" variant="outline" style={{ flex: 1 }} onPress={() => nav.push('BlockTime', { tz, date: sel, allDay: !ranges.length })} />
-              <Button title="Edit hours" variant="outline" style={{ flex: 1 }} onPress={() => nav.push('Availability')} />
-            </View>
-          </>
-        )}
+        <ScheduleCalendar nav={nav} />
       </ScrollView>
     </View>
   );
 }
 
-// Schedule-tab card: hours at a glance, with Calendar / Hours buttons.
+// Schedule tab: the calendar itself, right at the top.
 export function CalendarCard({ nav }) {
-  const cal = useMyCalendar();
-  if (!cal.uid || !cal.me) return null;
-  const upcomingOff = cal.timeOff.filter((t) => t.end > new Date()).length;
   return (
     <Card>
-      <Text style={a.kicker}>YOUR CALENDAR</Text>
-      <Text style={[a.title, { marginTop: 2 }]}>{cal.schedule ? hoursText(cal.schedule) : 'Loading…'}</Text>
-      <Text style={a.sub}>{cal.saved ? '' : 'Default hours · '}{upcomingOff ? `${upcomingOff} time-off block${upcomingOff > 1 ? 's' : ''} coming up` : 'No time off blocked'}</Text>
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-        <Button title="Calendar" icon="calendar" variant="outline" small style={{ flex: 1 }} onPress={() => nav.push('CfiCalendar')} />
-        <Button title="Hours & time off" variant="outline" small style={{ flex: 1.2 }} onPress={() => nav.push('Availability')} />
-      </View>
+      <ScheduleCalendar nav={nav} embedded />
     </Card>
   );
 }
@@ -430,4 +522,19 @@ const a = StyleSheet.create({
   navBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: C.sky },
   item: { borderLeftWidth: 4, marginTop: 10 },
   itemTime: { color: C.sub, fontWeight: '800', fontSize: 12, marginBottom: 2 },
+  dayBtn: { flex: 1, paddingHorizontal: 6 },
+  calHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  calTitle: { fontWeight: '900', fontSize: 18, color: C.text, marginRight: 4 },
+  todayBtn: { minHeight: 44, paddingHorizontal: 10, justifyContent: 'center' },
+  timeline: { marginTop: 12, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: C.line, backgroundColor: '#fff' },
+  hourRow: { position: 'absolute', left: 0, right: 0, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#DDE3EC', paddingLeft: 8, paddingTop: 3 },
+  hourOff: { backgroundColor: '#F1F4F8' },
+  hourLabel: { width: 44, color: '#8A96A8', fontSize: 11, fontWeight: '700' },
+  block: { position: 'absolute', left: 54, right: 8, borderRadius: 8, borderLeftWidth: 4, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden' },
+  blockTitle: { fontWeight: '800', fontSize: 13 },
+  blockSub: { color: '#475569', fontSize: 12, marginTop: 1 },
+  offBlock: { backgroundColor: '#E2E8F0', borderLeftColor: '#94A3B8' },
+  offActions: { position: 'absolute', right: 6, top: 4 },
+  unblockBtn: { backgroundColor: '#DC2626', borderRadius: 8, paddingHorizontal: 10, minHeight: 30, justifyContent: 'center' },
+  nowLine: { position: 'absolute', left: 50, right: 0, height: 2, backgroundColor: '#DC2626' },
 });

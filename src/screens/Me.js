@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useStore, money } from '../store';
 import { money2 } from '../logic';
-import { AIRPORTS, CERTS, SPECIALTIES, DAYS, TIMES, AVIONICS, OWNER_TYPES } from '../data';
+import { AIRPORTS, CERTS, SPECIALTIES, AVIONICS, OWNER_TYPES } from '../data';
 import { useAuth } from '../backend/auth';
 import { saveCfiProfile, savePlaneListing } from '../backend/profiles';
 import { C, Card, Field, MultiSelect, Toggle, Button, SectionTitle, Avatar, pickImages, ListRow, Icon } from '../ui';
 import { Header } from './Details';
 import { CfiCard, PlaneCard, SchoolCard } from './Explore';
+import { WeeklyHours } from './Availability';
+import { fetchSchedule, saveSchedule } from '../backend/schedule';
+import { normalizeSchedule, workingDays, DAY_KEYS } from '../schedule';
 import { PlaneImage, PhotoStrip } from '../art';
 
 const PALETTE = ['#1F6FEB', '#0E9F6E', '#9333EA', '#F59E0B', '#DC2626', '#0891B2', '#DB2777'];
@@ -184,6 +187,18 @@ export function Me({ nav }) {
   );
 }
 
+// Search filters still use broad times of day; work them out from the hours.
+function timeOfDayFrom(weekly) {
+  const all = DAY_KEYS.flatMap((k) => weekly[k] || []);
+  const out = [];
+  if (all.some((r) => r[0] < 540)) out.push('Early AM');
+  if (all.some((r) => r[0] < 1020 && r[1] > 540)) out.push('Daytime');
+  if (all.some((r) => r[1] > 1020)) out.push('Evenings');
+  const weekend = ['sat', 'sun'].some((k) => (weekly[k] || []).length), weekday = ['mon', 'tue', 'wed', 'thu', 'fri'].some((k) => (weekly[k] || []).length);
+  if (weekend && !weekday) return ['Weekends only'];
+  return out.length ? out : ['Daytime'];
+}
+
 export function CfiForm({ nav, params }) {
   const { getCfi, planes: allPlanes, saveCfi, affiliationFor, getSchool, refreshListings } = useStore();
   const auth = useAuth();
@@ -226,7 +241,15 @@ export function CfiForm({ nav, params }) {
     pkgIncludes: e.packages?.[0]?.includes || '',
   });
   const set = (k) => (v) => setF((prev) => ({ ...prev, [k]: v }));
-  const valid = f.name.trim() && num(f.flightRate) > 0;
+  // Weekly hours (e.g. Mon 7 AM – 7 PM), the same calendar students book against.
+  const [sched, setSched] = useState(() => normalizeSchedule(null, e.availability?.length ? e.availability : undefined));
+  const [hoursLoaded, setHoursLoaded] = useState(!uid || !existing?.live);
+  useEffect(() => {
+    if (!uid || !existing?.live) return;
+    fetchSchedule(uid, existing.availability).then(({ schedule }) => setSched(schedule)).catch(() => {}).finally(() => setHoursLoaded(true));
+  }, [uid, existing?.live]);
+  const workDays = workingDays(sched);
+  const valid = f.name.trim() && num(f.flightRate) > 0 && workDays.length > 0 && hoursLoaded;
 
   const save = async () => {
     const id = uid || existing?.id || 'me-cfi';
@@ -252,8 +275,8 @@ export function CfiForm({ nav, params }) {
       checkridesSent: num(f.checkridesSent),
       studentsSoloed: num(f.studentsSoloed),
       specialties: f.specialties,
-      availability: f.availability,
-      timeOfDay: f.timeOfDay,
+      availability: workDays,
+      timeOfDay: timeOfDayFrom(sched.weekly),
       bio: f.bio,
       teachingStyle: f.teachingStyle,
       background: f.background,
@@ -272,6 +295,7 @@ export function CfiForm({ nav, params }) {
     setErr(''); setBusy(true);
     try {
       await saveCfiProfile(uid, cfi, { publish });
+      await saveSchedule(uid, sched);
       await refreshListings();
       nav.replace('Cfi', { id });
     } catch (e) { setErr(e.message || 'Couldn’t save. Try again.'); }
@@ -355,21 +379,11 @@ export function CfiForm({ nav, params }) {
         <Toggle label="Will teach in a student’s own aircraft" value={f.teachesInYourPlane} onValueChange={set('teachesInYourPlane')} />
         <Toggle label="I carry CFI / non-owner insurance" value={f.insured} onValueChange={set('insured')} />
 
-        <SectionTitle>Availability</SectionTitle>
-        {uid && existing?.live ? (
-          <Pressable onPress={() => nav.push('Availability')} accessibilityRole="button" style={{ marginBottom: 14 }}>
-            <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '800', color: C.text }}>Working hours & time off</Text>
-                <Text style={{ color: C.sub, fontSize: 13, marginTop: 2 }}>Set your hours by day, booking notice, buffer between lessons, and block time off.</Text>
-              </View>
-              <Text style={{ color: '#94A3B8', fontSize: 22 }}>›</Text>
-            </Card>
-          </Pressable>
-        ) : (
-          <MultiSelect label="Days" options={DAYS} selected={f.availability} onChange={set('availability')} />
-        )}
-        <MultiSelect label="Preferred times" options={TIMES} selected={f.timeOfDay} onChange={set('timeOfDay')} />
+        <SectionTitle>Weekly hours</SectionTitle>
+        <Text style={[ms.hint, { marginTop: -4, marginBottom: 10 }]}>Students can only request times inside these hours. Change them, block time off and see your lessons anytime from the Schedule tab.</Text>
+        {hoursLoaded ? <WeeklyHours weekly={sched.weekly} onChange={(weekly) => setSched((x) => ({ ...x, weekly }))} /> : <Text style={ms.hint}>Loading your hours…</Text>}
+        {hoursLoaded && workDays.length === 0 && <Text style={[ms.hint, { color: '#B45309', marginTop: 8 }]}>Turn on at least one day.</Text>}
+        <View style={{ height: 6 }} />
 
         <SectionTitle>About you</SectionTitle>
         <Field label="Short bio" multiline value={f.bio} onChangeText={set('bio')} placeholder="What should a new student know about you?" />
