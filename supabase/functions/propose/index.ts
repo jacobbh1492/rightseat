@@ -4,6 +4,7 @@
 // (booking-action accept → card), which confirms it. The instructor already chose the
 // time, so it can sit outside their published hours; it can't overlap other lessons,
 // time off or the plane's bookings.
+import { feeContext } from '../_shared/feeContext.ts';
 import { serve, json, admin, requireUser, audit } from '../_shared/server.ts';
 import { parseProposal, priceBooking, proposalExpires, HttpError } from '../_shared/bookings.js';
 import { normalizeSchedule } from '../_shared/schedule.js';
@@ -53,7 +54,8 @@ serve(async (req, body) => {
   const { data: affiliation } = await admin.from('affiliations').select('*').eq('cfi_id', user.id).eq('status', 'active').maybeSingle();
   const { count: prior } = await admin.from('bookings').select('id', { count: 'exact', head: true })
     .eq('student_id', student.id).eq('cfi_id', user.id).in('status', ['confirmed', 'completed']);
-  const q = priceBooking({ cfi, plane, affiliation, flightHours: r.flightHours, groundHours: r.groundHours, repeat: (prior || 0) > 0, prepaid: false });
+  const fees = await feeContext({ studentId: student.id, affiliation, plane });
+  const q = priceBooking({ cfi, plane, affiliation, flightHours: r.flightHours, groundHours: r.groundHours, repeat: (prior || 0) > 0, prepaid: false, ...fees });
 
   const { data: booking, error } = await admin.from('bookings').insert({
     student_id: student.id, cfi_id: user.id, plane_id: plane?.id || null, affiliation_id: affiliation?.id || null,
@@ -63,5 +65,5 @@ serve(async (req, body) => {
   }).select('id, status, starts_at, proposal_expires').single();
   if (error) throw error;
   await audit(user.id, 'booking.proposed', booking.id, { student: student.id, total: q.total });
-  return json({ booking, quote: { total: q.total, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft, bookingFee: q.bookingFee } }, 201);
+  return json({ booking, quote: { total: q.total, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft, bookingFee: q.bookingFee, waivedFee: q.waivedFee } }, 201);
 });

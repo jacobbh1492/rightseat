@@ -83,7 +83,7 @@ export function buildDemo() {
     const instruction = cfiRow ? cfiRow[3] * hours + 55 * ground : 0;
     const aircraftAmt = plane[6] * hours;
     const sub = instruction + aircraftAmt;
-    const bookingFee = repeat ? 0 : FEES.studentNew; // flat $ booking fee
+    const bookingFee = FEES.studentNew; // flat $ booking fee on every booking
     const protection = round2(FEES.protectionPerHr * hours);
     const total = round2(sub + bookingFee + protection);
     const cfiHost = cfiRow && !repeat && !cfiRow[7] ? round2(instruction * FEES.cfiNew) : 0;

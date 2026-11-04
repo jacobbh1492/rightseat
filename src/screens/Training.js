@@ -101,7 +101,7 @@ function DemoTraining({ nav }) {
           <Card style={{ borderLeftWidth: 4, borderLeftColor: C.blue }}>
             <Text style={{ color: C.sub, fontSize: 12, fontWeight: '700' }}>NEXT UP</Text>
             <Text style={{ fontWeight: '900', fontSize: 17, color: C.text, marginTop: 2 }}>{nextLesson}</Text>
-            <Text style={{ color: C.sub, marginTop: 2 }}>with {cfi?.name.split(' ')[0]} in {plane?.tail} · no booking fee</Text>
+            <Text style={{ color: C.sub, marginTop: 2 }}>with {cfi?.name.split(' ')[0]} in {plane?.tail}</Text>
             <Button title="Book next lesson" style={{ marginTop: 10, paddingVertical: 12 }}
               onPress={() => nav.push('Request', { cfiId: cfi?.id, planeId: plane?.id, goal: /cross/i.test(nextLesson) ? 'Dual cross-country' : /night/i.test(nextLesson) ? 'Night flying' : 'Private Pilot lesson', flightHours: /cross/i.test(nextLesson) ? 2 : 1.5 })} />
           </Card>

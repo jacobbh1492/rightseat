@@ -31,7 +31,9 @@ export function parseBookingRequest(body, now = new Date()) {
 
 // Database rows -> the shapes pricing.quote() expects. For an employee-model
 // affiliation the school's set rate replaces the instructor's own rate.
-export function quoteInputs({ cfi, plane, affiliation }) {
+// schoolPro: the CFI's school or the plane's school is on School Pro ($5 booking fee).
+// feeFree: the student has an active Short Final promo (no booking fee).
+export function quoteInputs({ cfi, plane, affiliation, schoolPro, feeFree }) {
   const employeeRate = affiliation?.model === 'employee' && affiliation.set_rate ? Number(affiliation.set_rate) : null;
   const qCfi = cfi ? {
     flightRate: employeeRate ?? Number(cfi.flight_rate),
@@ -42,11 +44,11 @@ export function quoteInputs({ cfi, plane, affiliation }) {
     blockRate: Number(plane.details?.blockRate ?? plane.wet_rate),
   } : null;
   const qAff = cfi && affiliation ? { model: affiliation.model, schoolPct: Number(affiliation.school_pct) } : null;
-  return { cfi: qCfi, plane: qPlane, affiliation: qAff, cfiPro: !!cfi?.pro };
+  return { cfi: qCfi, plane: qPlane, affiliation: qAff, cfiPro: !!cfi?.pro, schoolPro: !!schoolPro, feeFree: !!feeFree };
 }
 
-export function priceBooking({ cfi, plane, affiliation, flightHours, groundHours, repeat, prepaid }) {
-  const inputs = quoteInputs({ cfi, plane, affiliation });
+export function priceBooking({ cfi, plane, affiliation, flightHours, groundHours, repeat, prepaid, schoolPro, feeFree }) {
+  const inputs = quoteInputs({ cfi, plane, affiliation, schoolPro, feeFree });
   const q = quote({ ...inputs, flightHours, groundHours, repeat, prepaid });
   return { ...q, inputs: { ...inputs, repeat: !!repeat, prepaid: !!prepaid } };
 }
@@ -55,7 +57,7 @@ export function priceBooking({ cfi, plane, affiliation, flightHours, groundHours
 // at booking (so a rate change after booking never changes what the student pays).
 export function finalPrice(frozenQuote, { flightHours, groundHours }) {
   const i = frozenQuote.inputs;
-  return quote({ cfi: i.cfi, plane: i.plane, affiliation: i.affiliation, cfiPro: i.cfiPro, repeat: i.repeat, prepaid: i.prepaid, flightHours, groundHours });
+  return quote({ cfi: i.cfi, plane: i.plane, affiliation: i.affiliation, cfiPro: i.cfiPro, schoolPro: i.schoolPro, feeFree: i.feeFree, repeat: i.repeat, prepaid: i.prepaid, flightHours, groundHours });
 }
 
 export function validateActuals(body, booked) {

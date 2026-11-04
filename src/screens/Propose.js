@@ -29,7 +29,7 @@ function myStudents(teaching) {
 }
 
 export function ProposeLesson({ nav, params = {} }) {
-  const { teaching, cfis, getPlane, refreshLive, affiliationFor } = useStore();
+  const { teaching, cfis, getPlane, refreshLive, affiliationFor, feeContextFor } = useStore();
   const auth = useAuth();
   const uid = auth?.session?.user?.id;
   const me = cfis.find((c) => c.id === uid && c.live);
@@ -56,7 +56,7 @@ export function ProposeLesson({ nav, params = {} }) {
   const plane = planeId ? getPlane(planeId) : null;
   const student = students.find((s) => s.id === studentId);
   const start = date && startMin != null ? zonedTime(date.y, date.m, date.d, startMin, tz) : null;
-  const q = useMemo(() => (me ? quote({ cfi: me, plane, flightHours, groundHours, repeat: true, prepaid: false, cfiPro: me.pro, method: 'card', affiliation: affiliationFor(me.id) }) : null),
+  const q = useMemo(() => (me ? quote({ cfi: me, plane, flightHours, groundHours, repeat: true, prepaid: false, cfiPro: me.pro, schoolPro: feeContextFor({ cfi: me, plane }).schoolPro, method: 'card', affiliation: affiliationFor(me.id) }) : null),
     [me?.id, planeId, flightHours, groundHours]);
   const tooSoon = start && start.getTime() < Date.now() + 3 * 3600e3;
   const ready = me && student && start && !tooSoon && goal;

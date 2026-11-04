@@ -82,7 +82,7 @@ export function RenterFixes({ checks, plane, nav, onCheckout, busy, err, onCheck
 }
 
 export function RequestLesson({ nav, params }) {
-  const { cfis, planes, getCfi, getPlane, addRequest, requests, pilot, available, training, docs, setSharing, affiliationFor, refreshLive } = useStore();
+  const { cfis, planes, getCfi, getPlane, addRequest, requests, pilot, available, training, docs, setSharing, affiliationFor, feeContextFor, refreshLive } = useStore();
   const [shareRecord, setShareRecord] = useState(true);
   const [cfiId, setCfiId] = useState(params.cfiId);
   const [planeId, setPlaneId] = useState(params.planeId);
@@ -108,7 +108,8 @@ export function RequestLesson({ nav, params }) {
   const plane = ownPlane ? null : getPlane(planeId);
   const repeat = isRepeat(requests, { cfiId: cfi?.id, planeId: plane?.id });
   const prepaid = method === 'wallet';
-  const q = quote({ cfi, plane, flightHours, groundHours: cfi ? groundHours : 0, repeat, prepaid, cfiPro: cfi?.pro, method, affiliation: cfi ? affiliationFor(cfi.id) : null });
+  const fees = feeContextFor({ cfi, plane });
+  const q = quote({ cfi, plane, flightHours, groundHours: cfi ? groundHours : 0, repeat, prepaid, cfiPro: cfi?.pro, ...fees, method, affiliation: cfi ? affiliationFor(cfi.id) : null });
   // Renting a real plane without an instructor: your pilot profile and the owner's checkout.
   // (Sample listings keep the sample pilot so guests can try the flow.)
   const me = usePilot();
@@ -441,7 +442,7 @@ export function RequestLesson({ nav, params }) {
             <View style={{ flex: 1 }}>
               <Text style={{ color: C.sub, fontWeight: '700', fontSize: 13 }}>Estimated total</Text>
               <Text style={{ fontSize: 26, fontWeight: '900', color: C.navy }}>{money2(q.total)}</Text>
-              {repeat ? <Text style={{ color: C.green, fontWeight: '700', fontSize: 12 }}>No booking fee: you’ve flown with {cfi ? cfi.name.split(' ')[0] : 'this plane'} before</Text> : null}
+              {fees.feeFree ? <Text style={{ color: C.green, fontWeight: '700', fontSize: 12 }}>Short Final: no booking fee</Text> : null}
             </View>
             <Text style={{ color: C.blue, fontWeight: '800', marginRight: 4 }}>{showCost ? 'Hide' : 'Details'}</Text>
             <Icon name={showCost ? 'down' : 'chevron'} size={16} color={C.blue} />
@@ -452,18 +453,18 @@ export function RequestLesson({ nav, params }) {
           {plane && <Row label={`${plane.tail} ${prepaid ? 'prepaid block' : 'wet'} · ${flightHours} hr × ${money(q.rate)}`} value={money2(q.aircraft)} />}
           {ownPlane && <Row label="Your aircraft" value="$0.00" />}
           {plane && FEES.protectionPerHr > 0 && <Row label={`Rental protection · ${money(FEES.protectionPerHr)}/hr`} value={money2(q.protection)} />}
-          {repeat ? (
+          {fees.feeFree ? (
             <View style={bs.repeat}>
-              <Text style={{ color: C.green, fontWeight: '800', flex: 1 }}>Repeat booking · no booking fee</Text>
+              <Text style={{ color: C.green, fontWeight: '800', flex: 1 }}>Booking fee · waived with Short Final</Text>
               <Text style={{ color: C.green, fontWeight: '800', textDecorationLine: 'line-through' }}>{money2(q.waivedFee)}</Text>
             </View>
           ) : (
-            <Row label={`Booking fee (first ${cfi ? 'lesson with ' + cfi.name.split(' ')[0] : 'rental of this plane'})`} value={money2(q.bookingFee)} />
+            <Row label={fees.schoolPro ? 'Booking fee · School Pro rate' : 'Booking fee'} value={money2(q.bookingFee)} />
           )}
           </View>}
           {q.deposit > 0 && <Row label="Refundable damage deposit (hold only)" value={money2(q.deposit)} />}
           <Text style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>
-            {repeat ? 'Every lesson after your first with the same CFI is fee-free.' : 'Book again with the same CFI and the booking fee drops to $0.'} Final charge uses actual Hobbs time.
+            {fees.feeFree ? 'Your Short Final promo covers the booking fee until it ends.' : 'Every lesson and rental has a flat booking fee.'} Final charge uses actual Hobbs time.
           </Text>
         </Card>
 
@@ -997,7 +998,7 @@ export function Receipt({ nav, params }) {
           {q.ground > 0 && <Row label="Ground instruction" value={money2(q.ground)} />}
           {q.aircraft > 0 && <Row label={`${plane.tail} · ${money(q.rate)}/hr${q.prepaidSavings ? ' (prepaid)' : ''}`} value={money2(q.aircraft)} />}
           {q.protection > 0 && <Row label="Rental protection" value={money2(q.protection)} />}
-          <Row label={q.bookingFee ? 'Booking fee (first lesson)' : 'Booking fee (repeat — waived)'} value={money2(q.bookingFee)} />
+          <Row label={q.bookingFee ? 'Booking fee' : q.waivedFee ? 'Booking fee (waived — Short Final)' : 'Booking fee'} value={money2(q.bookingFee)} />
           <View style={{ height: 1, backgroundColor: C.line, marginVertical: 6 }} />
           <Row bold label={`Paid · ${q.paidWith}`} value={money2(q.total)} />
           {q.prepaidSavings > 0 && <Text style={{ color: C.green, fontWeight: '700', fontSize: 12 }}>You saved {money2(q.prepaidSavings)} with prepaid block rates.</Text>}

@@ -261,7 +261,7 @@ export function LiveCloseOut({ nav, params }) {
   const fh = hobbsOut !== '' && hobbsIn !== '' ? r2(Math.round((+hobbsIn - +hobbsOut) * 10) / 10) : 0;
   const valid = fh >= 0.1 && fh <= 8;
   const i = r.quote?.inputs;
-  const est = valid && i ? quote({ cfi: i.cfi, plane: i.plane, affiliation: i.affiliation, cfiPro: i.cfiPro, repeat: i.repeat, prepaid: i.prepaid, flightHours: fh, groundHours: r.cfiId ? ground : 0 }) : null;
+  const est = valid && i ? quote({ cfi: i.cfi, plane: i.plane, affiliation: i.affiliation, cfiPro: i.cfiPro, schoolPro: i.schoolPro, feeFree: i.feeFree, repeat: i.repeat, prepaid: i.prepaid, flightHours: fh, groundHours: r.cfiId ? ground : 0 }) : null;
 
   const debriefDone = !!(debrief.wentWell.trim() && debrief.needsWork.trim() && debrief.nextPlan.trim());
   const submit = async () => {

@@ -4,6 +4,7 @@
 // and creates the booking as "requested" for the instructor/owner to confirm.
 // A solo rental can be shared: the booker invites another pilot and picks their own share;
 // the request only goes to the owner once that pilot accepts and pays a deposit (split function).
+import { feeContext } from '../_shared/feeContext.ts';
 import { serve, json, admin, stripe, requireUser, customerFor, audit } from '../_shared/server.ts';
 import { parseBookingRequest, priceBooking, parseSplit, splitHoldUntil, splitShares, HttpError } from '../_shared/bookings.js';
 import { normalizeSchedule, checkBooking } from '../_shared/schedule.js';
@@ -94,12 +95,13 @@ serve(async (req, body) => {
     ? await admin.from('affiliations').select('*').eq('cfi_id', cfi.id).eq('status', 'active').maybeSingle()
     : { data: null };
 
-  // Repeat pair = no student booking fee (and no CFI new-student fee).
+  // Repeat pair = no CFI new-student fee. (The student always pays the booking fee.)
   let rq = admin.from('bookings').select('id', { count: 'exact', head: true }).eq('student_id', user.id).in('status', ['confirmed', 'completed']);
   rq = cfi ? rq.eq('cfi_id', cfi.id) : rq.is('cfi_id', null).eq('plane_id', plane!.id).eq('status', 'completed');
   const { count: prior } = await rq;
 
-  const q = priceBooking({ cfi, plane, affiliation, flightHours: r.flightHours, groundHours: r.groundHours, repeat: (prior || 0) > 0, prepaid: r.prepaid });
+  const fees = await feeContext({ studentId: user.id, affiliation, plane });
+  const q = priceBooking({ cfi, plane, affiliation, flightHours: r.flightHours, groundHours: r.groundHours, repeat: (prior || 0) > 0, prepaid: r.prepaid, ...fees });
 
   const customer = await customerFor(user);
   const { data: booking, error } = await admin.from('bookings').insert({
@@ -132,7 +134,7 @@ serve(async (req, body) => {
   return json({
     booking: { id: booking.id, status: booking.status, startsAt: booking.starts_at },
     split: share ? { bookerPct: share.bookerPct, holdUntil, ...splitShares(q.total, share.bookerPct) } : null,
-    quote: { total: q.total, bookingFee: q.bookingFee, protection: q.protection, deposit: q.deposit, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft },
+    quote: { total: q.total, bookingFee: q.bookingFee, waivedFee: q.waivedFee, protection: q.protection, deposit: q.deposit, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft },
     payment: { setupIntentClientSecret: si.client_secret, customer, ephemeralKey: ek.secret },
   }, 201);
 });
