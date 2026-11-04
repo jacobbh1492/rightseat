@@ -38,6 +38,22 @@ const fmt = (ymd) => {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 };
 
+const addDays = (ymd, n) => {
+  if (!isYmd(ymd)) return null;
+  const d = new Date(ymd + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+// 14 CFR 61.57(a)/(b): three takeoffs and landings within the preceding 90 days to carry
+// passengers (at night: to a full stop, between an hour after sunset and an hour before
+// sunrise). The pilot enters the date of the oldest of their last three; it's current
+// through 90 days after that.
+export const passengerCurrentThrough = (oldestOfLastThreeYmd) => addDays(oldestOfLastThreeYmd, 90);
+
+// Owners can require a recent flight before a solo rental (an insurance or club rule).
+export const RECENT_FLIGHT_OPTIONS = [0, 30, 60, 90];
+
 // What's missing from a pilot profile (empty = complete).
 export function profileGaps(p) {
   if (!p) return ['certificate', 'medical', 'flight review', 'total hours'];
@@ -50,9 +66,10 @@ export function profileGaps(p) {
 }
 
 // The checks for one pilot, one plane, one flight.
-//   profile:  { certificate, medicalClass, medicalExpires, flightReviewDate, totalHours }
+//   profile:  { certificate, medicalClass, medicalExpires, flightReviewDate, totalHours,
+//               lastFlightDate, dayLandingsDate, nightLandingsDate }  (the last three optional)
 //   checkout: { status: 'requested' | 'approved' | 'declined' | 'revoked', soloUntil } or null
-//   plane:    { tail, soloRental, insuranceMinHours, hobbsTotal, next100At }
+//   plane:    { tail, soloRental, insuranceMinHours, hobbsTotal, next100At, recentFlightDays }
 // Each check: { key, label, ok, blocking, fix: 'profile' | 'checkout' | null }
 // forCheckout: the checkout flight itself, flown with the owner on board. Being checked out
 // isn't required for it, but student pilots need a CFI (only a CFI can endorse them for solo).
@@ -86,6 +103,22 @@ export function renterChecks({ profile, checkout, plane, flightHours = 1, start 
     }
     const min = Number(plane?.insuranceMinHours || 0);
     if (min > 0) out.push({ key: 'insurance', label: `Meets insurance minimum (${min} hrs total; you have ${Number(profile.totalHours)})`, ok: Number(profile.totalHours) >= min, blocking: true, fix: 'profile' });
+    // The owner's recency rule (off unless they set one).
+    const recent = Number(plane?.recentFlightDays || 0);
+    if (recent > 0) {
+      const last = isYmd(profile.lastFlightDate) ? profile.lastFlightDate : null;
+      out.push({ key: 'recent', label: last ? `Flown in the last ${recent} days (owner’s rule; last flight ${fmt(last)})` : `Owner requires a flight in the last ${recent} days: add your last flight date`,
+        ok: !!last && addDays(last, recent) >= day && last <= day, blocking: true, fix: 'profile' });
+    }
+    // Passenger currency: not needed to fly alone, so a heads-up rather than a block.
+    if (!student) {
+      const dayThrough = passengerCurrentThrough(profile.dayLandingsDate);
+      const nightThrough = passengerCurrentThrough(profile.nightLandingsDate);
+      out.push({ key: 'dayCurrency', label: dayThrough ? (dayThrough >= day ? `Day passenger currency (61.57) through ${fmt(dayThrough)}` : `Not current to carry passengers (61.57): 3 takeoffs & landings needed`) : 'Add your recent landings to check passenger currency (61.57)',
+        ok: !!dayThrough && dayThrough >= day, blocking: false, fix: 'profile' });
+      if (nightThrough && nightThrough >= day) out.push({ key: 'nightCurrency', label: `Night passenger currency through ${fmt(nightThrough)}`, ok: true, blocking: false, fix: null });
+      else out.push({ key: 'nightCurrency', label: 'Not night current for passengers (3 full-stop night landings in 90 days)', ok: false, blocking: false, fix: 'profile' });
+    }
     if (student && forCheckout) {
       out.push({ key: 'student', label: 'Student pilots get checked out by a CFI (for the solo endorsement)', ok: false, blocking: true, fix: null });
     } else if (student) {

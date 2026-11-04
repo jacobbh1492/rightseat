@@ -8,6 +8,7 @@ const files = [
   ['src/schedule.js', 'supabase/functions/_shared/schedule.js'],
   ['src/renterChecks.js', 'supabase/functions/_shared/renterChecks.js'],
   ['src/promos.js', 'supabase/functions/_shared/promos.js'],
+  ['src/aircraftStatus.js', 'supabase/functions/_shared/aircraftStatus.js'],
 ];
 for (const [from, to] of files) {
   const src = fs.readFileSync(path.join(root, from), 'utf8');

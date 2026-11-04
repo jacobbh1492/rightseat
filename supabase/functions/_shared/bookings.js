@@ -201,3 +201,42 @@ export function parseProposal(body, now = new Date()) {
   if (!/^[0-9a-f-]{36}$/i.test(studentId)) bad('Pick a student.');
   return { studentId, ...parseBookingRequest({ ...body, cfiId: 'self' }, now) };
 }
+
+// ---- gift discovery flights
+// A gift is money a buyer paid up front (gifts table). At close-out it pays for as much of
+// the lesson as it covers; the student's saved card pays the rest. Stripe won't charge a
+// card less than $0.50, so a tiny remainder is taken from the card and the gift covers
+// a little less.
+export const GIFT_MIN = 50;
+export const GIFT_MAX = 1500;
+export const STRIPE_MIN_CHARGE = 0.5;
+export function giftUse(total, remaining) {
+  const t = r2(Math.max(0, Number(total) || 0)), g = r2(Math.max(0, Number(remaining) || 0));
+  if (!g) return { gift: 0, card: t };
+  if (g >= t) return { gift: t, card: 0 };
+  let card = r2(t - g);
+  if (card < STRIPE_MIN_CHARGE) card = Math.min(t, STRIPE_MIN_CHARGE);
+  return { gift: r2(t - card), card };
+}
+export function parseGift(body) {
+  const amount = r2(Number(body?.amount));
+  if (!(amount >= GIFT_MIN && amount <= GIFT_MAX)) throw new HttpError(400, `Pick an amount from $${GIFT_MIN} to $${GIFT_MAX}.`);
+  const clean = (s, n) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
+  const recipientName = clean(body?.recipientName, 80);
+  if (!recipientName) throw new HttpError(400, 'Who’s the gift for?');
+  const recipientEmail = clean(body?.recipientEmail, 200).toLowerCase();
+  if (recipientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) throw new HttpError(400, 'That email doesn’t look right.');
+  return { amount, recipientName, recipientEmail: recipientEmail || null, fromName: clean(body?.fromName, 80), message: clean(body?.message, 500), cfiId: typeof body?.cfiId === 'string' && body.cfiId ? body.cfiId : null };
+}
+// RS-XXXX-XXXX from an alphabet without look-alikes (0/O, 1/I/L).
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+export function giftCode(randomBytes) {
+  const b = randomBytes(8);
+  const ch = Array.from(b, (x) => CODE_ALPHABET[x % CODE_ALPHABET.length]).join('');
+  return `RS-${ch.slice(0, 4)}-${ch.slice(4, 8)}`;
+}
+export const normalizeGiftCode = (s) => {
+  const x = String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const core = x.startsWith('RS') ? x.slice(2) : x;
+  return core.length === 8 ? `RS-${core.slice(0, 4)}-${core.slice(4)}` : null;
+};

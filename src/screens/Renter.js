@@ -6,7 +6,7 @@ import { Header } from './Details';
 import { RenterInsuranceSection } from './RenterInsurance';
 import { useAuth } from '../backend/auth';
 import { fetchPilotProfile, savePilotProfile, fetchPlaneCheckouts, decideCheckout } from '../backend/pilot';
-import { CERTIFICATES, MEDICALS, profileGaps, flightReviewValidThrough, renterChecks, isYmd, ymdIn } from '../renterChecks';
+import { CERTIFICATES, MEDICALS, profileGaps, flightReviewValidThrough, renterChecks, isYmd, ymdIn, passengerCurrentThrough } from '../renterChecks';
 
 // Dates are typed as MM/DD/YYYY and stored as YYYY-MM-DD.
 export const toYmd = (s) => {
@@ -24,7 +24,7 @@ const addDaysYmd = (ymd, n) => { const d = new Date(ymd + 'T00:00:00Z'); d.setUT
 export function PilotProfile({ nav }) {
   const auth = useAuth();
   const uid = auth?.session?.user?.id;
-  const [form, setForm] = useState({ certificate: '', medicalClass: '', medicalExpires: '', flightReviewDate: '', totalHours: '' });
+  const [form, setForm] = useState({ certificate: '', medicalClass: '', medicalExpires: '', flightReviewDate: '', totalHours: '', lastFlightDate: '', dayLandingsDate: '', nightLandingsDate: '' });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -32,7 +32,8 @@ export function PilotProfile({ nav }) {
   useEffect(() => {
     if (!uid) { setLoading(false); return; }
     fetchPilotProfile(uid).then((p) => {
-      if (p) setForm({ certificate: p.certificate, medicalClass: p.medicalClass, medicalExpires: fromYmd(p.medicalExpires), flightReviewDate: fromYmd(p.flightReviewDate), totalHours: String(p.totalHours) });
+      if (p) setForm({ certificate: p.certificate, medicalClass: p.medicalClass, medicalExpires: fromYmd(p.medicalExpires), flightReviewDate: fromYmd(p.flightReviewDate), totalHours: String(p.totalHours),
+        lastFlightDate: fromYmd(p.lastFlightDate), dayLandingsDate: fromYmd(p.dayLandingsDate), nightLandingsDate: fromYmd(p.nightLandingsDate) });
     }).catch((e) => setErr(e.message)).finally(() => setLoading(false));
   }, [uid]);
   const set = (k) => (v) => { setSaved(false); setForm((f) => ({ ...f, [k]: v })); };
@@ -50,13 +51,18 @@ export function PilotProfile({ nav }) {
   }
 
   const student = form.certificate === 'Student';
+  const badDate = (s) => s.trim() !== '' && !toYmd(s);
   const value = {
     certificate: form.certificate, medicalClass: form.medicalClass, medicalExpires: toYmd(form.medicalExpires),
     flightReviewDate: toYmd(form.flightReviewDate), totalHours: form.totalHours === '' ? null : Number(form.totalHours),
+    lastFlightDate: toYmd(form.lastFlightDate), dayLandingsDate: toYmd(form.dayLandingsDate), nightLandingsDate: toYmd(form.nightLandingsDate),
   };
-  const gaps = profileGaps(value);
+  const todayYmd = ymdIn(new Date());
+  const future = (k) => !!value[k] && value[k] > todayYmd;
+  const badRecent = ['lastFlightDate', 'dayLandingsDate', 'nightLandingsDate'].some((k) => badDate(form[k]) || future(k));
+  const through = (k) => passengerCurrentThrough(value[k]);
+  const gaps = [...profileGaps(value), ...(badRecent ? ['recent flying dates'] : [])];
   const reviewThrough = flightReviewValidThrough(value.flightReviewDate);
-  const badDate = (s) => s.trim() !== '' && !toYmd(s);
   const save = async () => {
     setErr(''); setBusy(true);
     try { await savePilotProfile(uid, value); setSaved(true); }
@@ -90,6 +96,19 @@ export function PilotProfile({ nav }) {
 
             <SectionTitle>Experience</SectionTitle>
             <Field label="Total flight time (hours)" value={form.totalHours} onChangeText={(t) => set('totalHours')(t.replace(/[^0-9.]/g, ''))} placeholder="142.5" keyboardType="decimal-pad" />
+
+            <SectionTitle>Recent flying</SectionTitle>
+            <Text style={[st.sub, { marginBottom: 10 }]}>Some owners require a recent flight before a solo rental. Flights you close out on RightSeat update your last flight automatically.</Text>
+            <Field label="Your last flight (MM/DD/YYYY)" value={form.lastFlightDate} onChangeText={set('lastFlightDate')} placeholder={fromYmd(todayYmd)} keyboardType="numbers-and-punctuation" />
+            <Text style={st.hint}>{badDate(form.lastFlightDate) ? 'Enter the date as MM/DD/YYYY.' : future('lastFlightDate') ? 'That date is in the future.' : 'Optional unless a plane’s owner asks for it.'}</Text>
+            {!student && (
+              <>
+                <Field label="Day: date of your 3rd most recent takeoff & landing" value={form.dayLandingsDate} onChangeText={set('dayLandingsDate')} placeholder="MM/DD/YYYY" keyboardType="numbers-and-punctuation" />
+                <Text style={st.hint}>{badDate(form.dayLandingsDate) ? 'Enter the date as MM/DD/YYYY.' : future('dayLandingsDate') ? 'That date is in the future.' : through('dayLandingsDate') ? `Current to carry passengers through ${pretty(through('dayLandingsDate'))} (61.57(a)).` : 'Count back three takeoffs and landings in your logbook. Needed to carry passengers.'}</Text>
+                <Field label="Night: date of your 3rd most recent full-stop night landing" value={form.nightLandingsDate} onChangeText={set('nightLandingsDate')} placeholder="MM/DD/YYYY" keyboardType="numbers-and-punctuation" />
+                <Text style={st.hint}>{badDate(form.nightLandingsDate) ? 'Enter the date as MM/DD/YYYY.' : future('nightLandingsDate') ? 'That date is in the future.' : through('nightLandingsDate') ? `Night current for passengers through ${pretty(through('nightLandingsDate'))} (61.57(b)).` : 'Optional. Leave blank if you haven’t flown at night lately.'}</Text>
+              </>
+            )}
 
             <RenterInsuranceSection />
           </>
@@ -140,7 +159,7 @@ export function Checkouts({ nav }) {
     const plane = getPlane(c.planeId) || planes.find((p) => p.id === c.planeId);
     const p = c.profile;
     const checks = p ? renterChecks({ profile: p, checkout: { status: 'approved', soloUntil: '9999-12-31' }, plane, start: new Date() })
-      .filter((x) => ['medical', 'medicalType', 'review', 'insurance'].includes(x.key)) : [];
+      .filter((x) => ['medical', 'medicalType', 'review', 'insurance', 'recent', 'dayCurrency'].includes(x.key)) : [];
     return (
       <Card key={c.id}>
         <View style={st.rowTop}>
@@ -155,7 +174,8 @@ export function Checkouts({ nav }) {
             <Row label="Medical" value={`${p.medicalClass} · ${pretty(p.medicalExpires)}`} />
             {p.certificate !== 'Student' && <Row label="Flight review" value={pretty(p.flightReviewDate)} />}
             <Row label="Total time" value={`${p.totalHours} hrs`} />
-            {checks.map((x) => <Text key={x.key} style={[st.sub, { color: x.ok ? C.green : '#B91C1C', fontWeight: '600' }]}>{x.ok ? '✓' : '✗'} {x.label}</Text>)}
+            {!!p.lastFlightDate && <Row label="Last flight" value={pretty(p.lastFlightDate)} />}
+            {checks.map((x) => <Text key={x.key} style={[st.sub, { color: x.ok ? C.green : x.blocking ? '#B91C1C' : '#B45309', fontWeight: '600' }]}>{x.ok ? '✓' : x.blocking ? '✗' : '!'} {x.label}</Text>)}
             <Text style={[st.hint, { marginTop: 6 }]}>Self-reported. Check their certificate, medical and logbook before approving.</Text>
           </View>
         ) : <Text style={[st.sub, { marginTop: 6, color: '#B45309' }]}>They haven’t filled in their pilot profile yet.</Text>}

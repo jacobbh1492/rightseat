@@ -11,7 +11,7 @@ const dateLabel = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month
 
 export async function fetchMyBookings(userId) {
   const { data: rows, error } = await supabase.from('bookings')
-    .select('id, student_id, cfi_id, plane_id, starts_at, goal, flight_hours, ground_hours, status, quote, actual_hobbs, final_split, card_ready, cancel_reason, cancelled_by, conditions, split_pending, hold_until, proposed_by, proposal_expires, purpose')
+    .select('id, student_id, cfi_id, plane_id, starts_at, goal, flight_hours, ground_hours, status, quote, actual_hobbs, final_split, card_ready, cancel_reason, cancelled_by, conditions, split_pending, hold_until, proposed_by, proposal_expires, purpose, gift_id')
     .order('starts_at', { ascending: false }).limit(200);
   if (error) throw error;
   const planeIds = [...new Set(rows.map((b) => b.plane_id).filter(Boolean))];
@@ -70,7 +70,7 @@ export async function fetchMyBookings(userId) {
         : (final ? (final.charged ?? final.total) : b.quote?.total || 0),
       actualHobbs: b.actual_hobbs != null ? Number(b.actual_hobbs) : null,
       conditions: b.conditions || {}, actualGround: b.final_split?.final?.groundHours ?? null,
-      share, method: 'card',
+      share, method: 'card', giftApplied: Number(final?.giftApplied || 0), usesGift: !!b.gift_id,
       reviewedCfi: (myReviews || []).some((x) => x.booking_id === b.id && x.subject === 'cfi'),
       reviewedPlane: (myReviews || []).some((x) => x.booking_id === b.id && x.subject === 'plane'),
       // For the instructor/owner: was their share paid out, or held until payouts are set up?

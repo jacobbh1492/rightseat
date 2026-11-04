@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { RECENT_FLIGHT_OPTIONS } from '../renterChecks';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useStore, money } from '../store';
 import { money2 } from '../logic';
 import { AIRPORTS, CERTS, SPECIALTIES, AVIONICS, OWNER_TYPES } from '../data';
 import { useAuth } from '../backend/auth';
 import { saveCfiProfile, savePlaneListing } from '../backend/profiles';
+import { fetchMyMechanicAccess } from '../backend/maintenance';
 import { C, Card, Field, MultiSelect, Toggle, Button, SectionTitle, Avatar, pickImages, ListRow, Icon, Chip } from '../ui';
 import { Header } from './Details';
 import { CfiCard, PlaneCard, SchoolCard } from './Explore';
@@ -27,6 +29,12 @@ export function Me({ nav }) {
   const verified = myDocs.filter((d) => d.status === 'approved').length;
   const pendingQueue = queue.filter((x) => x.state === 'pending').length;
   const auth = useAuth();
+  // Mechanics an owner invited: show their maintenance section (any mode).
+  const [hasMech, setHasMech] = useState(false);
+  useEffect(() => {
+    if (!auth?.session) { setHasMech(false); return; }
+    fetchMyMechanicAccess().then((r) => setHasMech(r.length > 0)).catch(() => {});
+  }, [auth?.session?.user?.id]);
   const displayName = auth?.account?.full_name || pilot.name;
 
   const sections = [
@@ -40,6 +48,9 @@ export function Me({ nav }) {
         ]),
         ...(auth?.session ? [{ icon: 'file', title: 'Pilot profile', subtitle: 'Certificate, medical, flight review, hours · needed to rent solo', go: 'PilotProfile' }] : []),
         { icon: 'book', title: 'Previous experience', subtitle: training.prior ? 'Update your hours and lessons' : 'Trained before? Add it here', go: 'PriorExperience' },
+        { icon: 'users', title: 'Get matched with an instructor', subtitle: 'Tell us your goals, we rank instructors by fit', go: 'GetMatched' },
+        ...(auth?.session ? [{ icon: 'chat', title: 'Your matches', subtitle: 'Requests you sent and who answered', go: 'MyMatches' }] : []),
+        { icon: 'star', title: 'Gifts', subtitle: 'Redeem a gift code or gift someone a flight', go: 'Gifts' },
       ],
     },
     {
@@ -50,6 +61,7 @@ export function Me({ nav }) {
         ...(auth?.session ? [] : [{ icon: 'chart', title: 'Instructor dashboard (sample)', subtitle: 'Earnings, payouts, students, debriefs', go: 'CfiDashboard' }]),
         { icon: 'school', title: 'Flight school', subtitle: me && affiliationFor(me.id) ? `Teaching for ${getSchool(affiliationFor(me.id).schoolId)?.name}` : 'Join a school or see your arrangement', go: 'JoinSchool', params: { cfiId: myCfiId } },
         { icon: 'dollar', title: 'Plans & fees', subtitle: 'CFI Pro: 0% fees, instant payouts', go: 'Plans' },
+        ...(auth?.session ? [{ icon: 'users', title: 'Student requests', subtitle: 'Students who matched with you', go: 'StudentRequests' }] : []),
       ],
     },
     {
@@ -62,6 +74,11 @@ export function Me({ nav }) {
       ],
     },
     {
+      // Mechanics an owner invited (they may have no other role on RightSeat).
+      key: 'mech', mode: 'any', show: hasMech, title: 'Maintenance',
+      rows: [{ icon: 'tool', title: 'Mechanic access', subtitle: 'Planes you maintain and invites from owners', go: 'MechanicHome' }],
+    },
+    {
       key: 'school', mode: 'teach', show: roles.includes('school'), title: 'Flight school',
       rows: [
         { icon: 'calendar', title: 'School dashboard', subtitle: 'Schedule, instructors, join requests, your share', go: 'SchoolDashboard' },
@@ -69,7 +86,7 @@ export function Me({ nav }) {
       ],
     },
   ];
-  const others = sections.filter((x) => !x.show);
+  const others = sections.filter((x) => !x.show && x.key !== 'mech');
   const mode = nav.mode || 'learn';
   const teachingMode = mode === 'teach';
   const pendingTeach = teaching.filter((r) => r.status === 'Pending').length;
@@ -132,7 +149,7 @@ export function Me({ nav }) {
         </Card>
       )}
 
-      {sections.filter((x) => x.show && x.mode === mode).map((sec) => (
+      {sections.filter((x) => x.show && (x.mode === mode || x.mode === 'any')).map((sec) => (
         <View key={sec.key}>
           <Text style={ms.groupTitle}>{sec.title}</Text>
           <Card style={{ paddingVertical: 2 }}>
@@ -424,7 +441,7 @@ export function PlaneForm({ nav }) {
     tail: '', year: '', make: '', model: '', category: ['Single'], homeAirport: ['KPIE'],
     wetRate: '', dryRate: '', blockRate: '', avionics: [], ifr: true, seats: '4', usefulLoad: '', cruise: '', fuelBurn: '',
     engineSMOH: '', tbo: '2000', last100hr: '', ownerName: '', ownerType: ['Private owner'], insuranceMinHours: '0',
-    checkoutRequired: '', soloRental: true, checkoutBy: 'cfi', notes: '', onMyProfile: true, photos: [],
+    checkoutRequired: '', soloRental: true, checkoutBy: 'cfi', notes: '', onMyProfile: true, photos: [], recentFlightDays: 0,
   });
   const set = (k) => (v) => setF((prev) => ({ ...prev, [k]: v }));
   const valid = f.tail.trim() && f.make.trim() && f.model.trim() && num(f.wetRate) > 0;
@@ -462,6 +479,7 @@ export function PlaneForm({ nav }) {
       checkoutRequired: f.checkoutRequired || (f.checkoutBy === 'cfi' ? 'Checkout with a listed CFI' : f.checkoutBy === 'owner' ? 'Checkout flight with the owner' : 'Checkout with the owner or a listed CFI'),
       soloRental: f.soloRental,
       checkoutBy: f.checkoutBy,
+      recentFlightDays: f.soloRental ? f.recentFlightDays : 0,
       rating: 5.0,
       reviewCount: 0,
       notes: f.notes,
@@ -539,6 +557,15 @@ export function PlaneForm({ nav }) {
               {f.checkoutBy === 'cfi' ? 'Renters fly a checkout with an instructor, then you approve them in Renter checkouts.'
                 : 'Renters can book a checkout flight with you: a rental where you fly along. At close-out you mark them checked out. Student pilots still need a CFI for their solo endorsement.'}
             </Text>
+          </>
+        )}
+        {f.soloRental && (
+          <>
+            <Text style={ms.fieldLabel}>Require a recent flight to rent solo?</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 }}>
+              {RECENT_FLIGHT_OPTIONS.map((d) => <Chip key={d} small label={d ? `Within ${d} days` : 'No'} active={f.recentFlightDays === d} onPress={() => set('recentFlightDays')(d)} />)}
+            </View>
+            <Text style={[ms.hint, { marginBottom: 12 }]}>Many insurance policies and clubs ask for this. Renters who haven’t flown recently book with a CFI instead.</Text>
           </>
         )}
         <Field label="Checkout requirement" value={f.checkoutRequired} onChangeText={set('checkoutRequired')} placeholder={f.checkoutBy === 'cfi' ? '1 hr checkout with a listed CFI' : '1 hr checkout flight with me, pattern work + maneuvers'} />

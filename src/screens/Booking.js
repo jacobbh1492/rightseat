@@ -23,7 +23,9 @@ import { ReviewChip } from './Library';
 import { RenterInsuranceCard } from './RenterInsurance';
 import { useOpenTimes } from '../useOpenTimes';
 import { usePilot, requestCheckout } from '../backend/pilot';
-import { renterChecks, ownerChecksOut } from '../renterChecks';
+import { renterChecks, ownerChecksOut, ymdIn } from '../renterChecks';
+import { aircraftChecks } from '../aircraftStatus';
+import { useMyGifts, spendable } from '../backend/gifts';
 import { MonthCalendar, cmpDate, shortDate, longDate } from '../calendarUi';
 import { DEFAULT_TZ, todayIn, addDays, dateKey, timeIn, tzAbbrev } from '../schedule';
 
@@ -115,13 +117,19 @@ export function RequestLesson({ nav, params }) {
   // (Sample listings keep the sample pilot so guests can try the flow.)
   const me = usePilot();
   const liveSolo = !cfi && !!plane && isLive(plane.id);
+  // A real plane's condition: grounding squawks, 100-hour (when tracked) and annual.
+  const airChecks = plane && isLive(plane.id)
+    ? aircraftChecks({ plane, squawks: plane.squawks || [], flightHours, day: ymdIn(start || new Date()), include100hr: !liveSolo }) : [];
   const checks = liveSolo ? [
     ...(!me.signedIn ? [{ key: 'signin', label: 'Sign in to check you can rent this plane solo', ok: false, blocking: false }]
       : me.loading ? [{ key: 'loading', label: 'Checking your pilot profile…', ok: false, blocking: true }]
       : renterChecks({ profile: me.profile, checkout: me.checkoutFor(plane.id), plane, flightHours, start: start || new Date(), forCheckout: checkoutFlight && !cfi })),
+    ...airChecks,
     { label: 'Aircraft registration & insurance verified', ok: planeVerified(plane, docs), blocking: true },
   ] : [
-    ...bookingChecks({ pilot, cfi, plane, flightHours }),
+    // (A real plane's 100-hour and squawks come from airChecks instead of the sample rules.)
+    ...bookingChecks({ pilot, cfi, plane, flightHours }).filter((c) => !(airChecks.length && /^100-hr|grounding squawk/i.test(c.label))),
+    ...airChecks,
     ...(cfi?.live ? [{ label: 'Instructor verified by RightSeat', ok: !!cfi.verified, blocking: true }] : []),
     ...(plane ? [{ label: 'Aircraft registration & insurance verified', ok: planeVerified(plane, docs), blocking: true }] : []),
     ...(!cfi && plane ? [{ label: 'Medical verified in RightSeat', ok: docs.me?.medical?.status === 'approved', blocking: true }] : []),
@@ -179,6 +187,12 @@ export function RequestLesson({ nav, params }) {
   const sharing = canShare && shareOn;
   const shareEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shareEmail.trim());
   const myShare = sharing ? r2(q.total * sharePct / 100) : q.total;
+  // A gift flight the student redeemed: pays for lessons with an instructor, applied at close-out.
+  const gifts = useMyGifts();
+  const myGifts = live && cfi ? spendable(gifts.received) : [];
+  const [giftChoice, setGiftChoice] = useState(undefined); // undefined = first available, null = don't use
+  const gift = giftChoice === null ? null : myGifts.find((g) => g.id === giftChoice) || (giftChoice === undefined ? myGifts[0] : null) || null;
+  const giftCover = gift ? r2(Math.min(gift.remaining, q.total)) : 0;
 
   const submit = async () => {
     const when = start.toISOString();
@@ -190,7 +204,7 @@ export function RequestLesson({ nav, params }) {
       try {
         const rentalGoal = checkoutFlight ? 'Checkout flight with the owner' : sharing ? 'Shared rental' : 'Solo rental';
         const res = await payForBooking({ cfiId: cfi?.id || null, planeId: plane?.id || null, startsAt: when, goal: cfi ? goal : rentalGoal, flightHours, groundHours: cfi ? groundHours : 0, prepaid,
-          split: sharing ? { email: shareEmail.trim(), bookerPct: sharePct } : undefined, checkout: checkoutFlight && !cfi ? true : undefined });
+          split: sharing ? { email: shareEmail.trim(), bookerPct: sharePct } : undefined, checkout: checkoutFlight && !cfi ? true : undefined, giftId: gift?.id || undefined });
         setBusy(false);
         if (res.cancelled) { setPayErr('Card not saved, so the request wasn’t sent. Tap Send request to try again.'); return; }
         const r = { id: res.booking.id, cfiId: cfi?.id || null, planeId: plane?.id || null, when, date: dateLabel(when), time: timeLabel(when), goal: cfi ? goal : rentalGoal, flightHours, groundHours: cfi ? groundHours : 0, total: res.quote.total, repeat, prepaid, method: 'card', deposit: res.quote.deposit, status: 'Pending', live: true, role: 'student',
@@ -433,6 +447,18 @@ export function RequestLesson({ nav, params }) {
           <Text style={{ flex: 1, fontWeight: '800', color: C.text }}>Visa •• 4242</Text>
           <View style={[bs.radio, method === 'card' && { borderColor: C.blue }]}>{method === 'card' && <View style={bs.radioDot} />}</View>
         </Pressable>
+        {myGifts.length > 0 && (
+          <Card style={{ marginTop: 6, borderWidth: 1.5, borderColor: gift ? C.green : C.line }}>
+            <Text style={{ fontWeight: '900', color: C.text }}>🎁 {myGifts.length > 1 ? 'Use a gift' : `Gift from ${myGifts[0].fromName || 'a friend'}`}</Text>
+            {myGifts.map((g) => (
+              <Pressable key={g.id} onPress={() => setGiftChoice(gift?.id === g.id ? null : g.id)} style={[bs.pay, { marginTop: 8 }, gift?.id === g.id && bs.pickOn]} accessibilityRole="radio" accessibilityState={{ checked: gift?.id === g.id }}>
+                <Text style={{ flex: 1, fontWeight: '700', color: C.text }}>{money2(g.remaining)} left{g.fromName && myGifts.length > 1 ? ` · from ${g.fromName}` : ''}</Text>
+                <View style={[bs.radio, gift?.id === g.id && { borderColor: C.blue }]}>{gift?.id === g.id && <View style={bs.radioDot} />}</View>
+              </Pressable>
+            ))}
+            <Text style={[bs.hint, { marginTop: 6 }]}>{gift ? `Covers about ${money2(giftCover)} of this lesson. ${giftCover < q.total ? 'Your card pays the rest after the flight.' : 'Your card is saved but only charged if the flight runs over.'}` : 'Not using a gift for this lesson.'}</Text>
+          </Card>
+        )}
         {walletShort && (
           <Pressable onPress={() => nav.push('Wallet')}>
             <Text style={bs.warn}>Wallet balance is short by {money2(q.total - available)}. Add funds ›</Text>
@@ -616,6 +642,9 @@ export function Lessons({ nav }) {
           {(c || p) && r.status !== 'Cancelled' && (
             <Pressable onPress={() => nav.push('Chat', { key: c ? c.id : p.id })} style={bs.action}><Text style={bs.actionText}>Message</Text></Pressable>
           )}
+          {r.status === 'Confirmed' && (
+            <Pressable onPress={() => nav.push('Preflight', { bookingId: r.id })} style={bs.action} accessibilityRole="button"><Text style={bs.actionText}>Preflight</Text></Pressable>
+          )}
           {['Pending', 'Confirmed'].includes(r.status) && r.role !== 'partner' && (
             <Pressable onPress={() => nav.push('Cancel', { id: r.id })} style={bs.action}><Text style={[bs.actionText, { color: '#DC2626' }]}>Cancel</Text></Pressable>
           )}
@@ -630,7 +659,8 @@ export function Lessons({ nav }) {
         </View>
 
         {r.live && r.status === 'Pending' && !r.split?.pending && r.role !== 'partner' && <Text style={[bs.hint, { marginTop: 8 }]}>Waiting for {c ? c.name.split(' ')[0] : 'the owner'} to confirm. Your card is saved and charged only after the flight.</Text>}
-        {r.live && r.status === 'Completed' && <Text style={[bs.hint, { marginTop: 8 }]}>Charged {money2(r.myTotal ?? r.total)}{r.actualHobbs ? ` for ${r.actualHobbs} hr on the Hobbs` : ''}.</Text>}
+        {r.live && r.status === 'Completed' && <Text style={[bs.hint, { marginTop: 8 }]}>{r.giftApplied ? `Gift covered ${money2(r.giftApplied)}; card charged ${money2(r.myTotal ?? 0)}` : `Charged ${money2(r.myTotal ?? r.total)}`}{r.actualHobbs ? ` for ${r.actualHobbs} hr on the Hobbs` : ''}.</Text>}
+        {r.live && ['Pending', 'Confirmed'].includes(r.status) && r.usesGift && <Text style={[bs.hint, { marginTop: 8, color: C.green }]}>🎁 Your gift pays for this lesson first, after the flight.</Text>}
         {!r.live && r.status === 'Pending' && (
           <Pressable onPress={() => updateRequest(r.id, { status: 'Confirmed' })} style={bs.demo}>
             <Text style={bs.demoText}>Demo: {c ? 'CFI' : 'owner'} confirms ›</Text>
@@ -687,6 +717,8 @@ export function SplitInvite({ nav, params }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [done, setDone] = useState(null);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [checkoutErr, setCheckoutErr] = useState('');
   useEffect(() => { if (!r) refreshLive().catch(() => {}); }, []);
   if (!r || !r.split) {
     return (
@@ -700,8 +732,6 @@ export function SplitInvite({ nav, params }) {
   const plane = getPlane(r.planeId);
   const booker = sp.bookerName.split(' ')[0];
   const checks = plane ? renterChecks({ profile: me.profile, checkout: me.checkoutFor(plane.id), plane, flightHours: r.flightHours, start: new Date(r.when) }) : [];
-  const [checkoutBusy, setCheckoutBusy] = useState(false);
-  const [checkoutErr, setCheckoutErr] = useState('');
   const askCheckout = async () => {
     setCheckoutErr(''); setCheckoutBusy(true);
     try { await requestCheckout(plane.id); } catch (e) { setCheckoutErr(e.message); }

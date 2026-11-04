@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { fetchOpenSquawks } from './maintenance';
 
 // Map database rows to the shapes the app's screens use. Fields the database
 // doesn't track yet get neutral defaults, so a new listing renders cleanly.
@@ -32,7 +33,8 @@ export function planeFromRow(row, photos = []) {
     wetRate: Number(row.wet_rate), dryRate: Number(row.dry_rate || 0), blockRate: Number(d.blockRate || row.wet_rate),
     avionics: d.avionics || [], ifr: !!d.ifr, seats: d.seats || 4, usefulLoad: d.usefulLoad || 0, fuelBurn: d.fuelBurn || 0, cruise: d.cruise || 0,
     engineSMOH: d.engineSMOH || 0, tbo: d.tbo || 2000, last100hr: d.last100hr || '',
-    hobbsTotal: Number(row.hobbs_total || 0), next100At: Number(row.next_100_at || 0), squawks: [],
+    hobbsTotal: Number(row.hobbs_total || 0), next100At: Number(row.next_100_at || 0), squawks: [], annualDate: row.annual_date || null,
+    recentFlightDays: Number(d.recentFlightDays || 0),
     ownerName: d.ownerName || 'Private owner', ownerType: row.owner_type, insuranceMinHours: d.insuranceMinHours || 0,
     checkoutRequired: d.checkoutRequired || 'Checkout with a listed CFI', soloRental: d.soloRental !== false, checkoutBy: ['owner', 'either'].includes(d.checkoutBy) ? d.checkoutBy : 'cfi',
     rating: 0, reviewCount: 0, reviews: [], notes: d.notes || '', monthEarnings: 0, schoolId: row.school_id || null,
@@ -68,6 +70,7 @@ export async function fetchLiveListings(uid) {
   const photoUrl = (path) => supabase.storage.from('plane-photos').getPublicUrl(path).data.publicUrl;
   const photosFor = (id) => (photoRows || []).filter((r) => r.plane_id === id).map((r) => photoUrl(r.path));
   const links = linksRes.data || [];
+  const squawks = await fetchOpenSquawks(planeIds);
   const { data: reviewRows } = await supabase.from('reviews').select('subject, subject_id, rating, tags, body, reply, author_name, lesson, created_at')
     .in('subject_id', [...ids, ...planeIds].length ? [...ids, ...planeIds] : ['00000000-0000-0000-0000-000000000000'])
     .order('created_at', { ascending: false });
@@ -78,6 +81,6 @@ export async function fetchLiveListings(uid) {
   };
   return {
     cfis: cfisRes.data.map((r) => withReviews(cfiFromRow(r, names, links.filter((l) => l.cfi_id === r.id).map((l) => l.plane_id), avatars), 'cfi')),
-    planes: planesRes.data.map((r) => withReviews(planeFromRow(r, photosFor(r.id)), 'plane')),
+    planes: planesRes.data.map((r) => withReviews({ ...planeFromRow(r, photosFor(r.id)), squawks: squawks.filter((q) => q.planeId === r.id) }, 'plane')),
   };
 }
