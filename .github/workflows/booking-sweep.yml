@@ -19,9 +19,18 @@ jobs:
       - name: Run the sweep
         run: |
           set -euo pipefail
-          KEY=$(curl -fsS "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/api-keys?reveal=true" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-            | jq -r '[.[] | select(.name == "service_role" or .type == "secret")][0].api_key')
-          echo "::add-mask::$KEY"
-          curl -fsS -X POST "https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1/booking-sweep" \
-            -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{}'
+          KEYS=$(curl -fsS "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/api-keys?reveal=true" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
+          # Try the new-style secret key first (the one the function accepts today),
+          # then the legacy service_role key.
+          mapfile -t CANDIDATES < <(echo "$KEYS" | jq -r '([.[] | select(.type == "secret")] + [.[] | select(.name == "service_role")])[] | .api_key | select(. != null and . != "")')
+          for KEY in "${CANDIDATES[@]}"; do echo "::add-mask::$KEY"; done
+          echo "Keys to try: ${#CANDIDATES[@]}"
+          for KEY in "${CANDIDATES[@]}"; do
+            CODE=$(curl -sS -o /tmp/out.json -w '%{http_code}' -X POST "https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1/booking-sweep" \
+              -H "Authorization: Bearer $KEY" -H "apikey: $KEY" -H "Content-Type: application/json" -d '{}')
+            echo "HTTP $CODE"
+            if [ "$CODE" = "200" ]; then cat /tmp/out.json; echo; exit 0; fi
+            if [ "$CODE" != "403" ] && [ "$CODE" != "401" ]; then cat /tmp/out.json; echo; exit 1; fi
+          done
+          echo "No key was accepted by booking-sweep"; cat /tmp/out.json; exit 1
