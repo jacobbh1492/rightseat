@@ -3,7 +3,7 @@
 // Keep this file dependency-free; scripts/sync-shared.js copies it to supabase/functions/_shared/.
 
 export const FEES = {
-  studentNew: 0.06, // booking fee on the FIRST booking with a new CFI (or new plane for solo rentals)
+  bookingFee: 10, // flat booking fee ($) on the FIRST booking with a new CFI (or new plane for solo rentals)
   cfiNew: 0.05, // CFI host fee on new-student bookings only (0 for CFI Pro)
   owner: 0.08, // aircraft owner host fee on rentals
   protectionPerHr: 0, // rental protection is off until it's backed by real coverage (see V2.md)
@@ -26,8 +26,8 @@ export function quote({ cfi, plane, flightHours, groundHours, repeat, prepaid, c
   const prepaidSavings = plane && prepaid ? (plane.wetRate - plane.blockRate) * flightHours : 0;
   const protection = plane ? FEES.protectionPerHr * flightHours : 0;
   const subtotal = instruction + ground + aircraft;
-  const bookingFee = repeat ? 0 : r2(subtotal * FEES.studentNew);
-  const waivedFee = repeat ? r2(subtotal * FEES.studentNew) : 0;
+  const bookingFee = repeat ? 0 : FEES.bookingFee;
+  const waivedFee = repeat ? FEES.bookingFee : 0;
   const total = r2(subtotal + protection + bookingFee);
   const deposit = plane && !cfi ? FEES.deposit : 0;
   const cfiFee = cfi && !repeat && !cfiPro ? r2((instruction + ground) * FEES.cfiNew) : 0;

@@ -5,7 +5,7 @@ import { syncAircraftJob, syncAirmenJob, expirationSweep, brokerReminderJob } fr
 import { downloadAirmen } from './faa/airmen.js';
 
 const DEFAULT_SETTINGS = {
-  fees: { studentNew: 0.06, cfiNew: 0.05, owner: 0.08, protectionPerHr: 9, deposit: 500, lateCancel: 0.5, instantPayout: 0.015 },
+  fees: { studentNew: 10, cfiNew: 0.05, owner: 0.08, protectionPerHr: 9, deposit: 500, lateCancel: 0.5, instantPayout: 0.015 },
   minimums: { renterLiability: 1000000, renterDamage: 25000, instructorLiability: 1000000, ownerLiability: 1000000, autoApproveConfidence: 0.9 },
   plans: { cfiPro: 29, schoolStarter: 99, schoolPro: 249 },
 };

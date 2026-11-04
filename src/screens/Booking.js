@@ -458,7 +458,7 @@ export function RequestLesson({ nav, params }) {
               <Text style={{ color: C.green, fontWeight: '800', textDecorationLine: 'line-through' }}>{money2(q.waivedFee)}</Text>
             </View>
           ) : (
-            <Row label={`Booking fee (first ${cfi ? 'lesson with ' + cfi.name.split(' ')[0] : 'rental of this plane'}) · 6%`} value={money2(q.bookingFee)} />
+            <Row label={`Booking fee (first ${cfi ? 'lesson with ' + cfi.name.split(' ')[0] : 'rental of this plane'})`} value={money2(q.bookingFee)} />
           )}
           </View>}
           {q.deposit > 0 && <Row label="Refundable damage deposit (hold only)" value={money2(q.deposit)} />}

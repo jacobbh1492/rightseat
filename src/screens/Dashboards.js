@@ -243,7 +243,7 @@ export function Plans({ nav }) {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
         <Card style={{ backgroundColor: C.sky }}>
           <Text style={{ fontWeight: '900', color: C.navy }}>How RightSeat fees work</Text>
-          <Text style={k.line}>Students: 6% booking fee on the first lesson with a new CFI. $0 on every repeat lesson.</Text>
+          <Text style={k.line}>Students: $10 booking fee on the first lesson with a new CFI. $0 on every repeat lesson.</Text>
           <Text style={k.line}>Owners: 8% of rental revenue.</Text>
           <Text style={k.line}>Wallet: prepaid balances get block rates and bonus credit.</Text>
         </Card>

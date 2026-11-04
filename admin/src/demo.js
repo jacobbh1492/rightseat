@@ -17,7 +17,7 @@ const DAY = 864e5;
 const now = Date.now();
 const daysAgo = (d, h = 9) => { const x = new Date(now - d * DAY); x.setHours(h, 0, 0, 0); return x.toISOString(); };
 
-export const FEES = { studentNew: 0.06, cfiNew: 0.05, owner: 0.08, protectionPerHr: 0, deposit: 0, instantPayout: 0.015, lateCancel: 0.5, autoApproveConfidence: 0.9, renterLiability: 1000000, ownerLiability: 1000000 };
+export const FEES = { studentNew: 10, cfiNew: 0.05, owner: 0.08, protectionPerHr: 0, deposit: 0, instantPayout: 0.015, lateCancel: 0.5, autoApproveConfidence: 0.9, renterLiability: 1000000, ownerLiability: 1000000 };
 
 const CFIS = [
   ['c1', 'Marcus Reyes', 'KPIE', 75, 4.9, 47, 1180, true, 'Gulf Coast Flight Academy'],
@@ -83,7 +83,7 @@ export function buildDemo() {
     const instruction = cfiRow ? cfiRow[3] * hours + 55 * ground : 0;
     const aircraftAmt = plane[6] * hours;
     const sub = instruction + aircraftAmt;
-    const bookingFee = repeat ? 0 : round2(sub * FEES.studentNew);
+    const bookingFee = repeat ? 0 : FEES.studentNew; // flat $ booking fee
     const protection = round2(FEES.protectionPerHr * hours);
     const total = round2(sub + bookingFee + protection);
     const cfiHost = cfiRow && !repeat && !cfiRow[7] ? round2(instruction * FEES.cfiNew) : 0;
