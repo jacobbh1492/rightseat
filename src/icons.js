@@ -4,6 +4,7 @@ import Svg, { Path, Circle, Rect, Polygon, Line } from 'react-native-svg';
 // Lightweight stroke icon set (24x24, 2px stroke). Drawn with react-native-svg so it works on iOS, Android and web
 // without font files.
 const P = {
+  tag: [<Path key="a" d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z" />, <Circle key="b" cx="7" cy="7" r="1.5" />],
   search: [<Circle key="a" cx="11" cy="11" r="7" />, <Path key="b" d="M21 21l-4.3-4.3" />],
   explore: [<Circle key="a" cx="12" cy="12" r="10" />, <Polygon key="b" points="16.2 7.8 14.1 14.1 7.8 16.2 9.9 9.9" />],
   calendar: [<Rect key="a" x="3" y="4" width="18" height="18" rx="2" />, <Path key="b" d="M16 2v4M8 2v4M3 10h18" />],

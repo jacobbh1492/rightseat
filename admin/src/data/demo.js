@@ -165,7 +165,7 @@ export function buildDemo() {
   const settings = {
     fees: { studentNew: FEES.studentNew, cfiNew: FEES.cfiNew, owner: FEES.owner, protectionPerHr: FEES.protectionPerHr, deposit: FEES.deposit, lateCancel: FEES.lateCancel, instantPayout: FEES.instantPayout },
     minimums: { ...MINIMUMS, autoApproveConfidence: 0.9 },
-    plans: { cfiPro: 29, schoolStarter: 99, schoolPro: 249 },
+    plans: { cfiPro: 29, schoolStarter: 99, schoolPro: 119 },
   };
 
   const team = [

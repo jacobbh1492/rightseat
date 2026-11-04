@@ -243,10 +243,15 @@ export function Plans({ nav }) {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
         <Card style={{ backgroundColor: C.sky }}>
           <Text style={{ fontWeight: '900', color: C.navy }}>How RightSeat fees work</Text>
-          <Text style={k.line}>Students: 6% booking fee on the first lesson with a new CFI. $0 on every repeat lesson.</Text>
+          <Text style={k.line}>Students and renters: $10 booking fee on every lesson and rental ($5 when it’s with a School Pro school).</Text>
+          <Text style={k.line}>Instructors: 5% host fee on a new student’s first lesson. $0 on repeat students and on CFI Pro.</Text>
           <Text style={k.line}>Owners: 8% of rental revenue.</Text>
           <Text style={k.line}>Wallet: prepaid balances get block rates and bonus credit.</Text>
         </Card>
+        <Pressable onPress={() => nav.push('PromoCode')} style={k.promo} accessibilityRole="button">
+          <Text style={{ fontWeight: '900', color: '#065F46', flex: 1 }}>Have a launch promo code?</Text>
+          <Text style={{ color: '#047857', fontWeight: '800' }}>Enter code ›</Text>
+        </Pressable>
         <SectionTitle>For instructors {!myCfiId ? '(demo: Marcus)' : ''}</SectionTitle>
         {PLANS.cfi.map((p) => card(p, (p.id === 'pro') === !!c.pro, () => setCfiPro(id, p.id === 'pro')))}
         <SectionTitle>For flight schools</SectionTitle>
@@ -336,6 +341,7 @@ export function Insights({ nav }) {
 }
 
 const k = StyleSheet.create({
+  promo: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E3F7EF', borderWidth: 1, borderColor: '#A7F3D0', borderRadius: 12, padding: 14, marginTop: 4 },
   demo: { color: C.sub, fontSize: 12, fontWeight: '700', marginBottom: 8 },
   hero: { backgroundColor: C.navy, borderRadius: 18, padding: 18 },
   line: { color: C.text, fontSize: 13, lineHeight: 19, marginTop: 6 },

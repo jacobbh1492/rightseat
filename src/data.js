@@ -633,7 +633,7 @@ export const PLANS = {
   ],
   school: [
     { id: 'starter', name: 'School Starter', price: 99, perks: ['Company page with CFIs + fleet', 'Fleet & CFI scheduling', 'Up to 5 aircraft'] },
-    { id: 'pro', name: 'School Pro', price: 249, perks: ['Unlimited aircraft & instructors', 'Stage checks & training records', 'Reduced 3% booking fee', 'Maintenance tracking & squawks'] },
+    { id: 'pro', name: 'School Pro', price: 119, perks: ['Unlimited aircraft & instructors', 'Stage checks & training records', '$5 booking fee for your students (instead of $10)', 'Maintenance tracking & squawks'] },
   ],
 };
 

@@ -168,7 +168,7 @@ export function Config() {
         <div className="grid g2">
           <div className="card">
             <h3>Marketplace fees</h3>
-            <SettingRow label="Student booking fee" hint="First lesson with a new CFI only; repeat lessons are free" value={F.studentNew} format={pctF} parse={pctP} onSave={save('fees', 'studentNew', 'Student booking fee')} disabled={!editable} />
+            <SettingRow label="Student booking fee" hint="Flat fee on every lesson and rental ($5 with School Pro schools; waived during a Short Final promo)" value={F.studentNew} format={usdF} parse={usdP} onSave={save('fees', 'studentNew', 'Student booking fee')} disabled={!editable} />
             <SettingRow label="CFI host fee" hint="New students only; 0% on CFI Pro" value={F.cfiNew} format={pctF} parse={pctP} onSave={save('fees', 'cfiNew', 'CFI host fee')} disabled={!editable} />
             <SettingRow label="Aircraft owner fee" hint="Share of rental revenue" value={F.owner} format={pctF} parse={pctP} onSave={save('fees', 'owner', 'Owner fee')} disabled={!editable} />
             <SettingRow label="Instant payout fee" hint="Free on CFI Pro" value={F.instantPayout} format={pctF} parse={pctP} onSave={save('fees', 'instantPayout', 'Instant payout fee')} disabled={!editable} />

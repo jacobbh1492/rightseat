@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useRef, useEffect } from 'r
 import { fetchMyBookings } from './backend/bookings';
 import { fetchLiveListings } from './backend/listings';
 import { useAuth } from './backend/auth';
+import { fetchMyPromos, redeemPromoCode } from './backend/promos';
+import { promoFor, promoEnds, isActive } from './promos';
 import { CFIS, PLANES, SCHOOLS, SAMPLE_REQUESTS, PILOT, TRAINING, WALLET, THREADS, SYLLABUS, AFFILIATIONS } from './data';
 import { quote, scanMessage, hoursUntil, FEES, r2 } from './logic';
 import { extract, runChecks, decide, expiryOf, fmt, addMonths, DOC_TYPES } from './verification';
@@ -126,10 +128,26 @@ export function StoreProvider({ children }) {
   };
   useEffect(() => { refreshLive().catch(() => {}); }, [auth?.session?.user?.id]);
 
+  // Launch promo codes the user has redeemed ({ code, kind, endsAt }).
+  const [promos, setPromos] = useState([]);
+  useEffect(() => {
+    const uid = auth?.session?.user?.id;
+    if (!uid) { setPromos([]); return; }
+    fetchMyPromos(uid).then(setPromos).catch(() => {});
+  }, [auth?.session?.user?.id]);
+
   const getCfi = (id) => cfis.find((c) => c.id === id);
   const getPlane = (id) => planes.find((p) => p.id === id);
   const getSchool = (id) => schools.find((x) => x.id === id);
   const affiliationFor = (cfiId) => affiliations.find((a) => a.cfiId === cfiId && a.status === 'active');
+  const schoolIsPro = (id) => !!id && (getSchool(id)?.plan === 'pro' || (id === mySchoolId && plans.school === 'pro'));
+  const feeFree = promos.some((p) => p.kind === 'fee_free' && isActive(p.endsAt));
+  // Booking fee context for estimates: $5 when the CFI's or plane's school is on School Pro,
+  // $0 while the student has Short Final. (The server decides what's actually charged.)
+  const feeContextFor = ({ cfi, plane } = {}) => ({
+    schoolPro: schoolIsPro(cfi ? affiliationFor(cfi.id)?.schoolId : null) || schoolIsPro(plane?.schoolId),
+    feeFree,
+  });
   const held = requests.filter((r) => r.method === 'wallet' && ['Pending', 'Confirmed'].includes(r.status)).reduce((a, r) => a + (r.total || 0), 0);
   const hasBookingWith = (key) => requests.some((r) => (r.cfiId === key || (!r.cfiId && r.planeId === key)) && ['Confirmed', 'Completed'].includes(r.status));
 
@@ -151,6 +169,30 @@ export function StoreProvider({ children }) {
     getCfi, getPlane, getSchool, hasBookingWith,
     affiliations,
     affiliationFor,
+    promos, feeFree, feeContextFor,
+    // Redeem a launch promo code. Signed in: the server applies it. Guest demo: applied locally.
+    redeemPromo: async (raw) => {
+      const promo = promoFor(raw);
+      if (auth?.session?.user?.id) {
+        const res = await redeemPromoCode(raw);
+        setPromos((prev) => [...prev, { code: res.code, kind: res.kind, schoolId: res.schoolId, endsAt: res.endsAt }]);
+        if (res.kind !== 'fee_free') refreshListings().catch(() => {});
+        return res;
+      }
+      if (!promo) throw new Error('That code isn’t valid. Check the spelling and try again.');
+      if (promos.some((p) => p.code === promo.label)) throw new Error(`You’ve already used ${promo.label}.`);
+      if (promo.kind === 'cfi_pro') {
+        if (!myCfiId) throw new Error('Runup is for instructors. Create your CFI profile first, then enter the code.');
+        setCfis((prev) => prev.map((c) => (c.id === myCfiId ? { ...c, pro: true } : c)));
+      }
+      if (promo.kind === 'school_pro') {
+        if (!mySchoolId) throw new Error('Hold Short is for flight schools. Set up your school first, then enter the code.');
+        setPlans((p) => ({ ...p, school: 'pro' }));
+      }
+      const res = { code: promo.label, kind: promo.kind, endsAt: promoEnds(promo.months).toISOString() };
+      setPromos((prev) => [...prev, res]);
+      return res;
+    },
     // ---- flight school affiliations
     requestAffiliation: ({ cfiId, schoolId, initiatedBy, model, schoolPct, message }) => {
       const school = schools.find((x) => x.id === schoolId);
@@ -228,7 +270,7 @@ export function StoreProvider({ children }) {
       const otherHeld = held - (r.method === 'wallet' ? r.total : 0);
       const canWallet = r.method === 'wallet';
       const aff = cfi ? affiliationFor(cfi.id) : null;
-      const q = quote({ cfi, plane, flightHours: fh, groundHours: d.groundHours, repeat: r.repeat, prepaid: r.prepaid && canWallet, cfiPro: cfi?.pro, method: canWallet ? 'wallet' : 'card', affiliation: aff });
+      const q = quote({ cfi, plane, flightHours: fh, groundHours: d.groundHours, repeat: r.repeat, prepaid: r.prepaid && canWallet, cfiPro: cfi?.pro, ...feeContextFor({ cfi, plane }), method: canWallet ? 'wallet' : 'card', affiliation: aff });
       const useWallet = canWallet && wallet.balance - otherHeld >= q.total;
       const receipt = { ...q, hobbsOut: d.hobbsOut, hobbsIn: d.hobbsIn, flightHours: fh, paidWith: useWallet ? 'Wallet' : 'Visa •• 4242', at: today(), depositReleased: q.deposit };
       patchReq(id, { status: 'Completed', receipt, flightHours: fh, groundHours: d.groundHours, total: q.total });

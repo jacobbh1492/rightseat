@@ -17,7 +17,7 @@ const PALETTE = ['#1F6FEB', '#0E9F6E', '#9333EA', '#F59E0B', '#DC2626', '#0891B2
 const num = (v) => (v === '' || isNaN(+v) ? 0 : +v);
 
 export function Me({ nav }) {
-  const { myCfiId, myPlaneIds, getCfi, getPlane, favorites, mySchoolId, getSchool, available, pilot, profile, setProfile, docs, training, queue, affiliationFor, teaching } = useStore();
+  const { myCfiId, myPlaneIds, getCfi, getPlane, favorites, mySchoolId, getSchool, available, pilot, profile, setProfile, docs, training, queue, affiliationFor, teaching, promos } = useStore();
   const me = getCfi(myCfiId);
   const mySchool = mySchoolId ? getSchool(mySchoolId) : null;
   const myPlanes = myPlaneIds.map(getPlane).filter(Boolean);
@@ -125,6 +125,12 @@ export function Me({ nav }) {
         </View>
         <View style={ms.addFunds}><Text style={{ color: C.navy, fontWeight: '800', fontSize: 13 }}>Add funds</Text></View>
       </Pressable>}
+
+      {(
+        <Card style={{ paddingVertical: 2 }}>
+          <ListRow first icon="tag" iconColor="#047857" iconBg="#E3F7EF" title="Promo code" subtitle={promos.some((p) => new Date(p.endsAt) > new Date()) ? promos.filter((p) => new Date(p.endsAt) > new Date()).map((p) => p.code).join(' · ') + ' active' : 'Have a launch code? Enter it here'} onPress={() => nav.push('PromoCode')} />
+        </Card>
+      )}
 
       {sections.filter((x) => x.show && x.mode === mode).map((sec) => (
         <View key={sec.key}>

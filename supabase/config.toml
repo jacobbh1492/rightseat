@@ -31,3 +31,6 @@ verify_jwt = false
 
 [functions.propose]
 verify_jwt = false
+
+[functions.promo]
+verify_jwt = false

@@ -3,7 +3,8 @@
 // Keep this file dependency-free; scripts/sync-shared.js copies it to supabase/functions/_shared/.
 
 export const FEES = {
-  studentNew: 0.06, // booking fee on the FIRST booking with a new CFI (or new plane for solo rentals)
+  bookingFee: 10, // flat booking fee ($) on every lesson and every rental
+  bookingFeeSchoolPro: 5, // flat booking fee ($) when the CFI or the plane belongs to a School Pro school
   cfiNew: 0.05, // CFI host fee on new-student bookings only (0 for CFI Pro)
   owner: 0.08, // aircraft owner host fee on rentals
   protectionPerHr: 0, // rental protection is off until it's backed by real coverage (see V2.md)
@@ -17,8 +18,11 @@ export const FEES = {
 export const r2 = (n) => Math.round(n * 100) / 100;
 
 // affiliation: { model: 'split' | 'employee', schoolPct } when the CFI teaches for a flight school.
+// schoolPro: the CFI's school (or the plane's school) is on School Pro → $5 booking fee.
+// feeFree: the student/renter has an active "Short Final" promo → no booking fee.
+// repeat only affects the CFI's 5% new-student host fee; the student always pays the booking fee.
 // Both models split instruction pay by schoolPct. 'split': CFI sets their own rate. 'employee': the school sets the rate and the split.
-export function quote({ cfi, plane, flightHours, groundHours, repeat, prepaid, cfiPro, method = 'card', affiliation }) {
+export function quote({ cfi, plane, flightHours, groundHours, repeat, prepaid, cfiPro, schoolPro, feeFree, method = 'card', affiliation }) {
   const instruction = cfi ? cfi.flightRate * flightHours : 0;
   const ground = cfi ? cfi.groundRate * groundHours : 0;
   const rate = plane ? (prepaid ? plane.blockRate : plane.wetRate) : 0;
@@ -26,8 +30,9 @@ export function quote({ cfi, plane, flightHours, groundHours, repeat, prepaid, c
   const prepaidSavings = plane && prepaid ? (plane.wetRate - plane.blockRate) * flightHours : 0;
   const protection = plane ? FEES.protectionPerHr * flightHours : 0;
   const subtotal = instruction + ground + aircraft;
-  const bookingFee = repeat ? 0 : r2(subtotal * FEES.studentNew);
-  const waivedFee = repeat ? r2(subtotal * FEES.studentNew) : 0;
+  const fullFee = schoolPro ? FEES.bookingFeeSchoolPro : FEES.bookingFee;
+  const bookingFee = feeFree ? 0 : fullFee;
+  const waivedFee = feeFree ? fullFee : 0;
   const total = r2(subtotal + protection + bookingFee);
   const deposit = plane && !cfi ? FEES.deposit : 0;
   const cfiFee = cfi && !repeat && !cfiPro ? r2((instruction + ground) * FEES.cfiNew) : 0;
