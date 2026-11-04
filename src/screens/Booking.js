@@ -20,6 +20,7 @@ import { bookingAction, splitAction } from '../backend/bookings';
 import { postReview } from '../backend/profiles';
 import { useLibrary } from '../library/useLibrary';
 import { ReviewChip } from './Library';
+import { RenterInsuranceCard } from './RenterInsurance';
 import { useOpenTimes } from '../useOpenTimes';
 import { usePilot, requestCheckout } from '../backend/pilot';
 import { renterChecks, ownerChecksOut } from '../renterChecks';
@@ -409,6 +410,7 @@ export function RequestLesson({ nav, params }) {
           <Icon name={showChecks || blocked ? 'down' : 'chevron'} size={18} color="#94A3B8" />
         </Pressable>
         {(showChecks || blocked) && <CheckList checks={blocked && !showChecks ? checks.filter((c) => !c.ok) : checks} />}
+        {!cfi && !!plane && <RenterInsuranceCard />}
         {liveSolo && me.signedIn && !checkoutFlight && <RenterFixes checks={checks} plane={plane} nav={nav} onCheckout={askCheckout} busy={checkoutBusy} err={checkoutErr}
           onCheckoutFlight={() => setCheckoutFlight(true)} student={me.profile?.certificate === 'Student'} />}
         {blocked && !cfi && plane && !liveSolo && (
