@@ -21,9 +21,9 @@ jobs:
           set -euo pipefail
           KEYS=$(curl -fsS "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/api-keys?reveal=true" \
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
-          # Try the legacy service_role key first (the function always has it as
-          # SUPABASE_SERVICE_ROLE_KEY), then any new-style secret keys.
-          mapfile -t CANDIDATES < <(echo "$KEYS" | jq -r '([.[] | select(.name == "service_role")] + [.[] | select(.type == "secret")])[] | .api_key | select(. != null and . != "")')
+          # Try the new-style secret key first (the one the function accepts today),
+          # then the legacy service_role key.
+          mapfile -t CANDIDATES < <(echo "$KEYS" | jq -r '([.[] | select(.type == "secret")] + [.[] | select(.name == "service_role")])[] | .api_key | select(. != null and . != "")')
           for KEY in "${CANDIDATES[@]}"; do echo "::add-mask::$KEY"; done
           echo "Keys to try: ${#CANDIDATES[@]}"
           for KEY in "${CANDIDATES[@]}"; do
