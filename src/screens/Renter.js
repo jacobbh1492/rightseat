@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet, RefreshControl } from 'r
 import { useStore } from '../store';
 import { C, Card, Button, Chip, Field, Row, SectionTitle, Tag } from '../ui';
 import { Header } from './Details';
+import { RenterInsuranceSection } from './RenterInsurance';
 import { useAuth } from '../backend/auth';
 import { fetchPilotProfile, savePilotProfile, fetchPlaneCheckouts, decideCheckout } from '../backend/pilot';
 import { CERTIFICATES, MEDICALS, profileGaps, flightReviewValidThrough, renterChecks, isYmd, ymdIn } from '../renterChecks';
@@ -89,6 +90,8 @@ export function PilotProfile({ nav }) {
 
             <SectionTitle>Experience</SectionTitle>
             <Field label="Total flight time (hours)" value={form.totalHours} onChangeText={(t) => set('totalHours')(t.replace(/[^0-9.]/g, ''))} placeholder="142.5" keyboardType="decimal-pad" />
+
+            <RenterInsuranceSection />
           </>
         )}
         {!!err && <Text style={st.err}>{err}</Text>}
