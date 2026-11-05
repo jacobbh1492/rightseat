@@ -395,7 +395,7 @@ const st = StyleSheet.create({
   sticky: { backgroundColor: '#fff', paddingTop: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: C.line },
   searchRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   search: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: 14, paddingHorizontal: 12, minHeight: 46 },
-  searchInput: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, fontSize: 15, color: C.text },
+  searchInput: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, fontSize: 15, color: C.text, letterSpacing: 0, textAlign: 'left' },
   filterBtn: { marginLeft: 8, width: 46, height: 46, borderRadius: 14, borderWidth: 1, borderColor: C.line },
   upNext: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#DCE7FB' },
   upIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
