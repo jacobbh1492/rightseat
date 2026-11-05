@@ -24,7 +24,12 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!session) { setAccount(null); return; }
-    supabase.from('profiles').select('*').eq('id', session.user.id).single().then(({ data }) => setAccount(data));
+    const uid = session.user.id;
+    const load = () => supabase.from('profiles').select('*').eq('id', uid).single().then(({ data }) => setAccount(data));
+    load();
+    // A school that switched from Flight Schedule Pro may have imported this email:
+    // join it (adds the role, and an instructor's invite to the school's terms).
+    supabase.rpc('claim_school_invites').then(({ data }) => { if (data?.length) load(); }, () => {});
   }, [session?.user?.id]);
 
   const value = {
@@ -45,7 +50,9 @@ export function AuthProvider({ children }) {
       // Read the user fresh: right after verifyCode the session state above hasn't re-rendered yet.
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const dbRoles = [...new Set(roles.map((r) => ROLE_MAP[r]).filter(Boolean))];
+      // Keep roles a school gave this person when it imported them from Flight Schedule Pro.
+      const { data: invites } = await supabase.from('school_invites').select('role').eq('user_id', user.id).eq('status', 'joined');
+      const dbRoles = [...new Set([...roles.map((r) => ROLE_MAP[r]), ...(invites || []).map((i) => i.role)].filter(Boolean))];
       const patch = { onboarded: true, roles: dbRoles.length ? dbRoles : ['student'], home_airport: airport };
       if (name) patch.full_name = name;
       const { data, error } = await supabase.from('profiles').update(patch).eq('id', user.id).select().single();
