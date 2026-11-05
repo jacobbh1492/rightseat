@@ -1,45 +1,160 @@
 begin;
--- clean slate for demo rows
-delete from public.ledger where booking_id::text like 'e0000000-%';
-delete from public.debriefs where booking_id::text like 'e0000000-%';
-delete from public.preflight_reviews where booking_id::text like 'e0000000-%';
-delete from public.notifications where data->>'bookingId' like 'e0000000-%' or data->>'booking_id' like 'e0000000-%';
-delete from public.bookings where id::text like 'e0000000-%';
+-- Switching from Flight Schedule Pro: a school uploads its FSP exports (people, aircraft,
+-- upcoming reservations). Read by src/fspImport.js; written by the school-import function.
+--
+-- People aren't given accounts. Each becomes an invite matched by email: when that person
+-- signs in to Positive Rate (now, or already has an account), the invite is applied —
+-- instructors get a pending affiliation with the school to accept, students are linked.
+-- Reservations wait here until the student and instructor have joined and the plane is
+-- verified; then the server books each one as a lesson the student accepts by saving a card.
 
--- two demo students who can't sign in (no password, unconfirmed test address)
-insert into auth.users (instance_id, id, aud, role, email, raw_user_meta_data, raw_app_meta_data, created_at, updated_at) values
- ('00000000-0000-0000-0000-000000000000', 'd0000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'demo-student-1@mail.flyingrightseat.com', '{"full_name":"Maya Torres (demo)"}', '{"provider":"email","providers":["email"]}', now(), now()),
- ('00000000-0000-0000-0000-000000000000', 'd0000000-0000-4000-8000-000000000002', 'authenticated', 'authenticated', 'demo-student-2@mail.flyingrightseat.com', '{"full_name":"Luke Bennett (demo)"}', '{"provider":"email","providers":["email"]}', now(), now())
-on conflict (id) do nothing;
-insert into public.profiles (id, full_name, roles, home_airport, onboarded, stripe_customer_id) values
- ('d0000000-0000-4000-8000-000000000001', 'Maya Torres (demo)', '{student}', 'KPIE', true, 'cus_VXnH92cxHlqV1f'),
- ('d0000000-0000-4000-8000-000000000002', 'Luke Bennett (demo)', '{student}', 'KPIE', true, 'cus_VXnH92cxHlqV1f')
-on conflict (id) do update set full_name = excluded.full_name, onboarded = true, stripe_customer_id = excluded.stripe_customer_id;
-insert into public.bookings (id, student_id, cfi_id, plane_id, starts_at, ends_at, goal, flight_hours, ground_hours, status, quote, card_ready, setup_intent_id, actual_hobbs, final_split, proposed_by, proposal_expires, cancel_reason, cancelled_by)
-values ('e0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', 'b0000000-0000-4000-8000-000000000001', '2026-11-07T14:00:00Z', '2026-11-07T16:00:00.000Z', 'Pattern work & landings', 1.5, 0.5, 'requested', '{"instruction":105,"ground":25,"aircraft":240,"rate":160,"prepaidSavings":0,"protection":0,"subtotal":370,"bookingFee":10,"waivedFee":0,"total":380,"deposit":0,"split":{"cfi":123.5,"school":0,"schoolModel":null,"owner":220.8,"protection":0,"platform":24.38,"cfiFee":6.5,"ownerFee":19.2,"processing":11.32},"inputs":{"cfi":{"flightRate":70,"groundRate":50},"plane":{"wetRate":160,"blockRate":150},"cfiPro":false,"repeat":false,"prepaid":false,"affiliation":null}}'::jsonb, true, 'seti_1UXS6LA2ow9bJ7z2ufetEbKz', null, null, null, null, null, null);
-insert into public.bookings (id, student_id, cfi_id, plane_id, starts_at, ends_at, goal, flight_hours, ground_hours, status, quote, card_ready, setup_intent_id, actual_hobbs, final_split, proposed_by, proposal_expires, cancel_reason, cancelled_by)
-values ('e0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', 'b0000000-0000-4000-8000-000000000001', '2026-11-08T18:00:00Z', '2026-11-08T19:00:00.000Z', 'Discovery flight', 1, 0, 'requested', '{"instruction":70,"ground":0,"aircraft":160,"rate":160,"prepaidSavings":0,"protection":0,"subtotal":230,"bookingFee":10,"waivedFee":0,"total":240,"deposit":0,"split":{"cfi":66.5,"school":0,"schoolModel":null,"owner":147.2,"protection":0,"platform":19.04,"cfiFee":3.5,"ownerFee":12.8,"processing":7.26},"inputs":{"cfi":{"flightRate":70,"groundRate":50},"plane":{"wetRate":160,"blockRate":150},"cfiPro":false,"repeat":false,"prepaid":false,"affiliation":null}}'::jsonb, false, null, null, null, null, null, null, null);
-insert into public.bookings (id, student_id, cfi_id, plane_id, starts_at, ends_at, goal, flight_hours, ground_hours, status, quote, card_ready, setup_intent_id, actual_hobbs, final_split, proposed_by, proposal_expires, cancel_reason, cancelled_by)
-values ('e0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000001', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', 'b0000000-0000-4000-8000-000000000001', '2026-11-09T15:00:00Z', '2026-11-09T17:00:00.000Z', 'Steep turns & slow flight', 1.5, 0.5, 'confirmed', '{"instruction":105,"ground":25,"aircraft":240,"rate":160,"prepaidSavings":0,"protection":0,"subtotal":370,"bookingFee":10,"waivedFee":0,"total":380,"deposit":0,"split":{"cfi":123.5,"school":0,"schoolModel":null,"owner":220.8,"protection":0,"platform":24.38,"cfiFee":6.5,"ownerFee":19.2,"processing":11.32},"inputs":{"cfi":{"flightRate":70,"groundRate":50},"plane":{"wetRate":160,"blockRate":150},"cfiPro":false,"repeat":false,"prepaid":false,"affiliation":null}}'::jsonb, true, 'seti_1UXS6LA2ow9bJ7z2ufetEbKz', null, null, null, null, null, null);
-insert into public.bookings (id, student_id, cfi_id, plane_id, starts_at, ends_at, goal, flight_hours, ground_hours, status, quote, card_ready, setup_intent_id, actual_hobbs, final_split, proposed_by, proposal_expires, cancel_reason, cancelled_by)
-values ('e0000000-0000-4000-8000-000000000004', 'd0000000-0000-4000-8000-000000000001', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', 'b0000000-0000-4000-8000-000000000001', '2026-11-05T13:00:00Z', '2026-11-05T14:36:00.000Z', 'Short & soft field takeoffs and landings', 1.3, 0.3, 'confirmed', '{"instruction":91,"ground":15,"aircraft":208,"rate":160,"prepaidSavings":0,"protection":0,"subtotal":314,"bookingFee":10,"waivedFee":0,"total":324,"deposit":0,"split":{"cfi":100.7,"school":0,"schoolModel":null,"owner":191.36,"protection":0,"platform":22.24,"cfiFee":5.3,"ownerFee":16.64,"processing":9.7},"inputs":{"cfi":{"flightRate":70,"groundRate":50},"plane":{"wetRate":160,"blockRate":150},"cfiPro":false,"repeat":false,"prepaid":false,"affiliation":null}}'::jsonb, true, 'seti_1UXS6LA2ow9bJ7z2ufetEbKz', null, null, null, null, null, null);
-insert into public.bookings (id, student_id, cfi_id, plane_id, starts_at, ends_at, goal, flight_hours, ground_hours, status, quote, card_ready, setup_intent_id, actual_hobbs, final_split, proposed_by, proposal_expires, cancel_reason, cancelled_by)
-values ('e0000000-0000-4000-8000-000000000005', 'd0000000-0000-4000-8000-000000000002', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', 'b0000000-0000-4000-8000-000000000001', '2026-11-11T21:00:00Z', '2026-11-11T22:30:00.000Z', 'Ground reference maneuvers', 1.2, 0.3, 'proposed', '{"instruction":84,"ground":15,"aircraft":192,"rate":160,"prepaidSavings":0,"protection":0,"subtotal":291,"bookingFee":10,"waivedFee":0,"total":301,"deposit":0,"split":{"cfi":94.05,"school":0,"schoolModel":null,"owner":176.64,"protection":0,"platform":21.28,"cfiFee":4.95,"ownerFee":15.36,"processing":9.03},"inputs":{"cfi":{"flightRate":70,"groundRate":50},"plane":{"wetRate":160,"blockRate":150},"cfiPro":false,"repeat":false,"prepaid":false,"affiliation":null}}'::jsonb, false, null, null, null, '24b9cbd5-53ce-4a4a-bd52-32b09b913190', '2026-11-07T21:00:00Z', null, null);
-insert into public.bookings (id, student_id, cfi_id, plane_id, starts_at, ends_at, goal, flight_hours, ground_hours, status, quote, card_ready, setup_intent_id, actual_hobbs, final_split, proposed_by, proposal_expires, cancel_reason, cancelled_by)
-values ('e0000000-0000-4000-8000-000000000006', 'a0000000-0000-4000-8000-000000000001', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', 'b0000000-0000-4000-8000-000000000001', '2026-11-03T14:00:00Z', '2026-11-03T15:54:00.000Z', 'Stalls & emergency procedures', 1.4, 0.5, 'completed', '{"instruction":98,"ground":25,"aircraft":224,"rate":160,"prepaidSavings":0,"protection":0,"subtotal":347,"bookingFee":10,"waivedFee":0,"total":357,"deposit":0,"split":{"cfi":116.85,"school":0,"schoolModel":null,"owner":206.08,"protection":0,"platform":23.42,"cfiFee":6.15,"ownerFee":17.92,"processing":10.65},"inputs":{"cfi":{"flightRate":70,"groundRate":50},"plane":{"wetRate":160,"blockRate":150},"cfiPro":false,"repeat":false,"prepaid":false,"affiliation":null}}'::jsonb, true, 'seti_1UXS6LA2ow9bJ7z2ufetEbKz', 1.4, '{"cfi":116.85,"school":0,"schoolModel":null,"owner":206.08,"protection":0,"platform":23.42,"cfiFee":6.15,"ownerFee":17.92,"processing":10.65,"final":{"total":357,"instruction":98,"ground":25,"aircraft":224,"bookingFee":10,"protection":0,"flightHours":1.4,"groundHours":0.5}}'::jsonb, null, null, null, null);
-insert into public.ledger (booking_id, party_id, kind, amount) values ('e0000000-0000-4000-8000-000000000006', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', 'await_cfi', 116.85);
-insert into public.bookings (id, student_id, cfi_id, plane_id, starts_at, ends_at, goal, flight_hours, ground_hours, status, quote, card_ready, setup_intent_id, actual_hobbs, final_split, proposed_by, proposal_expires, cancel_reason, cancelled_by)
-values ('e0000000-0000-4000-8000-000000000007', 'd0000000-0000-4000-8000-000000000001', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', 'b0000000-0000-4000-8000-000000000001', '2026-11-01T15:00:00Z', '2026-11-01T16:42:00.000Z', 'First lesson: the four fundamentals', 1.2, 0.5, 'completed', '{"instruction":84,"ground":25,"aircraft":192,"rate":160,"prepaidSavings":0,"protection":0,"subtotal":301,"bookingFee":10,"waivedFee":0,"total":311,"deposit":0,"split":{"cfi":103.55,"school":0,"schoolModel":null,"owner":176.64,"protection":0,"platform":21.49,"cfiFee":5.45,"ownerFee":15.36,"processing":9.32},"inputs":{"cfi":{"flightRate":70,"groundRate":50},"plane":{"wetRate":160,"blockRate":150},"cfiPro":false,"repeat":false,"prepaid":false,"affiliation":null}}'::jsonb, true, 'seti_1UXS6LA2ow9bJ7z2ufetEbKz', 1.1, '{"cfi":96.9,"school":0,"schoolModel":null,"owner":161.92,"protection":0,"platform":20.53,"cfiFee":5.1,"ownerFee":14.08,"processing":8.65,"final":{"total":288,"instruction":77,"ground":25,"aircraft":176,"bookingFee":10,"protection":0,"flightHours":1.1,"groundHours":0.5}}'::jsonb, null, null, null, null);
-insert into public.ledger (booking_id, party_id, kind, amount) values ('e0000000-0000-4000-8000-000000000007', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', 'held_cfi', 96.9);
-insert into public.debriefs (booking_id, student_id, cfi_id, flown_on, went_well, needs_work, next_plan, locked_at) values ('e0000000-0000-4000-8000-000000000007', 'd0000000-0000-4000-8000-000000000001', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', '2026-11-01', 'Good preflight and checklist use. Held altitude within 100 ft in straight and level.', 'Coordination in turns; trim more often.', 'Slow flight and power-off stalls, then pattern work.', now());
-insert into public.bookings (id, student_id, cfi_id, plane_id, starts_at, ends_at, goal, flight_hours, ground_hours, status, quote, card_ready, setup_intent_id, actual_hobbs, final_split, proposed_by, proposal_expires, cancel_reason, cancelled_by)
-values ('e0000000-0000-4000-8000-000000000008', 'd0000000-0000-4000-8000-000000000002', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', 'b0000000-0000-4000-8000-000000000001', '2026-10-30T19:00:00Z', '2026-10-30T20:00:00.000Z', 'Discovery flight', 1, 0, 'cancelled', '{"instruction":70,"ground":0,"aircraft":160,"rate":160,"prepaidSavings":0,"protection":0,"subtotal":230,"bookingFee":10,"waivedFee":0,"total":240,"deposit":0,"split":{"cfi":66.5,"school":0,"schoolModel":null,"owner":147.2,"protection":0,"platform":19.04,"cfiFee":3.5,"ownerFee":12.8,"processing":7.26},"inputs":{"cfi":{"flightRate":70,"groundRate":50},"plane":{"wetRate":160,"blockRate":150},"cfiPro":false,"repeat":false,"prepaid":false,"affiliation":null}}'::jsonb, false, null, null, null, null, null, 'Weather. Student will rebook.', 'd0000000-0000-4000-8000-000000000002');
+create table if not exists public.school_imports (
+  id         uuid primary key default gen_random_uuid(),
+  school_id  uuid not null references public.schools on delete cascade,
+  kind       text not null check (kind in ('people', 'aircraft', 'reservations')),
+  file_name  text,
+  counts     jsonb not null default '{}',
+  created_by uuid references public.profiles on delete set null,
+  created_at timestamptz not null default now()
+);
 
--- a message thread so the Inbox has something in it
-insert into public.threads (a, b, last_message_at) values ('d0000000-0000-4000-8000-000000000001', '24b9cbd5-53ce-4a4a-bd52-32b09b913190', now()) on conflict (a, b) do update set last_message_at = now();
-insert into public.messages (thread_id, sender_id, body, created_at)
-select id, 'd0000000-0000-4000-8000-000000000001', 'Hi Jacob! Looking forward to Saturday. Should I bring anything besides my logbook and headset?', now() from public.threads where a = 'd0000000-0000-4000-8000-000000000001' and b = '24b9cbd5-53ce-4a4a-bd52-32b09b913190'
-  and not exists (select 1 from public.messages m join public.threads t on t.id = m.thread_id where t.a = 'd0000000-0000-4000-8000-000000000001' and t.b = '24b9cbd5-53ce-4a4a-bd52-32b09b913190');
-commit;
-select b.goal, b.status, b.starts_at, s.full_name as student, (select string_agg(kind || ' ' || amount, ', ') from public.ledger l where l.booking_id = b.id) as pay
-from public.bookings b join public.profiles s on s.id = b.student_id where b.id::text like 'e0000000-%' order by b.starts_at;
+create table if not exists public.school_invites (
+  id             uuid primary key default gen_random_uuid(),
+  school_id      uuid not null references public.schools on delete cascade,
+  import_id      uuid references public.school_imports on delete set null,
+  email          text not null check (email = lower(email)),
+  full_name      text not null default '',
+  phone          text,
+  role           text not null check (role in ('cfi', 'student')),
+  status         text not null default 'invited' check (status in ('invited', 'joined', 'removed')),
+  user_id        uuid references public.profiles on delete set null,
+  joined_at      timestamptz,
+  affiliation_id uuid references public.affiliations on delete set null,
+  created_at     timestamptz not null default now(),
+  unique (school_id, email)
+);
+create index if not exists school_invites_email on public.school_invites (email) where status = 'invited';
+
+create table if not exists public.school_import_reservations (
+  id               uuid primary key default gen_random_uuid(),
+  school_id        uuid not null references public.schools on delete cascade,
+  import_id        uuid references public.school_imports on delete set null,
+  fingerprint      text not null,
+  starts_at        timestamptz not null,
+  ends_at          timestamptz not null,
+  flight_hours     numeric(4,1) not null,
+  goal             text not null default 'Flight lesson',
+  student_name     text,
+  student_email    text,
+  instructor_name  text,
+  instructor_email text,
+  tail             text,
+  status           text not null default 'waiting' check (status in ('waiting', 'booked', 'skipped', 'expired')),
+  note             text not null default '',
+  booking_id       uuid references public.bookings on delete set null,
+  updated_at       timestamptz not null default now(),
+  created_at       timestamptz not null default now(),
+  unique (school_id, fingerprint)
+);
+create index if not exists school_import_res_waiting on public.school_import_reservations (school_id) where status = 'waiting';
+
+alter table public.school_imports enable row level security;
+alter table public.school_invites enable row level security;
+alter table public.school_import_reservations enable row level security;
+grant select on public.school_imports, public.school_invites, public.school_import_reservations to authenticated;
+grant all on public.school_imports, public.school_invites, public.school_import_reservations to service_role;
+drop policy if exists "school imports read" on public.school_imports;
+create policy "school imports read" on public.school_imports for select to authenticated using (public.is_school_admin(school_id) or public.is_staff());
+drop policy if exists "school invites read" on public.school_invites;
+create policy "school invites read" on public.school_invites for select to authenticated using (public.is_school_admin(school_id) or user_id = auth.uid() or public.is_staff());
+drop policy if exists "school import reservations read" on public.school_import_reservations;
+create policy "school import reservations read" on public.school_import_reservations for select to authenticated using (public.is_school_admin(school_id) or public.is_staff());
+
+-- Apply one invite to the account it belongs to. Safe to run again: a joined instructor
+-- who only creates their instructor profile later gets the school's affiliation then.
+create or replace function public.apply_school_invite(p_invite uuid, p_user uuid) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  inv school_invites;
+  s schools;
+  aff uuid;
+begin
+  select * into inv from school_invites where id = p_invite for update;
+  if inv is null or inv.status = 'removed' then return 'none'; end if;
+  if inv.user_id is not null and inv.user_id <> p_user then return 'other'; end if;
+  if inv.status = 'invited' then
+    update school_invites set status = 'joined', user_id = p_user, joined_at = now() where id = inv.id;
+    update profiles set
+      roles = (select array_agg(distinct r) from unnest(roles || array[inv.role]) r),
+      full_name = case when coalesce(full_name, '') = '' then inv.full_name else full_name end,
+      phone = coalesce(phone, inv.phone)
+    where id = p_user;
+  end if;
+  -- Instructors: the school's standard terms, as an invite the instructor accepts.
+  if inv.role = 'cfi' and inv.affiliation_id is null and exists (select 1 from cfis where id = p_user) then
+    select id into aff from affiliations where cfi_id = p_user and school_id = inv.school_id and status in ('pending', 'active') limit 1;
+    if aff is null then
+      select * into s from schools where id = inv.school_id;
+      insert into affiliations (cfi_id, school_id, status, model, school_pct, set_rate, initiated_by, message)
+      values (p_user, s.id, 'pending', s.terms_model, s.terms_school_pct, case when s.terms_model = 'employee' then s.terms_min_rate end, 'school',
+              s.name || ' moved its scheduling from Flight Schedule Pro to Positive Rate.')
+      returning id into aff;
+    end if;
+    update school_invites set affiliation_id = aff where id = inv.id;
+  end if;
+  return 'joined';
+end $$;
+revoke execute on function public.apply_school_invite(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.apply_school_invite(uuid, uuid) to service_role;
+
+-- The app calls this after sign-in: apply any school invites for the user's email.
+create or replace function public.claim_school_invites() returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  me uuid := auth.uid();
+  my_email text;
+  i record;
+  joined jsonb := '[]';
+begin
+  if me is null then return joined; end if;
+  select lower(email) into my_email from auth.users where id = me and email_confirmed_at is not null;
+  if my_email is null then return joined; end if;
+  for i in select si.id, si.status, sc.name from school_invites si join schools sc on sc.id = si.school_id
+           where si.email = my_email and (si.status = 'invited' or (si.user_id = me and si.role = 'cfi' and si.affiliation_id is null)) loop
+    if public.apply_school_invite(i.id, me) = 'joined' and i.status = 'invited' then
+      joined := joined || jsonb_build_object('school', i.name);
+    end if;
+  end loop;
+  return joined;
+end $$;
+revoke execute on function public.claim_school_invites() from public, anon;
+grant execute on function public.claim_school_invites() to authenticated, service_role;
+
+-- At import: people who already have a confirmed Positive Rate account join right away.
+create or replace function public.link_school_invites(p_school uuid) returns int
+language plpgsql security definer set search_path = public as $$
+declare
+  i record;
+  n int := 0;
+begin
+  for i in select si.id, u.id as uid from school_invites si join auth.users u on lower(u.email) = si.email and u.email_confirmed_at is not null
+           where si.school_id = p_school and si.status = 'invited' loop
+    if public.apply_school_invite(i.id, i.uid) = 'joined' then n := n + 1; end if;
+  end loop;
+  return n;
+end $$;
+revoke execute on function public.link_school_invites(uuid) from public, anon, authenticated;
+grant execute on function public.link_school_invites(uuid) to service_role;
+;
+insert into public.schools (id, name, home_airport) values ('f0000000-0000-4000-8000-000000000001', 'Dry Run Flight School', 'KPIE');
+insert into public.school_invites (school_id, email, full_name, role) values
+ ('f0000000-0000-4000-8000-000000000001', 'jacobbh1492@gmail.com', 'Jacob Henderson', 'cfi'),
+ ('f0000000-0000-4000-8000-000000000001', 'nobody-yet@example.com', 'Not Joined', 'student');
+create temp table dry_out as
+select (select public.link_school_invites('f0000000-0000-4000-8000-000000000001')) as linked,
+       (select json_agg(json_build_object('email', email, 'status', status, 'aff', affiliation_id is not null)) from public.school_invites where school_id = 'f0000000-0000-4000-8000-000000000001') as invites,
+       (select json_agg(json_build_object('status', status, 'model', model, 'by', initiated_by)) from public.affiliations where school_id = 'f0000000-0000-4000-8000-000000000001') as affs,
+       (select roles from public.profiles where id = '24b9cbd5-53ce-4a4a-bd52-32b09b913190') as roles,
+       (select public.apply_school_invite((select id from public.school_invites where email = 'jacobbh1492@gmail.com' and school_id = 'f0000000-0000-4000-8000-000000000001'), '24b9cbd5-53ce-4a4a-bd52-32b09b913190')) as rerun;
+select row_to_json(d) as out from dry_out d;
+rollback;
