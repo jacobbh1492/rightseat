@@ -62,7 +62,7 @@ export default function Welcome() {
         </View>
         <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 40 }}>
           <Text style={w.brand}>Positive Rate</Text>
-          <Text style={w.hero}>Train.{'\n'}Rent.{'\n'}Fly.</Text>
+          <Text style={w.hero}>Train. Rent. Fly.</Text>
           {[
             ['shieldCheck', 'Every CFI and aircraft verified', 'FAA records, insurance and maintenance checked'],
             ['book', 'Your training record, in one place', 'Hours, lessons, debriefs and endorsements'],
@@ -160,8 +160,8 @@ export default function Welcome() {
 }
 
 const w = StyleSheet.create({
-  brand: { color: '#93C5FD', fontWeight: '900', fontSize: 16, letterSpacing: 1 },
-  hero: { color: '#fff', fontSize: 34, fontWeight: '900', lineHeight: 40, marginTop: 6, marginBottom: 18, letterSpacing: -0.5 },
+  brand: { color: '#fff', fontWeight: '900', fontSize: 40, lineHeight: 46, letterSpacing: -0.5 },
+  hero: { color: '#93C5FD', fontSize: 22, fontWeight: '800', marginTop: 6, marginBottom: 22 },
   point: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
   pointIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(147,197,253,0.12)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, backgroundColor: C.bg },
