@@ -150,11 +150,12 @@ insert into public.schools (id, name, home_airport) values ('f0000000-0000-4000-
 insert into public.school_invites (school_id, email, full_name, role) values
  ('f0000000-0000-4000-8000-000000000001', 'jacobbh1492@gmail.com', 'Jacob Henderson', 'cfi'),
  ('f0000000-0000-4000-8000-000000000001', 'nobody-yet@example.com', 'Not Joined', 'student');
-create temp table dry_out as
-select (select public.link_school_invites('f0000000-0000-4000-8000-000000000001')) as linked,
-       (select json_agg(json_build_object('email', email, 'status', status, 'aff', affiliation_id is not null)) from public.school_invites where school_id = 'f0000000-0000-4000-8000-000000000001') as invites,
-       (select json_agg(json_build_object('status', status, 'model', model, 'by', initiated_by)) from public.affiliations where school_id = 'f0000000-0000-4000-8000-000000000001') as affs,
-       (select roles from public.profiles where id = '24b9cbd5-53ce-4a4a-bd52-32b09b913190') as roles,
-       (select public.apply_school_invite((select id from public.school_invites where email = 'jacobbh1492@gmail.com' and school_id = 'f0000000-0000-4000-8000-000000000001'), '24b9cbd5-53ce-4a4a-bd52-32b09b913190')) as rerun;
-select row_to_json(d) as out from dry_out d;
+create temp table dry_out (k text, v jsonb);
+insert into dry_out select 'linked', to_jsonb(public.link_school_invites('f0000000-0000-4000-8000-000000000001'));
+insert into dry_out select 'invites', json_agg(json_build_object('email', email, 'status', status, 'aff', affiliation_id is not null))::jsonb from public.school_invites where school_id = 'f0000000-0000-4000-8000-000000000001';
+insert into dry_out select 'affs', json_agg(json_build_object('status', status, 'model', model, 'pct', school_pct, 'by', initiated_by, 'msg', message))::jsonb from public.affiliations where school_id = 'f0000000-0000-4000-8000-000000000001';
+insert into dry_out select 'roles', to_jsonb(roles) from public.profiles where id = '24b9cbd5-53ce-4a4a-bd52-32b09b913190';
+insert into dry_out select 'rerun', to_jsonb(public.apply_school_invite((select id from public.school_invites where email = 'jacobbh1492@gmail.com' and school_id = 'f0000000-0000-4000-8000-000000000001'), '24b9cbd5-53ce-4a4a-bd52-32b09b913190'));
+insert into dry_out select 'affs_after_rerun', to_jsonb(count(*)) from public.affiliations where school_id = 'f0000000-0000-4000-8000-000000000001';
+select json_object_agg(k, v) as out from dry_out;
 rollback;
