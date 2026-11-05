@@ -1,0 +1,16 @@
+name: Demo data (SQL)
+# Runs supabase/demo/run.sql against the live database on push to the demo-data branch.
+on:
+  push:
+    branches: [demo-data]
+    paths: ['supabase/demo/**']
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node scripts/run-sql.mjs supabase/demo/run.sql
