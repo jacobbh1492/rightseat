@@ -1,4 +1,4 @@
-# RightSeat — find a CFI and a plane
+# Positive Rate — Train. Rent. Fly.
 
 Cross-platform (iPhone + Android) app built with React Native + Expo.
 
@@ -21,7 +21,7 @@ Cross-platform (iPhone + Android) app built with React Native + Expo.
 - **Scheduling (Calendly-style):** instructors set weekly working hours (several ranges per day), time zone, minimum notice, how far ahead students can book, a buffer after each lesson and start-time steps (Schedule tab → Hours & time off), and block time off by the hour or by the day. Students pick from a month calendar showing only days with openings, then real start times that fit the lesson length (flight + ground) around the instructor's lessons, time off and the plane's bookings. Students never see other bookings or time-off notes, only open times. The server enforces the same rules (`src/schedule.js`, shared with the book function). Solo rentals use the plane's 6 AM – 9 PM rental hours. Instructors who haven't saved hours yet get 8 AM – 6 PM on their working days. Also: free weather cancellations; late-cancel fee (<24 hr) paid to the CFI.
 - **Billing:** CFI or owner closes out with Hobbs in/out. That one step bills, updates the training record and Hobbs/100-hr, logs squawks, and pays everyone (receipt shows the split).
 - **Owner protection:** pre-booking checks (ID, certificate, medical, solo endorsement, checkout, insurance minimums, 100-hr, grounding squawks); $500 deposit hold on solo rentals; 100-hr countdown and squawk list.
-- **CFI tools:** earnings, standard or instant payouts, guaranteed late-cancel pay, students' progress, weekly calendar; ranking rewards hours flown and verified reviews on RightSeat.
+- **CFI tools:** earnings, standard or instant payouts, guaranteed late-cancel pay, students' progress, weekly calendar; ranking rewards hours flown and verified reviews on Positive Rate.
 - **Messaging:** in-app chat; phone numbers and emails are hidden until the first booking; off-app payment talk gets a gentle nudge and is counted.
 - **Disputes:** only for app bookings.
 - **Founder metrics:** student–CFI rebooking rate, leakage watchlist, booking volume, take rate.
@@ -50,13 +50,13 @@ Cross-platform (iPhone + Android) app built with React Native + Expo.
 - **Upload screens:** one per document. ID + selfie (Stripe Identity), FAA registry lookups (certificates, N-number), photo/PDF upload read by Document AI with a "confirm what we read" step, consent for background checks. Checks run live and the result is shown: approved automatically, sent to review, or rejected with what to fix.
 - **Admin review queue:** only items automation couldn't approve, with the document, extracted fields, every check and its source, note templates, and approve / re-upload / reject.
 - **Automation monitor:** FAA sync jobs, upcoming expirations with 30/14/3-day reminders, auto-paused listings.
-- **Badges:** "Verified by RightSeat" on CFI profiles and aircraft listings. Booking is blocked if an aircraft's registration/insurance or a solo renter's medical isn't verified.
+- **Badges:** "Verified by Positive Rate" on CFI profiles and aircraft listings. Booking is blocked if an aircraft's registration/insurance or a solo renter's medical isn't verified.
 - In the app, document reading and lookups are simulated (use the DEMO scenario chips). The real automation is in `/server`; see `server/README.md`.
 
 ## Design
 - **Welcome & setup:** what brings you here (learn, rent, teach, list a plane, run a school), where you are in training, and your home airport. The app personalizes from this: Explore's default view and sorting, a discovery-flight suggestion for brand-new pilots, and which sections appear in Account. "Skip, just browse" turns everything on.
 - **Explore:** greeting and home-airport switcher, one search bar, a filter sheet with a live result count, removable filter chips, simple tabs (CFI + Plane / Instructors / Planes / Schools), "Up next" lesson card, best-match or lowest-price sort (home airport first), and photo-first plane cards.
-- **Account:** profile header with verification status, wallet card, and sections grouped by role (Flying, Teaching, Aircraft, Flight school, RightSeat team). Unused roles can be turned on with one tap.
+- **Account:** profile header with verification status, wallet card, and sections grouped by role (Flying, Teaching, Aircraft, Flight school, Positive Rate team). Unused roles can be turned on with one tap.
 - **Booking:** numbered steps that check off as you go, a short goal list with "More…", a one-line safety check summary (failed checks expand automatically), and a big estimated total with optional breakdown.
 - **Throughout:** a custom SVG icon set (`src/icons.js`, no font files), icon tab bar with badges (new debriefs, pending lessons), 44pt+ touch targets, accessibility labels and roles on interactive elements, bottom sheets (`Sheet`), list rows (`ListRow`), and tabs (`Tabs`) in `src/ui.js`.
 
@@ -65,7 +65,7 @@ Cross-platform (iPhone + Android) app built with React Native + Expo.
 - **Two arrangements, both paid out automatically through Stripe Connect on every lesson:**
   - *Revenue share (contractors):* the instructor sets their own rate (at or above the school's minimum). The school's share of instruction is agreed, and changes need the instructor to accept.
   - *Employee:* the school sets the instructor's rate and the split. Changes apply to new bookings, and the instructor is notified. The rate is locked on the instructor's own profile.
-- **Split math:** instruction + ground, minus RightSeat's CFI host fee (first lesson with a new student only), multiplied by the school share to the school. The rest goes to the instructor. Aircraft rental still goes to the plane's owner (the school, if it owns the plane). Students pay the same price, and their receipt shows the school's share.
+- **Split math:** instruction + ground, minus Positive Rate's CFI host fee (first lesson with a new student only), multiplied by the school share to the school. The rest goes to the instructor. Aircraft rental still goes to the plane's owner (the school, if it owns the plane). Students pay the same price, and their receipt shows the school's share.
 - **School dashboard:** earnings this month, upcoming share, a schedule of every lesson with its instructors or in its aircraft (filter by instructor, school share per lesson), an instructor roster with arrangement, rate (school-set for employees), this week's lessons and share, change terms or remove, join requests to review (with a verified-credentials summary and a live split example), and standard terms (arrangement, share, minimum rate, notice period).
 - **Leaving:** either side can end it after the school's notice period. Lessons already booked keep the split they were booked under.
 
@@ -99,7 +99,7 @@ Browser-based back office: overview, bookings, payments, disputes, users, listin
 - `App.js` – tabs + screen stack
 - `src/data.js` – sample data (fictional)
 - `src/debrief.js` – debrief structure, grades, quick-picks, focus-area analysis
-- `src/progress.js` – combines RightSeat-logged and previous experience (lesson states, hours, endorsements)
+- `src/progress.js` – combines hours logged in Positive Rate and previous experience (lesson states, hours, endorsements)
 - `src/verification.js` – document types, checks, decision rules (app-side simulation)
 - `src/logic.js` – fees, quotes, safety checks, scheduling, message guardrails, ranking, metrics
 - `src/store.js` – app state and actions (booking, close-out, wallet, messages, payouts)

@@ -51,7 +51,7 @@ export function GiftFlight({ nav, params }) {
         <ScrollView contentContainerStyle={{ padding: 24, alignItems: 'center' }}>
           <Text style={{ fontSize: 46 }}>🎁</Text>
           <Text style={{ fontSize: 22, fontWeight: '900', color: C.text, marginTop: 8, textAlign: 'center' }}>{money2(done.amount)} flight for {done.recipientName}</Text>
-          <Text style={[gs.sub, { textAlign: 'center', marginTop: 8 }]}>Send them this code. They enter it in the RightSeat app under Account → Gifts and book any instructor.</Text>
+          <Text style={[gs.sub, { textAlign: 'center', marginTop: 8 }]}>Send them this code. They enter it in the Positive Rate app under Account → Gifts and book any instructor.</Text>
           <View style={gs.code}><Text style={gs.codeText} selectable>{done.code}</Text></View>
           <Button title="Send the gift" style={{ alignSelf: 'stretch', marginTop: 12 }} onPress={() => shareGift(done)} />
           <Button title="Done" variant="outline" style={{ alignSelf: 'stretch', marginTop: 10 }} onPress={nav.pop} />
@@ -67,7 +67,7 @@ export function GiftFlight({ nav, params }) {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
         <Card style={{ backgroundColor: C.navy }}>
           <Text style={{ color: '#fff', fontWeight: '900', fontSize: 18 }}>Give someone their first flight ✈️</Text>
-          <Text style={{ color: '#C7D3E6', marginTop: 4, lineHeight: 19 }}>They take the controls with a certified instructor. Works for a discovery flight or any lesson with a RightSeat instructor.</Text>
+          <Text style={{ color: '#C7D3E6', marginTop: 4, lineHeight: 19 }}>They take the controls with a certified instructor. Works for a discovery flight or any lesson with a Positive Rate instructor.</Text>
         </Card>
         {cfi && (
           <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -88,10 +88,10 @@ export function GiftFlight({ nav, params }) {
         <SectionTitle>Who’s it for?</SectionTitle>
         <Field label="Their name" value={recipientName} onChangeText={setRecipientName} placeholder="Alex" />
         <Field label="Their email (optional)" value={recipientEmail} onChangeText={setRecipientEmail} placeholder="alex@email.com" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
-        <Text style={gs.hint}>If they already use RightSeat, we’ll let them know. Either way, you get a code to send them.</Text>
+        <Text style={gs.hint}>If they already use Positive Rate, we’ll let them know. Either way, you get a code to send them.</Text>
         <Field label="From" value={fromName} onChangeText={setFromName} placeholder="Your name" />
         <Field label="Message (optional)" value={message} onChangeText={setMessage} multiline placeholder="Happy birthday! Time to finally fly." />
-        {!CARD_PAYMENTS_SUPPORTED && <Text style={[gs.hint, { color: '#B45309' }]}>Buy gifts from the RightSeat iPhone or Android app.</Text>}
+        {!CARD_PAYMENTS_SUPPORTED && <Text style={[gs.hint, { color: '#B45309' }]}>Buy gifts from the Positive Rate iPhone or Android app.</Text>}
         {!!err && <Text style={gs.err}>{err}</Text>}
       </ScrollView>
       <View style={gs.cta}>

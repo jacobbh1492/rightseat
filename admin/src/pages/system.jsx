@@ -235,7 +235,7 @@ export function Config() {
       {tab === 'data' && (
         <div className="card" style={{ maxWidth: 720 }}>
           <h3>Data source</h3>
-          <p className="muted">Demo uses built-in sample data. Live connects to your RightSeat server (the <code>server/</code> folder). Verification queue, users, listings, settings, jobs and the audit log are live; bookings and payments switch over when the booking backend is built.</p>
+          <p className="muted">Demo uses built-in sample data. Live connects to your Positive Rate server (the <code>server/</code> folder). Verification queue, users, listings, settings, jobs and the audit log are live; bookings and payments switch over when the booking backend is built.</p>
           <div className="row gap8" style={{ margin: '12px 0' }}>
             <Segmented options={[['demo', 'Demo data'], ['live', 'Live server']]} value={cfg.mode} onChange={(m) => setConfig({ mode: m })} />
           </div>

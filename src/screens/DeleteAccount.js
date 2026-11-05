@@ -45,7 +45,7 @@ export function DeleteAccount({ nav }) {
       <Header nav={nav} title="Delete account" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
         <Text style={{ color: C.text, fontSize: 15, lineHeight: 22 }}>
-          This permanently deletes your RightSeat account{auth?.session?.user?.email ? ` (${auth.session.user.email})` : ''}. It can't be undone.
+          This permanently deletes your Positive Rate account{auth?.session?.user?.email ? ` (${auth.session.user.email})` : ''}. It can't be undone.
         </Text>
         <Card style={{ marginTop: 14 }}>
           <Text style={{ fontWeight: '800', color: C.text }}>What we delete</Text>

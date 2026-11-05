@@ -58,7 +58,7 @@ test('rules: names', () => {
 
 test('rules: clean owner insurance auto-approves; wrong use rejects; missing additional insured goes to review', () => {
   const listing = { tail: 'N7340P', ownerName: 'Bay Area Flyers Club' };
-  const base = { tail: 'N7340P', use: 'Rental & flight instruction', liability: '$1,000,000', additional: 'RightSeat Inc.', expires: '2027-06-01', _confidence: 0.97 };
+  const base = { tail: 'N7340P', use: 'Rental & flight instruction', liability: '$1,000,000', additional: 'Positive Rate Inc.', expires: '2027-06-01', _confidence: 0.97 };
   assert.equal(decide(runChecks('ownerIns', base, { listing, now: NOW }), 0.97).decision, 'approved');
   assert.equal(decide(runChecks('ownerIns', { ...base, use: 'Pleasure & business' }, { listing, now: NOW }), 0.97).decision, 'rejected');
   assert.equal(decide(runChecks('ownerIns', { ...base, additional: '' }, { listing, now: NOW }), 0.97).decision, 'review');
@@ -110,7 +110,7 @@ test('pipeline: clean COI waits for broker, broker link approves it', async () =
   const db = setup();
   const restore = quiet();
   const doc = await verifyDocument(
-    { db, airmen, aircraft, now: NOW, baseUrl: 'https://api.example', extract: fakeExtract({ insured: 'Bay Area Flyers Club', tail: 'N7340P', carrier: 'X', policy: 'P1', use: 'Rental', liability: '1000000', additional: 'RightSeat Inc', broker: 'b@x.com', expires: '2027-06-01' }) },
+    { db, airmen, aircraft, now: NOW, baseUrl: 'https://api.example', extract: fakeExtract({ insured: 'Bay Area Flyers Club', tail: 'N7340P', carrier: 'X', policy: 'P1', use: 'Rental', liability: '1000000', additional: 'Positive Rate Inc', broker: 'b@x.com', expires: '2027-06-01' }) },
     { type: 'ownerIns', userId: 'o1', listingId: 'l1', file: { base64: 'x', mediaType: 'application/pdf' } }
   );
   restore();

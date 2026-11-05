@@ -222,7 +222,7 @@ function RecencyRule({ planeId, value }) {
     <>
       <SectionTitle>Recent flight rule</SectionTitle>
       <Card>
-        <Text style={ms.sub}>Solo renters must have flown within this many days (from their pilot profile and RightSeat flights).</Text>
+        <Text style={ms.sub}>Solo renters must have flown within this many days (from their pilot profile and Positive Rate flights).</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
           {RECENT_FLIGHT_OPTIONS.map((d) => <Chip key={d} small label={d ? `${d} days` : 'Off'} active={v === d} onPress={() => pick(d)} />)}
         </View>

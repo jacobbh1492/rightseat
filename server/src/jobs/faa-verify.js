@@ -34,7 +34,7 @@ async function record(type, id, check, { status, detail }) {
 async function airmenZipUrl() {
   if (process.env.FAA_AIRMEN_ZIP_URL) return process.env.FAA_AIRMEN_ZIP_URL;
   const page = 'https://www.faa.gov/licenses_certificates/airmen_certification/releasable_airmen_download';
-  const html = await (await fetch(page, { headers: { 'User-Agent': 'RightSeat-verification/1.0' } })).text();
+  const html = await (await fetch(page, { headers: { 'User-Agent': 'PositiveRate-verification/1.0' } })).text();
   const links = [...html.matchAll(/href="([^"]+\.zip)"/gi)].map((m) => new URL(m[1], page).href);
   const csv = links.find((l) => /CS\d{6}\.zip$/i.test(l)) || links.find((l) => /csv/i.test(l));
   if (!csv) throw new Error(`No airmen CSV ZIP link found on ${page} (links: ${links.join(', ') || 'none'})`);

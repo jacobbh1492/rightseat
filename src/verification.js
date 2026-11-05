@@ -30,10 +30,10 @@ export const SOURCES = {
   faaAirmen: 'FAA Airmen Registry',
   faaAircraft: 'FAA Aircraft Registry',
   ai: 'Document AI',
-  rules: 'RightSeat rules',
+  rules: 'Positive Rate rules',
   broker: 'Broker email',
   checkr: 'Background check provider',
-  app: 'RightSeat records',
+  app: 'Positive Rate records',
 };
 
 export const DOC_TYPES = {
@@ -193,7 +193,7 @@ export function extract(type, scenario, ctx) {
       case 'airworthiness':
         return { tail: p.tail, serial: s === 'review' ? '28-78160XX' : p.serial || '28-7816' + p.tail.slice(-3).replace(/\D/g, '0'), category: 'Normal / Utility', faaSerial: p.serial || '28-7816' + p.tail.slice(-3).replace(/\D/g, '0') };
       case 'ownerIns':
-        return { insured: p.ownerName, tail: p.tail, carrier: 'Sample Aviation Insurance Co.', policy: 'AC-77120', use: s === 'problem' ? 'Pleasure & business' : 'Rental & flight instruction', liability: usd(1000000), additional: s === 'review' ? '' : 'RightSeat Inc.', broker: 'certs@samplebroker.example', expires: fmt(addMonths(8)) };
+        return { insured: p.ownerName, tail: p.tail, carrier: 'Sample Aviation Insurance Co.', policy: 'AC-77120', use: s === 'problem' ? 'Pleasure & business' : 'Rental & flight instruction', liability: usd(1000000), additional: s === 'review' ? '' : 'Positive Rate Inc.', broker: 'certs@samplebroker.example', expires: fmt(addMonths(8)) };
       case 'annual':
         return { date: fmt(addMonths(s === 'problem' ? -13 : -2)), hobbs: String(Math.round((p.hobbsTotal - 40) * 10) / 10), signer: 'R. Delgado', certNo: 'A&P 3412xxxxx', ia: s === 'review' ? '' : 'IA on file', due: fmt(addMonths(s === 'problem' ? -1 : 10)) };
       case 'hundredHr':
@@ -240,8 +240,8 @@ export function runChecks(type, f, ctx, confidence) {
       break;
     case 'logbook':
       c.push(pass('Totals imported', 'ai'));
-      c.push(Math.abs(num(f.total) - ctx.totalHours) < 1 ? pass('Matches hours logged in RightSeat', 'app') : warn('Differs from RightSeat-logged hours', 'app'));
-      c.push(warn('Marked “self-reported” until flown on RightSeat', 'rules'));
+      c.push(Math.abs(num(f.total) - ctx.totalHours) < 1 ? pass('Matches hours logged in Positive Rate', 'app') : warn('Differs from hours logged in Positive Rate', 'app'));
+      c.push(warn('Marked “self-reported” until flown on Positive Rate', 'rules'));
       break;
     case 'renterIns':
     case 'cfiIns':
@@ -271,7 +271,7 @@ export function runChecks(type, f, ctx, confidence) {
       c.push(pass(`${f.tail} listed on policy`, 'ai'));
       c.push(/rental|instruction/i.test(f.use) ? pass(`Approved use: ${f.use}`, 'rules') : fail(`Approved use “${f.use}” doesn’t cover rental or instruction`, 'rules'));
       c.push(num(f.liability) >= MINIMUMS.ownerLiability ? pass(`Liability ${f.liability} meets minimum`, 'rules') : fail('Liability below minimum', 'rules'));
-      c.push(f.additional ? pass(`Additional insured: ${f.additional}`, 'ai') : warn('RightSeat not listed as additional insured', 'ai', 'Ask broker to add, or reviewer accepts'));
+      c.push(f.additional ? pass(`Additional insured: ${f.additional}`, 'ai') : warn('Positive Rate not listed as additional insured', 'ai', 'Ask broker to add, or reviewer accepts'));
       c.push(notExpired(f.expires, 'Policy active'));
       c.push(pass(`Auto-confirmation emailed to ${f.broker}`, 'broker', 'Approves automatically when broker clicks confirm'));
       break;

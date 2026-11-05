@@ -84,7 +84,7 @@ export function scoreCfi(cfi, planes, request) {
     else { score -= Math.min(25, Math.round((combined - max) / 5)); concerns.push(`$${Math.round(combined - max)}/hr over budget`); }
   }
 
-  // Track record (RightSeat reviews count more than self-reported numbers).
+  // Track record (Positive Rate reviews count more than self-reported numbers).
   if (cfi.reviewCount >= 3 && cfi.rating >= 4.7) { score += 8; reasons.push(`${Number(cfi.rating).toFixed(1)}★ from ${cfi.reviewCount} students`); }
   else if (cfi.reviewCount > 0) score += Math.max(0, (Number(cfi.rating) - 4) * 4);
   if (request.goal !== 'Discovery flight' && Number(cfi.passRate) >= 90 && Number(cfi.checkridesSent) >= 5) { score += 5; reasons.push(`${cfi.passRate}% first-time pass rate`); }

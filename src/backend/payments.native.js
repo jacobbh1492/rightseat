@@ -27,7 +27,7 @@ export function useBookingPayment() {
   return async (request) => {
     const res = await callFn('book', request);
     const { error: initErr } = await initPaymentSheet({
-      merchantDisplayName: 'RightSeat',
+      merchantDisplayName: 'Positive Rate',
       customerId: res.payment.customer,
       customerEphemeralKeySecret: res.payment.ephemeralKey,
       setupIntentClientSecret: res.payment.setupIntentClientSecret,
@@ -60,7 +60,7 @@ export function useSplitDeposit() {
     const res = await callFn('split', { bookingId, action: 'accept', attest: true });
     if (res.status === 'accepted') return { status: 'accepted' };
     const { error: initErr } = await initPaymentSheet({
-      merchantDisplayName: 'RightSeat',
+      merchantDisplayName: 'Positive Rate',
       customerId: res.payment.customer,
       customerEphemeralKeySecret: res.payment.ephemeralKey,
       paymentIntentClientSecret: res.payment.paymentIntentClientSecret,
@@ -92,7 +92,7 @@ export function useAcceptProposal() {
     const res = await callFn('booking-action', { bookingId, action: 'accept' });
     if (res.status === 'confirmed') return { status: 'confirmed' };
     const { error: initErr } = await initPaymentSheet({
-      merchantDisplayName: 'RightSeat',
+      merchantDisplayName: 'Positive Rate',
       customerId: res.payment.customer,
       customerEphemeralKeySecret: res.payment.ephemeralKey,
       setupIntentClientSecret: res.payment.setupIntentClientSecret,
@@ -123,7 +123,7 @@ export function useGiftPurchase() {
   return async (gift) => {
     const res = await callFn('gift', { action: 'create', ...gift });
     const { error: initErr } = await initPaymentSheet({
-      merchantDisplayName: 'RightSeat',
+      merchantDisplayName: 'Positive Rate',
       customerId: res.payment.customer,
       customerEphemeralKeySecret: res.payment.ephemeralKey,
       paymentIntentClientSecret: res.payment.paymentIntentClientSecret,

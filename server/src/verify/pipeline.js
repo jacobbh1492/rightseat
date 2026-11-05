@@ -87,7 +87,7 @@ export async function verifyDocument(deps, input) {
     await sendEmail({
       to: fields.broker,
       subject: `Please confirm insurance for ${listing.tail}`,
-      text: `${user.name} listed ${listing.tail} on RightSeat with policy ${fields.policy} (${fields.carrier}), expiring ${fields.expires}.\n\nConfirm this certificate is accurate: ${deps.baseUrl || ''}/broker/confirm/${token}\n\nIf anything is wrong, simply reply to this email.`,
+      text: `${user.name} listed ${listing.tail} on Positive Rate with policy ${fields.policy} (${fields.carrier}), expiring ${fields.expires}.\n\nConfirm this certificate is accurate: ${deps.baseUrl || ''}/broker/confirm/${token}\n\nIf anything is wrong, simply reply to this email.`,
     });
   }
   if (input.type === 'hundredHr' && status === 'approved' && listing) {

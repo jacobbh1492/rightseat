@@ -1,4 +1,4 @@
-# RightSeat verification server
+# Positive Rate verification server
 
 Automates checking credentials, insurance and aircraft documents. Clean documents are approved in seconds with no human involved. Anything unclear goes to a short review queue.
 

@@ -7,9 +7,9 @@ import { PPL_MINIMUMS } from '../logic';
 import { C, Card, SectionTitle, Button, Field, Tag } from '../ui';
 import { LibraryCard } from './Library';
 
-// The signed-in student's real training record: hours from completed RightSeat flights
+// The signed-in student's real training record: hours from completed Positive Rate flights
 // (logged by the instructor at close-out) and their instructors' debriefs.
-// Minimums that need things RightSeat doesn't record yet (checkride prep window) are left out.
+// Minimums that need things Positive Rate doesn't record yet (checkride prep window) are left out.
 const SHOWN = PPL_MINIMUMS.filter((m) => m.key !== 'prep');
 
 export default function LiveTraining({ nav }) {
@@ -52,7 +52,7 @@ export default function LiveTraining({ nav }) {
           {instructors.length ? `With ${instructors.map(nameOf).join(', ')}` : 'Book a lesson to start your record'}
         </Text>
         <View style={l.stats}>
-          <View style={l.stat}><Text style={l.big}>{H.total}</Text><Text style={l.small}>hrs on RightSeat</Text></View>
+          <View style={l.stat}><Text style={l.big}>{H.total}</Text><Text style={l.small}>hrs on Positive Rate</Text></View>
           <View style={l.stat}><Text style={l.big}>{flights.length}</Text><Text style={l.small}>flights</Text></View>
           <View style={l.stat}><Text style={l.big}>{met}/{SHOWN.length}</Text><Text style={l.small}>FAA mins met</Text></View>
         </View>
@@ -77,7 +77,7 @@ export default function LiveTraining({ nav }) {
               </View>
             );
           })}
-          <Text style={l.sub}>Counts flights closed out on RightSeat. Your logbook is still the official record, and hours from before RightSeat aren’t included.</Text>
+          <Text style={l.sub}>Counts flights closed out on Positive Rate. Your logbook is still the official record, and hours from before Positive Rate aren’t included.</Text>
         </Card>
 
         <SectionTitle>Debriefs</SectionTitle>

@@ -98,7 +98,7 @@ export function PilotProfile({ nav }) {
             <Field label="Total flight time (hours)" value={form.totalHours} onChangeText={(t) => set('totalHours')(t.replace(/[^0-9.]/g, ''))} placeholder="142.5" keyboardType="decimal-pad" />
 
             <SectionTitle>Recent flying</SectionTitle>
-            <Text style={[st.sub, { marginBottom: 10 }]}>Some owners require a recent flight before a solo rental. Flights you close out on RightSeat update your last flight automatically.</Text>
+            <Text style={[st.sub, { marginBottom: 10 }]}>Some owners require a recent flight before a solo rental. Flights you close out on Positive Rate update your last flight automatically.</Text>
             <Field label="Your last flight (MM/DD/YYYY)" value={form.lastFlightDate} onChangeText={set('lastFlightDate')} placeholder={fromYmd(todayYmd)} keyboardType="numbers-and-punctuation" />
             <Text style={st.hint}>{badDate(form.lastFlightDate) ? 'Enter the date as MM/DD/YYYY.' : future('lastFlightDate') ? 'That date is in the future.' : 'Optional unless a plane’s owner asks for it.'}</Text>
             {!student && (

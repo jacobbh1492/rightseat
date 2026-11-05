@@ -114,7 +114,7 @@ export function runChecks(type, f, ctx) {
       c.push(String(f.tail || '').toUpperCase().includes(L.tail.toUpperCase().replace(/^N/, '')) ? pass(`${L.tail} listed on policy`, 'ai') : fail(`${L.tail} not found on policy`, 'ai'));
       c.push(/rental|instruction|commercial/i.test(f.use || '') ? pass(`Approved use: ${f.use}`, 'rules') : fail(`Approved use “${f.use || 'unknown'}” doesn’t cover rental or instruction`, 'rules'));
       c.push(money(f.liability) >= MINIMUMS.ownerLiability ? pass('Liability meets minimum', 'rules') : fail('Liability below minimum', 'rules'));
-      c.push(/rightseat/i.test(f.additional || '') ? pass('RightSeat is additional insured', 'ai') : warn('RightSeat not listed as additional insured', 'ai'));
+      c.push(/rightseat|positive\s*rate/i.test(f.additional || '') ? pass('Positive Rate is additional insured', 'ai') : warn('Positive Rate not listed as additional insured', 'ai'));
       c.push(notExpired(f.expires, 'Policy active', now));
       break;
     }

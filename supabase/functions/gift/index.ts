@@ -1,6 +1,6 @@
 // POST /gift { action, ... } — gift a flight lesson.
 //  create { amount, recipientName, recipientEmail?, fromName?, message?, cfiId? }
-//         → a PaymentIntent the buyer pays in Stripe's sheet. Charged now; RightSeat holds the
+//         → a PaymentIntent the buyer pays in Stripe's sheet. Charged now; Positive Rate holds the
 //           money until the recipient flies (paid out at that lesson's close-out).
 //  paid   { giftId } → after the sheet: checks with Stripe and returns the code to pass on.
 // Redeeming a code is the claim_gift database function; spending it is booking-action.
@@ -35,7 +35,7 @@ serve(async (req, body) => {
     const customer = await customerFor(user);
     const pi = await stripe.paymentIntents.create({
       amount: Math.round(g.amount * 100), currency: 'usd', customer, payment_method_types: ['card'],
-      description: `RightSeat gift flight for ${g.recipientName}`, metadata: { gift_id: gift.id, user_id: user.id },
+      description: `Positive Rate gift flight for ${g.recipientName}`, metadata: { gift_id: gift.id, user_id: user.id },
     }, { idempotencyKey: 'gift-' + gift.id });
     await admin.from('gifts').update({ payment_intent_id: pi.id }).eq('id', gift.id);
     const ek = await stripe.ephemeralKeys.create({ customer }, { apiVersion: '2024-12-18.acacia' });

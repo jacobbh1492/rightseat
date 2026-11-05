@@ -59,7 +59,7 @@ serve(async (req, body) => {
     const { data: doc, error } = await admin.from('documents').insert({ owner_id: user.id, plane_id: planeId, doc_type: 'insurance', path, status: 'review' }).select('id').single();
     if (error) throw error;
     await upsertCheck({ subject_type: 'plane', subject_id: planeId, check_type: 'insurance', status: 'review', document_id: doc.id,
-      detail: { note: 'Waiting for RightSeat to review the policy', tail: plane.tail } });
+      detail: { note: 'Waiting for Positive Rate to review the policy', tail: plane.tail } });
     return json({ status: 'review' });
   }
 

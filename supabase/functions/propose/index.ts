@@ -19,7 +19,7 @@ serve(async (req, body) => {
   ]);
   const plane = planeRes.data;
   if (!cfi || !cfi.published) throw new HttpError(403, 'Only instructors with a published profile can book lessons for students.');
-  if (!cfi.verified) throw new HttpError(409, 'You can book students once RightSeat has verified your certificate.');
+  if (!cfi.verified) throw new HttpError(409, 'You can book students once Positive Rate has verified your certificate.');
   if (!student || student.id === user.id) throw new HttpError(404, 'Student not found.');
   if (r.planeId && (!plane || !plane.published)) throw new HttpError(404, 'That plane isn’t available to book right now.');
   if (plane && !(plane.airworthy_verified && plane.insured)) throw new HttpError(409, 'That plane’s registration and insurance are still being verified.');

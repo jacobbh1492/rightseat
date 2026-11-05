@@ -74,7 +74,7 @@ export function Me({ nav }) {
       ],
     },
     {
-      // Mechanics an owner invited (they may have no other role on RightSeat).
+      // Mechanics an owner invited (they may have no other role on Positive Rate).
       key: 'mech', mode: 'any', show: hasMech, title: 'Maintenance',
       rows: [{ icon: 'tool', title: 'Mechanic access', subtitle: 'Planes you maintain and invites from owners', go: 'MechanicHome' }],
     },
@@ -165,7 +165,7 @@ export function Me({ nav }) {
 
       {others.length > 0 && (
         <>
-          <Text style={ms.groupTitle}>More ways to use RightSeat</Text>
+          <Text style={ms.groupTitle}>More ways to use Positive Rate</Text>
           <Card style={{ paddingVertical: 2 }}>
             {others.map((sec, i) => (
               <ListRow key={sec.key} first={i === 0} icon={sec.rows[0].icon} iconColor={C.sub} iconBg="#F1F5F9" title={{ fly: 'Book lessons & rent planes', teach: 'Teach as a CFI', own: 'List your plane', school: 'Run a flight school' }[sec.key]}
@@ -178,14 +178,14 @@ export function Me({ nav }) {
 
       {auth?.account?.is_staff && (
         <>
-          <Text style={ms.groupTitle}>RightSeat team</Text>
+          <Text style={ms.groupTitle}>Positive Rate team</Text>
           <Card style={{ paddingVertical: 2 }}>
             <ListRow first icon="shieldCheck" iconColor="#7C3AED" iconBg="#F3E8FF" title="Verification reviews" subtitle="Approve instructors, planes and insurance" onPress={() => nav.push('StaffReview')} />
           </Card>
         </>
       )}
 
-      {!auth?.session && <Text style={ms.groupTitle}>RightSeat team (demo)</Text>}
+      {!auth?.session && <Text style={ms.groupTitle}>Positive Rate team (demo)</Text>}
       {!auth?.session && <Card style={{ paddingVertical: 2 }}>
         <ListRow first icon="file" iconColor="#7C3AED" iconBg="#F3E8FF" title="Document review queue" subtitle="Only what automation couldn’t approve" right={<View style={{ flexDirection: 'row', alignItems: 'center' }}>{pendingQueue ? <View style={ms.count}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>{pendingQueue}</Text></View> : null}<Icon name="chevron" size={18} color="#94A3B8" /></View>} onPress={() => nav.push('ReviewQueue')} />
         <ListRow icon="zap" iconColor="#7C3AED" iconBg="#F3E8FF" title="Automation monitor" subtitle="FAA syncs, expirations, auto-pauses" onPress={() => nav.push('Automation')} />
@@ -226,7 +226,7 @@ export function CfiForm({ nav, params }) {
   const { getCfi, planes: allPlanes, saveCfi, affiliationFor, getSchool, refreshListings } = useStore();
   const auth = useAuth();
   const uid = auth?.session?.user?.id || null;
-  // Signed in: the profile is saved to RightSeat and can only list live planes.
+  // Signed in: the profile is saved to Positive Rate and can only list live planes.
   const planes = uid ? allPlanes.filter((p) => p.live) : allPlanes;
   const existing = params?.id ? getCfi(params.id) : uid ? getCfi(uid) : null;
   const [publish, setPublish] = useState(existing ? existing.published !== false : true);
@@ -304,7 +304,7 @@ export function CfiForm({ nav, params }) {
       teachingStyle: f.teachingStyle,
       background: f.background,
       languages: f.languages.split(',').map((x) => x.trim()).filter(Boolean),
-      responseTime: 'New on RightSeat',
+      responseTime: 'New on Positive Rate',
       teachesInYourPlane: f.teachesInYourPlane,
       insured: f.insured,
       verified: false,
@@ -417,7 +417,7 @@ export function CfiForm({ nav, params }) {
         {uid && (
           <>
             <SectionTitle>Visibility</SectionTitle>
-            <Toggle label="Show my profile to students" value={publish} onValueChange={setPublish} hint={publish ? 'Students can find and book you once RightSeat verifies your certificate.' : 'Saved as a draft. Only you can see it.'} />
+            <Toggle label="Show my profile to students" value={publish} onValueChange={setPublish} hint={publish ? 'Students can find and book you once Positive Rate verifies your certificate.' : 'Saved as a draft. Only you can see it.'} />
           </>
         )}
         {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', marginTop: 10 }} accessibilityLiveRegion="polite">{err}</Text>}
@@ -578,7 +578,7 @@ export function PlaneForm({ nav }) {
         {uid && (
           <>
             <SectionTitle>Visibility</SectionTitle>
-            <Toggle label="Show this plane to renters and instructors" value={publish} onValueChange={setPublish} hint={publish ? 'Listed once RightSeat verifies the registration and insurance.' : 'Saved as a draft. Only you can see it.'} />
+            <Toggle label="Show this plane to renters and instructors" value={publish} onValueChange={setPublish} hint={publish ? 'Listed once Positive Rate verifies the registration and insurance.' : 'Saved as a draft. Only you can see it.'} />
           </>
         )}
         {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', marginTop: 10 }} accessibilityLiveRegion="polite">{err}</Text>}

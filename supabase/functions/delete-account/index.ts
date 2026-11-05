@@ -59,7 +59,7 @@ serve(async (req, body) => {
   for (const b of open || []) {
     const sp = (splits || []).find((x: any) => x.booking_id === b.id && x.booker_id === uid);
     if (sp) { await refundDeposit(sp, 'account deleted'); ok(await admin.from('booking_splits').update({ status: 'cancelled' }).eq('id', sp.id)); }
-    ok(await admin.from('bookings').update({ status: 'cancelled', cancelled_by: uid, cancel_reason: b.student_id === uid ? 'Account deleted' : 'Declined: instructor or owner left RightSeat' }).eq('id', b.id));
+    ok(await admin.from('bookings').update({ status: 'cancelled', cancelled_by: uid, cancel_reason: b.student_id === uid ? 'Account deleted' : 'Declined: instructor or owner left Positive Rate' }).eq('id', b.id));
   }
 
   // 3. Take listings down (rows stay so past bookings still make sense).
@@ -73,7 +73,7 @@ serve(async (req, body) => {
   ok(await admin.from('threads').delete().or(`a.eq.${uid},b.eq.${uid}`)); // messages go with their threads
   ok(await admin.from('debriefs').delete().eq('student_id', uid));
   ok(await admin.from('training').delete().eq('student_id', uid));
-  ok(await admin.from('reviews').update({ author_name: 'Former RightSeat pilot' }).eq('author_id', uid));
+  ok(await admin.from('reviews').update({ author_name: 'Former Positive Rate pilot' }).eq('author_id', uid));
   for (const [bucket, prefix] of [['avatars', uid], ['plane-photos', uid], ['documents', uid]] as const) {
     const { data: files } = await admin.storage.from(bucket).list(prefix, { limit: 1000 });
     const paths: string[] = [];

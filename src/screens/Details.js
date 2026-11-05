@@ -77,7 +77,7 @@ export function CfiDetail({ nav, params }) {
           <Stat value={c.studentsSoloed} label="Students soloed" />
         </Card>
 
-        <SectionTitle>Verified by RightSeat</SectionTitle>
+        <SectionTitle>Verified by Positive Rate</SectionTitle>
         <VerifiedCard kind="cfi" entity={c} />
 
         <SectionTitle>Pricing</SectionTitle>
@@ -153,7 +153,7 @@ export function CfiDetail({ nav, params }) {
         </Card>
 
         <SectionTitle right={<Stars rating={c.rating} count={c.reviewCount} />}>Student reviews</SectionTitle>
-        <Text style={ds.verifiedNote}>✓ Only students who completed a lesson booked through RightSeat can leave a review.</Text>
+        <Text style={ds.verifiedNote}>✓ Only students who completed a lesson booked through Positive Rate can leave a review.</Text>
         {c.reviews.length === 0 && <Text style={ds.sub}>No reviews yet.</Text>}
         {c.reviews.map((r, i) => <ReviewCard key={i} r={r} />)}
       </ScrollView>
@@ -218,7 +218,7 @@ export function PlaneDetail({ nav, params }) {
             </Pressable>
           )}
 
-          <SectionTitle>Verified by RightSeat</SectionTitle>
+          <SectionTitle>Verified by Positive Rate</SectionTitle>
           <VerifiedCard kind="plane" entity={p} />
 
           <SectionTitle>Rental rates</SectionTitle>
@@ -271,7 +271,7 @@ export function PlaneDetail({ nav, params }) {
           ) : null}
 
           <SectionTitle right={<Stars rating={p.rating} count={p.reviewCount} />}>Renter reviews</SectionTitle>
-          <Text style={ds.verifiedNote}>✓ Only pilots who flew this aircraft on a RightSeat booking can review it.</Text>
+          <Text style={ds.verifiedNote}>✓ Only pilots who flew this aircraft on a Positive Rate booking can review it.</Text>
           {(p.reviews || []).length === 0 && <Text style={ds.sub}>No written reviews yet.</Text>}
           {(p.reviews || []).map((r, i) => <ReviewCard key={i} r={r} />)}
 
@@ -413,7 +413,7 @@ export function SchoolDetail({ nav, params }) {
           ))}
 
           <SectionTitle right={<Stars rating={x.rating} count={x.reviewCount} />}>Student reviews</SectionTitle>
-          <Text style={ds.verifiedNote}>✓ Verified students who trained here through RightSeat.</Text>
+          <Text style={ds.verifiedNote}>✓ Verified students who trained here through Positive Rate.</Text>
           {x.reviews.length === 0 && <Text style={ds.sub}>No written reviews yet.</Text>}
           {x.reviews.map((r, i) => <ReviewCard key={i} r={r} />)}
         </View>

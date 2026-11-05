@@ -53,7 +53,7 @@ export default function Overview() {
     <>
       <div className="grid g4">
         <Stat label="Booked · last 30 days" value={money(gmv)} sub={`${change >= 0 ? '▲' : '▼'} ${Math.abs(change)}% vs prior 30 days`} />
-        <Stat label="RightSeat revenue · 30 days" value={money(rev)} sub={`${((rev / gmv) * 100).toFixed(1)}% take rate`} />
+        <Stat label="Positive Rate revenue · 30 days" value={money(rev)} sub={`${((rev / gmv) * 100).toFixed(1)}% take rate`} />
         <Stat label="Student–CFI rebooking" value={`${rebook}%`} sub="Pairs with 2+ lessons in the app" />
         <Stat label="Active · 30 days" value={`${students} / ${cfis}`} sub="Students / instructors who flew" />
       </div>
@@ -65,7 +65,7 @@ export default function Overview() {
         </div>
         <div className="card">
           <h2>Revenue by source · 30 days</h2>
-          <BarList data={sources} fmt={(v) => money(v)} title="RightSeat revenue by source, last 30 days" label="Source" />
+          <BarList data={sources} fmt={(v) => money(v)} title="Positive Rate revenue by source, last 30 days" label="Source" />
         </div>
       </div>
 

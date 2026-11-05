@@ -106,7 +106,7 @@ export async function setUpPayouts() {
 export const checkPayouts = () => callFn('connect', { check: true });
 
 // ---- training record
-// Hours from completed RightSeat flights, in the keys the FAA-minimums view uses.
+// Hours from completed Positive Rate flights, in the keys the FAA-minimums view uses.
 export function hoursFromFlights(flights) {
   const h = { total: 0, dual: 0, solo: 0, dualXC: 0, soloXC: 0, night: 0, instrument: 0, ground: 0, prep: 0 };
   const r1 = (n) => Math.round(n * 10) / 10;

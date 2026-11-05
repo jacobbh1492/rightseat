@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "RightSeat verification automation: FAA registry syncs, Stripe Identity, AI document reading, rules, scheduled jobs.",
+  "description": "Positive Rate verification automation: FAA registry syncs, Stripe Identity, AI document reading, rules, scheduled jobs.",
   "scripts": {
     "start": "node src/server.js",
     "jobs": "node src/jobs/scheduler.js",

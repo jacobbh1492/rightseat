@@ -29,11 +29,11 @@ serve(async (req, body) => {
   // asks for a sandbox instead). We test everything else in test mode and run payout
   // setup for the first time with live keys, so say that plainly instead of erroring.
   if ((Deno.env.get('STRIPE_SECRET_KEY') || '').startsWith('sk_test_')) {
-    throw new HttpError(409, 'Payout setup can’t be tested yet. It turns on when RightSeat goes live. Until then your pay is held safely and sent as soon as you set up payouts.');
+    throw new HttpError(409, 'Payout setup can’t be tested yet. It turns on when Positive Rate goes live. Until then your pay is held safely and sent as soon as you set up payouts.');
   }
   if (!account) {
-    // Recipient account: receives transfers from RightSeat; Stripe hosts onboarding and the
-    // Express dashboard; RightSeat pays Stripe fees and covers negative balances.
+    // Recipient account: receives transfers from Positive Rate; Stripe hosts onboarding and the
+    // Express dashboard; Positive Rate pays Stripe fees and covers negative balances.
     const a = await stripeV2('POST', '/v2/core/accounts', {
       contact_email: email,
       display_name: name || undefined,

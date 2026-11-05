@@ -23,4 +23,4 @@ cron.schedule('0 3 3 * *', safe('syncAirmen', async () => syncAirmenJob({ db, ai
 cron.schedule('0 6 * * *', safe('expirationSweep', () => expirationSweep({ db })), { timezone: 'America/New_York' });
 cron.schedule('0 10 * * *', safe('brokerReminders', () => brokerReminderJob({ db, baseUrl })), { timezone: 'America/New_York' });
 
-console.log('RightSeat verification scheduler running');
+console.log('Positive Rate verification scheduler running');
