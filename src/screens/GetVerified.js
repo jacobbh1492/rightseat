@@ -76,7 +76,7 @@ export function GetVerified({ nav }) {
             <Step title="2. FAA instructor certificate" status={faa?.status || (idCheck?.status === 'passed' ? 'pending' : 'none')}
               sub={faa?.status === 'passed' ? `Found in the FAA Airmen Registry${faa.detail?.ratings?.length ? `: ${faa.detail.ratings.join(', ')}` : ''}.`
                 : faa?.status === 'failed' ? (faa.detail?.reviewNote || faa.detail?.reason || 'We couldn’t find a flight instructor certificate under your verified name.')
-                : faa?.status === 'review' ? 'More than one match or a name difference. RightSeat is checking by hand.'
+                : faa?.status === 'review' ? 'More than one match or a name difference. Positive Rate is checking by hand.'
                 : idCheck?.status === 'passed' ? 'Checked automatically against the FAA Airmen Registry, usually within 24 hours.'
                 : 'Checked automatically once your identity is verified.'} />
           </>
@@ -91,11 +91,11 @@ export function GetVerified({ nav }) {
               <Step title={`${p.tail} · FAA registration`} status={reg?.status || 'pending'}
                 sub={reg?.status === 'passed' ? 'Registration is valid and matches the listing.'
                   : reg?.status === 'failed' ? (reg.detail?.reviewNote || reg.detail?.reason || 'The FAA registry doesn’t show a valid registration for this tail number.')
-                  : reg?.status === 'review' ? (reg.detail?.reason || 'RightSeat is checking a difference by hand.')
+                  : reg?.status === 'review' ? (reg.detail?.reason || 'Positive Rate is checking a difference by hand.')
                   : 'Checked automatically against the FAA Aircraft Registry, usually within 24 hours.'} />
               <Step title={`${p.tail} · Insurance`} status={ins?.status || 'none'}
                 sub={ins?.status === 'passed' ? 'Policy reviewed and approved.'
-                  : ins?.status === 'review' ? 'RightSeat is reviewing your policy, usually within one business day.'
+                  : ins?.status === 'review' ? 'Positive Rate is reviewing your policy, usually within one business day.'
                   : ins?.status === 'failed' ? (ins.detail?.reviewNote || 'The policy couldn’t be approved. Upload the current declarations page.')
                   : 'Upload the declarations page of your aircraft policy. It must cover rental and instruction.'}>
                 {ins?.status !== 'passed' && ins?.status !== 'review' && (
@@ -110,7 +110,7 @@ export function GetVerified({ nav }) {
         {!isCfi && data.planes.length === 0 && (
           <Card><Text style={g.sub}>Create your instructor profile or list a plane first. Its checks will show up here.</Text></Card>
         )}
-        <Text style={[g.sub, { marginTop: 14 }]}>“Verified” means RightSeat checked these records are real and current. It isn’t a guarantee of skill or airworthiness.</Text>
+        <Text style={[g.sub, { marginTop: 14 }]}>“Verified” means Positive Rate checked these records are real and current. It isn’t a guarantee of skill or airworthiness.</Text>
       </ScrollView>
     </View>
   );

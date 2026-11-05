@@ -15,7 +15,7 @@ let lastToken = null;
 export async function registerForPush(uid) {
   if (Platform.OS === 'web' || !Device.isDevice || !uid) return null;
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', { name: 'RightSeat', importance: Notifications.AndroidImportance.HIGH });
+    await Notifications.setNotificationChannelAsync('default', { name: 'Positive Rate', importance: Notifications.AndroidImportance.HIGH });
   }
   let { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') ({ status } = await Notifications.requestPermissionsAsync());

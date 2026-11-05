@@ -230,7 +230,7 @@ export function DocUpload({ nav, params }) {
             {t.input === 'consent' && (
               <Card>
                 <Text style={{ color: C.text, lineHeight: 20 }}>
-                  RightSeat uses a background-check provider to run an identity trace, national criminal search and sex-offender registry check. You’ll get a copy of the report, and you can dispute anything inaccurate before any decision.
+                  Positive Rate uses a background-check provider to run an identity trace, national criminal search and sex-offender registry check. You’ll get a copy of the report, and you can dispute anything inaccurate before any decision.
                 </Text>
                 <Toggle label="I authorize this background check" value={consent} onValueChange={setConsent} />
               </Card>
@@ -365,7 +365,7 @@ export function ReviewQueue({ nav }) {
   );
 }
 
-const NOTES = ['Name variation OK', 'Matches certificate photo', 'Authority confirmed (LLC/leaseback)', 'Need a clearer photo', 'Upload IA card', 'Add RightSeat as additional insured'];
+const NOTES = ['Name variation OK', 'Matches certificate photo', 'Authority confirmed (LLC/leaseback)', 'Need a clearer photo', 'Upload IA card', 'Add Positive Rate as additional insured'];
 
 export function ReviewDetail({ nav, params }) {
   const { queue, reviewDoc } = useStore();
@@ -493,12 +493,12 @@ export function AutomationMonitor({ nav }) {
 export function VerifiedCard({ kind, entity }) {
   const { docs } = useStore();
   let items;
-  // Live listings show what RightSeat has actually verified on the server.
+  // Live listings show what Positive Rate has actually verified on the server.
   if (entity.live) {
     const s = (ok) => (ok ? 'ok' : 'missing');
     items = kind === 'cfi'
       ? [
-          ['Identity', 'Verified by RightSeat', s(entity.verified)],
+          ['Identity', 'Verified by Positive Rate', s(entity.verified)],
           [`FAA certificate · ${(entity.certs || ['CFI']).join(', ')}`, 'FAA Airmen Registry', s(entity.verified)],
         ]
       : [

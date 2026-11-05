@@ -1,6 +1,6 @@
-# RightSeat admin console
+# Positive Rate admin console
 
-Browser-based back office for the RightSeat team. React + Vite.
+Browser-based back office for the Positive Rate team. React + Vite.
 
 ## Run it
 ```
@@ -13,7 +13,7 @@ npm run build:single   # one self-contained index.html (used for the preview)
 ## Pages
 - **Overview:** lessons flown, bookings, revenue and take rate, rebooking rate, users, aircraft; weekly charts (hover + table view); "Needs attention" list; recent admin activity.
 - **Bookings:** search/filter; booking detail with money split and timeline; cancel; refunds (Support role capped at $250).
-- **Payments & payouts:** charges with the instructor / owner / RightSeat split, payouts, refunds.
+- **Payments & payouts:** charges with the instructor / owner / Positive Rate split, payouts, refunds.
 - **Disputes:** full refund, partial refund or deny; payouts held until resolved.
 - **Users:** students, CFIs, owners, schools; profile, spend/earnings, bookings, internal notes; suspend/reinstate.
 - **Aircraft listings:** 100-hr, insurance, squawks, status; pause/resume.

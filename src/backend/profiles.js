@@ -86,7 +86,7 @@ export async function savePlaneListing(uid, plane, { publish, addToMyCfiProfile 
   };
   const { data, error } = await supabase.from('planes').insert(row).select('id').single();
   if (error) {
-    if (error.code === '23505') throw new Error(`${plane.tail} is already listed on RightSeat. If it’s your plane, contact support.`);
+    if (error.code === '23505') throw new Error(`${plane.tail} is already listed on Positive Rate. If it’s your plane, contact support.`);
     throw error;
   }
   const id = data.id;

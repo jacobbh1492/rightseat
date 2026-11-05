@@ -130,9 +130,9 @@ export function RequestLesson({ nav, params }) {
     // (A real plane's 100-hour and squawks come from airChecks instead of the sample rules.)
     ...bookingChecks({ pilot, cfi, plane, flightHours }).filter((c) => !(airChecks.length && /^100-hr|grounding squawk/i.test(c.label))),
     ...airChecks,
-    ...(cfi?.live ? [{ label: 'Instructor verified by RightSeat', ok: !!cfi.verified, blocking: true }] : []),
+    ...(cfi?.live ? [{ label: 'Instructor verified by Positive Rate', ok: !!cfi.verified, blocking: true }] : []),
     ...(plane ? [{ label: 'Aircraft registration & insurance verified', ok: planeVerified(plane, docs), blocking: true }] : []),
-    ...(!cfi && plane ? [{ label: 'Medical verified in RightSeat', ok: docs.me?.medical?.status === 'approved', blocking: true }] : []),
+    ...(!cfi && plane ? [{ label: 'Medical verified in Positive Rate', ok: docs.me?.medical?.status === 'approved', blocking: true }] : []),
   ];
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutErr, setCheckoutErr] = useState('');
@@ -199,7 +199,7 @@ export function RequestLesson({ nav, params }) {
     if (live) {
       // Real booking: server prices it, then the student saves a card (charged after the flight).
       if (!auth?.session) { nav.push('SignIn', { reason: 'Sign in to book. We’ll email you a 6-digit code.' }); return; }
-      if (!CARD_PAYMENTS_SUPPORTED) { setPayErr('Book from the RightSeat iPhone or Android app.'); return; }
+      if (!CARD_PAYMENTS_SUPPORTED) { setPayErr('Book from the Positive Rate iPhone or Android app.'); return; }
       setBusy(true); setPayErr('');
       try {
         const rentalGoal = checkoutFlight ? 'Checkout flight with the owner' : sharing ? 'Shared rental' : 'Solo rental';
@@ -399,7 +399,7 @@ export function RequestLesson({ nav, params }) {
                 hint="They pay a deposit to accept. Your request goes to the owner once they do." />
               {shareOn && (
                 <>
-                  <Field label="Their RightSeat email" value={shareEmail} onChangeText={setShareEmail} placeholder="pilot@example.com"
+                  <Field label="Their Positive Rate email" value={shareEmail} onChangeText={setShareEmail} placeholder="pilot@example.com"
                     keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
                   <Text style={{ fontWeight: '800', color: C.text, marginTop: 10 }}>Your share</Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 }}>
@@ -436,7 +436,7 @@ export function RequestLesson({ nav, params }) {
         <Step n={cfi ? 5 : canShare ? 5 : 4} title="Pay with" done />
         <Pressable onPress={() => setMethod('wallet')} style={[bs.pay, method === 'wallet' && bs.pickOn]}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '800', color: C.text }}>RightSeat wallet · {money2(available)}</Text>
+            <Text style={{ fontWeight: '800', color: C.text }}>Positive Rate wallet · {money2(available)}</Text>
             <Text style={{ color: C.green, fontSize: 12, fontWeight: '700', marginTop: 2 }}>
               {plane && q.prepaidSavings > 0 ? `Prepaid block rate saves ${money2(q.prepaidSavings)}` : plane ? 'Prepaid block rate applied' : 'No card processing'}
             </Text>
@@ -571,7 +571,7 @@ function ProposalBox({ r, cfiName, onChanged }) {
     setErr(''); setBusy(kind);
     try {
       if (kind === 'accept') {
-        if (!CARD_PAYMENTS_SUPPORTED) throw new Error('Accept lessons from the RightSeat iPhone or Android app.');
+        if (!CARD_PAYMENTS_SUPPORTED) throw new Error('Accept lessons from the Positive Rate iPhone or Android app.');
         const res = await accept(r.id);
         if (res.cancelled) { setErr('Card not saved, so the lesson isn’t accepted yet.'); setBusy(null); return; }
       } else {
@@ -698,7 +698,7 @@ export function Lessons({ nav }) {
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
       <Text style={bs.h1}>My lessons</Text>
       <SectionTitle>Upcoming</SectionTitle>
-      {upcoming.length === 0 && <Text style={{ color: C.sub }}>Nothing scheduled. Find a CFI and a plane to get started.</Text>}
+      {upcoming.length === 0 && <Text style={{ color: C.sub }}>Nothing scheduled. Book a lesson or a plane to get started.</Text>}
       {upcoming.map(card)}
       <SectionTitle>Past</SectionTitle>
       {past.map(card)}
@@ -741,7 +741,7 @@ export function SplitInvite({ nav, params }) {
   const openInvite = sp.status === 'invited' && r.status === 'Pending' && (!sp.holdUntil || new Date(sp.holdUntil) > new Date());
 
   const accept = async () => {
-    if (!CARD_PAYMENTS_SUPPORTED) { setErr('Pay your deposit from the RightSeat iPhone or Android app.'); return; }
+    if (!CARD_PAYMENTS_SUPPORTED) { setErr('Pay your deposit from the Positive Rate iPhone or Android app.'); return; }
     setErr(''); setBusy(true);
     try {
       const res = await payDeposit(r.id);
@@ -1046,7 +1046,7 @@ export function Receipt({ nav, params }) {
           {plane && <Row label={`${plane.ownerName} (aircraft)`} value={money2(q.split.owner)} />}
           {q.split.protection > 0 && <Row label="Insurance partner (rental protection)" value={money2(q.split.protection)} />}
           {q.split.processing > 0 && <Row label="Card processing (Stripe)" value={money2(q.split.processing)} />}
-          <Row label="RightSeat" value={money2(q.split.platform)} />
+          <Row label="Positive Rate" value={money2(q.split.platform)} />
           <Text style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>Paid out automatically through Stripe Connect. No Venmo, no chasing invoices.</Text>
         </Card>
 
@@ -1063,7 +1063,7 @@ export function Receipt({ nav, params }) {
         ) : (
           <Button title="Report a problem" variant="outline" onPress={() => setShowDispute(true)} />
         )}
-        <Text style={[bs.hint, { marginTop: 8 }]}>Disputes, refunds and weather credits are only available for flights booked and paid in RightSeat.</Text>
+        <Text style={[bs.hint, { marginTop: 8 }]}>Disputes, refunds and weather credits are only available for flights booked and paid in Positive Rate.</Text>
       </ScrollView>
     </View>
   );
@@ -1100,7 +1100,7 @@ export function LeaveReview({ nav, params }) {
       return;
     }
     const review = {
-      name: name.trim() || 'RightSeat pilot', verified: true, role, lesson: r.goal,
+      name: name.trim() || 'Positive Rate pilot', verified: true, role, lesson: r.goal,
       date: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), bookingId: r.id, tags, rating, text: text.trim(),
     };
     addReview(isCfi ? 'cfi' : 'plane', target.id, review);

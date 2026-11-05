@@ -82,7 +82,7 @@ export function GetMatched({ nav, params }) {
             </Card>
           );
         })}
-        {sampleOnly && <Text style={[ms.sub, { color: '#B45309' }]}>Sample instructors can’t get requests. Pick instructors listed on RightSeat.</Text>}
+        {sampleOnly && <Text style={[ms.sub, { color: '#B45309' }]}>Sample instructors can’t get requests. Pick instructors listed on Positive Rate.</Text>}
         {!!err && <Text style={ms.err}>{err}</Text>}
       </ScrollView>
       <View style={ms.cta}>

@@ -675,7 +675,7 @@ export const THREADS = [
 
 // ---------- Flight school affiliations ----------
 // model 'split': CFI sets their rate, instruction pay is split (schoolPct to the school) on every lesson.
-// model 'employee': the school sets the CFI's rate and the split; the CFI's share is still paid out through RightSeat.
+// model 'employee': the school sets the CFI's rate and the split; the CFI's share is still paid out through Positive Rate.
 export const AFFILIATIONS = [
   { id: 'a1', cfiId: 'c1', schoolId: 's1', status: 'active', model: 'split', schoolPct: 0.3, initiatedBy: 'cfi', since: 'Jan 2025' },
   { id: 'a2', cfiId: 'c5', schoolId: 's1', status: 'active', model: 'split', schoolPct: 0.25, initiatedBy: 'school', since: 'Mar 2024' },

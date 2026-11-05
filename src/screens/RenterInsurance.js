@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Linking } from 'react-native';
 import { C, Icon } from '../ui';
 
-// Plain links to insurers' own renter (non-owned aircraft) pages. RightSeat isn't an
+// Plain links to insurers' own renter (non-owned aircraft) pages. Positive Rate isn't an
 // insurance agency: no partner deal, no referral pay, no advice on coverage or limits.
 // When a partner program (e.g. SkyWatch) approves us, swap in the tracked URL here.
 export const RENTER_INSURERS = [
@@ -40,7 +40,7 @@ export function RenterInsuranceSection() {
           <Text style={s.link}>Quote ↗</Text>
         </Pressable>
       ))}
-      <Text style={s.fine}>RightSeat isn’t an insurance agency and doesn’t recommend coverage or limits. Links open the insurer’s own site. Check each plane’s rental agreement for what it requires.</Text>
+      <Text style={s.fine}>Positive Rate isn’t an insurance agency and doesn’t recommend coverage or limits. Links open the insurer’s own site. Check each plane’s rental agreement for what it requires.</Text>
     </View>
   );
 }
@@ -62,7 +62,7 @@ export function RenterInsuranceCard() {
           </Pressable>
         ))}
       </View>
-      <Text style={[s.fine, { color: '#475569', marginTop: 8 }]}>RightSeat isn’t an insurance agency. Links open the insurer’s site.</Text>
+      <Text style={[s.fine, { color: '#475569', marginTop: 8 }]}>Positive Rate isn’t an insurance agency. Links open the insurer’s site.</Text>
     </View>
   );
 }

@@ -61,8 +61,8 @@ export default function Welcome() {
           <AircraftArt kind="highwing" color="#1F6FEB" tail="N4821R" height={260} scene="sky" />
         </View>
         <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 40 }}>
-          <Text style={w.brand}>RightSeat</Text>
-          <Text style={w.hero}>Find your instructor.{'\n'}Find your plane.{'\n'}Go fly.</Text>
+          <Text style={w.brand}>Positive Rate</Text>
+          <Text style={w.hero}>Train.{'\n'}Rent.{'\n'}Fly.</Text>
           {[
             ['shieldCheck', 'Every CFI and aircraft verified', 'FAA records, insurance and maintenance checked'],
             ['book', 'Your training record, in one place', 'Hours, lessons, debriefs and endorsements'],
@@ -98,7 +98,7 @@ export default function Welcome() {
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
         {step === 1 && (
           <>
-            <Text style={w.q}>What brings you to RightSeat?</Text>
+            <Text style={w.q}>What brings you to Positive Rate?</Text>
             <Text style={w.qs}>Pick all that apply. We’ll set up the app around you.</Text>
             {ROLES.map((r) => {
               const on = roles.includes(r.key);

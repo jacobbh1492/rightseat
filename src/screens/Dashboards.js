@@ -88,7 +88,7 @@ export function CfiDashboard({ nav }) {
           </Card>
         )}
         <Card style={{ flexDirection: 'row', paddingVertical: 4, marginTop: 12 }}>
-          <Stat value={(c.platformHours || 0).toLocaleString()} label="Hrs on RightSeat" />
+          <Stat value={(c.platformHours || 0).toLocaleString()} label="Hrs on Positive Rate" />
           <Stat value={`${repeatRate}%`} label="Students rebook" />
           <Stat value={money2(lateFees).replace('.00', '')} label="Late-cancel fees" />
         </Card>
@@ -113,7 +113,7 @@ export function CfiDashboard({ nav }) {
           <Text style={k.line}>✓ Students’ cards or wallets are held at booking. You never chase payment.</Text>
           <Text style={k.line}>✓ Late cancellations (&lt;24 hrs): you get 50% of the lesson. No-shows: 100%.</Text>
           <Text style={k.line}>✓ Tax forms (1099) filed for you every January.</Text>
-          <Text style={k.line}>✓ Your search ranking grows with hours flown and verified reviews on RightSeat.</Text>
+          <Text style={k.line}>✓ Your search ranking grows with hours flown and verified reviews on Positive Rate.</Text>
         </Card>
 
         <SectionTitle right={<Pressable onPress={() => nav.push('Plans')}><Text style={{ color: C.blue, fontWeight: '700' }}>Plans ›</Text></Pressable>}>Your plan</SectionTitle>
@@ -190,7 +190,7 @@ export function OwnerDashboard({ nav }) {
           <Row label="Due at Hobbs" value={p.next100At} />
           <Row label="Hours remaining" value={left > 0 ? `${left} hrs` : 'OVERDUE'} />
           <View style={k.bar}><View style={[k.barFill, { width: `${Math.max(0, Math.min(1, 1 - left / 100)) * 100}%`, backgroundColor: left < 10 ? '#DC2626' : C.blue }]} /></View>
-          <Text style={{ color: C.sub, fontSize: 12, marginTop: 6 }}>RightSeat blocks any booking that would run past the 100-hr. Hobbs updates automatically when each flight is closed out.</Text>
+          <Text style={{ color: C.sub, fontSize: 12, marginTop: 6 }}>Positive Rate blocks any booking that would run past the 100-hr. Hobbs updates automatically when each flight is closed out.</Text>
           {left < 10 && <Button title="Mark 100-hr complete (signed off)" variant="outline" style={{ marginTop: 10, paddingVertical: 10 }} onPress={() => complete100hr(p.id)} />}
         </Card>
 
@@ -249,7 +249,7 @@ export function Plans({ nav }) {
       <Header nav={nav} title="Plans & fees" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
         <Card style={{ backgroundColor: C.sky }}>
-          <Text style={{ fontWeight: '900', color: C.navy }}>How RightSeat fees work</Text>
+          <Text style={{ fontWeight: '900', color: C.navy }}>How Positive Rate fees work</Text>
           <Text style={k.line}>Students and renters: $10 booking fee on every lesson and rental ($5 when it’s with a School Pro school).</Text>
           <Text style={k.line}>Instructors: 5% host fee on a new student’s first lesson. $0 on repeat students and on CFI Pro.</Text>
           <Text style={k.line}>Owners: 8% of rental revenue.</Text>
@@ -311,7 +311,7 @@ export function Insights({ nav }) {
         </View>
         <Card style={{ flexDirection: 'row', paddingVertical: 4, marginTop: 12 }}>
           <Stat value={money(gmv)} label="Booked (30d)" />
-          <Stat value={money(rev)} label="RightSeat revenue" />
+          <Stat value={money(rev)} label="Positive Rate revenue" />
           <Stat value={`${((rev / gmv) * 100).toFixed(1)}%`} label="Take rate" />
         </Card>
         <Card style={{ flexDirection: 'row', paddingVertical: 4 }}>

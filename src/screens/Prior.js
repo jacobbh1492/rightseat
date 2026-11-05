@@ -136,7 +136,7 @@ export function PriorExperience({ nav, params }) {
                     <View key={l} style={s.lessonRow}>
                       <Text style={{ color: C.text, fontWeight: '600', marginBottom: 4 }}>{l}</Text>
                       {inApp ? (
-                        <Text style={{ color: C.green, fontSize: 12, fontWeight: '700' }}>✓ Signed off in RightSeat</Text>
+                        <Text style={{ color: C.green, fontSize: 12, fontWeight: '700' }}>✓ Signed off in Positive Rate</Text>
                       ) : (
                         <View style={{ flexDirection: 'row' }}>
                           <Chip small label="Done" active={p.lessons[l] === 'done'} onPress={() => setLesson(l, 'done')} />
@@ -167,7 +167,7 @@ export function PriorExperience({ nav, params }) {
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontWeight: '700', color: C.text }}>{e.name}</Text>
-                        <Text style={{ color: C.sub, fontSize: 12 }}>{e.ref}{already ? ' · already in your RightSeat record' : ''}</Text>
+                        <Text style={{ color: C.sub, fontSize: 12 }}>{e.ref}{already ? ' · already in your Positive Rate record' : ''}</Text>
                       </View>
                     </Pressable>
                     {on && !already && (

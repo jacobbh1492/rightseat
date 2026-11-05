@@ -29,7 +29,7 @@ serve(async (req, body) => {
   if (r.cfiId && (!cfi || !cfi.published)) throw new HttpError(404, 'That instructor isn’t taking bookings right now.');
   if (r.planeId && (!plane || !plane.published)) throw new HttpError(404, 'That plane isn’t available to book right now.');
   // Only verified instructors and planes can be booked (certificate; registration + insurance).
-  if (cfi && !cfi.verified) throw new HttpError(409, 'This instructor is still being verified by RightSeat. Try again soon.');
+  if (cfi && !cfi.verified) throw new HttpError(409, 'This instructor is still being verified by Positive Rate. Try again soon.');
   if (plane && !(plane.airworthy_verified && plane.insured)) throw new HttpError(409, 'This plane’s registration and insurance are still being verified. Try again soon.');
   if (cfi && cfi.id === user.id) throw new HttpError(400, 'You can’t book yourself.');
   if (plane && !cfi && plane.owner_id === user.id) throw new HttpError(400, 'You can’t rent your own plane.');
@@ -61,7 +61,7 @@ serve(async (req, body) => {
     if (!plane) throw new HttpError(400, 'Cost sharing is for plane rentals.');
     const { data: found } = await admin.rpc('user_id_by_email', { p_email: share.email });
     partnerId = found ? String(found) : null;
-    if (!partnerId) throw new HttpError(404, 'No RightSeat pilot uses that email. Ask them to join first, then invite them.');
+    if (!partnerId) throw new HttpError(404, 'No Positive Rate pilot uses that email. Ask them to join first, then invite them.');
     if (partnerId === user.id) throw new HttpError(400, 'Invite someone other than yourself.');
     if (partnerId === plane.owner_id) throw new HttpError(400, 'The plane’s owner can’t share the cost of renting it.');
     holdUntil = splitHoldUntil(r.startsAt);

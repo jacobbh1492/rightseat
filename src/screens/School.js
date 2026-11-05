@@ -19,7 +19,7 @@ export function SplitExample({ cfi, model, schoolPct, rate }) {
       <Text style={{ fontWeight: '800', color: C.navy }}>Example: 1.5 hr lesson at {money(r)}/hr = {money2(q.instruction)} instruction</Text>
       <View style={sc.exRow}><Text style={sc.exLabel}>School</Text><Text style={sc.exVal}>{money2(q.split.school)}</Text></View>
       <View style={sc.exRow}><Text style={sc.exLabel}>Instructor</Text><Text style={sc.exVal}>{money2(q.split.cfi)}</Text></View>
-      <Text style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>Repeat student shown. On a new student’s first lesson, RightSeat’s 5% host fee comes off first (0% on CFI Pro). Aircraft rental is paid to the plane’s owner separately.</Text>
+      <Text style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>Repeat student shown. On a new student’s first lesson, Positive Rate’s 5% host fee comes off first (0% on CFI Pro). Aircraft rental is paid to the plane’s owner separately.</Text>
     </View>
   );
 }
@@ -204,7 +204,7 @@ export function SchoolDashboard({ nav }) {
       </ScrollView>
 
       <Sheet visible={invite} onClose={() => setInvite(false)} title="Invite an instructor">
-        <Text style={[sc.note, { marginTop: 0 }]}>Independent instructors on RightSeat. They’ll get your invite with your standard terms ({x.terms.model === 'employee' ? 'employee' : 'revenue share'}, school {Math.round(x.terms.schoolPct * 100)}%).</Text>
+        <Text style={[sc.note, { marginTop: 0 }]}>Independent instructors on Positive Rate. They’ll get your invite with your standard terms ({x.terms.model === 'employee' ? 'employee' : 'revenue share'}, school {Math.round(x.terms.schoolPct * 100)}%).</Text>
         {independent.length === 0 && <Text style={{ color: C.sub }}>Everyone is already with a school.</Text>}
         {independent.map((c, i) => (
           <ListRow key={c.id} first={i === 0} title={c.name} subtitle={`${c.certs.join(' · ')} · ${c.homeAirport} · ${money(c.flightRate)}/hr`}
@@ -259,7 +259,7 @@ export function AffiliationReview({ nav, params }) {
           <View style={{ flex: 1, alignItems: 'center' }}><Text style={sc.kpi}>{c.studentsSoloed}</Text><Text style={sc.kpiL}>soloed</Text></View>
         </Card>
         {a.message ? <Card><Text style={{ color: C.text, fontStyle: 'italic', lineHeight: 20 }}>“{a.message}”</Text></Card> : null}
-        <Text style={{ color: C.green, fontWeight: '700', marginBottom: 8 }}>✓ FAA certificate, insurance and ID verified by RightSeat</Text>
+        <Text style={{ color: C.green, fontWeight: '700', marginBottom: 8 }}>✓ FAA certificate, insurance and ID verified by Positive Rate</Text>
 
         <SectionTitle>Offer terms</SectionTitle>
         <View style={{ flexDirection: 'row', marginBottom: 8 }}>

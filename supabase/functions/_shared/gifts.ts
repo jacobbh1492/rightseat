@@ -24,7 +24,7 @@ export async function activateGift(pi: any) {
     if (!won) break; // the other report got there first
     await admin.from('ledger').insert({ party_id: g.buyer_id, kind: 'charge_gift', amount: g.amount, stripe_ref: pi.id });
     await audit(g.buyer_id, 'gift.paid', g.id, { amount: g.amount });
-    // Already on RightSeat? Tell them (they still redeem the code, so it's theirs to keep or pass on).
+    // Already on Positive Rate? Tell them (they still redeem the code, so it's theirs to keep or pass on).
     if (g.recipient_email) {
       const { data: uid } = await admin.rpc('user_id_by_email', { p_email: g.recipient_email });
       if (uid && uid !== g.buyer_id) {

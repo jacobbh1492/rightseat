@@ -133,7 +133,7 @@ export function Bookings() {
             <KV rows={[
               ['Charged to student', money(b.total, true)], ['Booking fee', money(b.bookingFee, true)], ['Rental protection', money(b.protection, true)],
               ['Instructor payout', money(b.split.cfi, true)], b.split.school ? ['School share', `${money(b.split.school, true)} · ${b.split.schoolModel === 'employee' ? 'employee' : 'revenue share'}`] : null, ['Owner payout', money(b.split.owner, true)], ['Card processing', money(b.split.processing, true)],
-              ['RightSeat net', money(b.split.platform, true)], b.cancelFee ? ['Late-cancel fee', money(b.cancelFee, true)] : null, b.refunded ? ['Refunded', money(b.refunded, true)] : null,
+              ['Positive Rate net', money(b.split.platform, true)], b.cancelFee ? ['Late-cancel fee', money(b.cancelFee, true)] : null, b.refunded ? ['Refunded', money(b.refunded, true)] : null,
             ]} />
             <div className="section-title">Timeline</div>
             <div className="timeline">{b.timeline.map((t, i) => <div key={i}><div>{t.text}</div><div className="sub2">{fmtDateTime(t.at)}</div></div>)}</div>
@@ -183,7 +183,7 @@ export function Payments() {
       </PageHeader>
       <div className="grid g4" style={{ marginBottom: 16 }}>
         <Stat label="Charged · 30 days" value={money(gmv)} sub={`${d30.length} flights`} />
-        <Stat label="RightSeat net · 30 days" value={money(rev)} sub="After card processing" tone="good" />
+        <Stat label="Positive Rate net · 30 days" value={money(rev)} sub="After card processing" tone="good" />
         <Stat label="Paid out · 6 weeks" value={money(paid)} sub={`Instructors, owners, schools · ${money(schoolShare)} school share (30d)`} />
         <Stat label="Scheduled payouts" value={money(scheduled)} sub="Next payout run Friday" />
       </div>
@@ -200,7 +200,7 @@ export function Payments() {
             { key: 'cfi', label: 'To instructor', align: 'right', sort: (r) => r.split.cfi, render: (r) => money(r.split.cfi, true) },
             { key: 'school', label: 'To school', align: 'right', sort: (r) => r.split.school || 0, render: (r) => (r.split.school ? money(r.split.school, true) : <span className="sub2">—</span>) },
             { key: 'owner', label: 'To owner', align: 'right', sort: (r) => r.split.owner, render: (r) => <span title={plane(r.planeId)?.ownerName}>{money(r.split.owner, true)}</span> },
-            { key: 'platform', label: 'RightSeat', align: 'right', sort: (r) => r.split.platform, render: (r) => <span className="strong">{money(r.split.platform, true)}</span> },
+            { key: 'platform', label: 'Positive Rate', align: 'right', sort: (r) => r.split.platform, render: (r) => <span className="strong">{money(r.split.platform, true)}</span> },
           ]}
         />
       )}

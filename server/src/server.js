@@ -66,4 +66,4 @@ app.get('/broker/confirm/:token', (req, res) => {
 app.use('/api/admin', adminRouter(deps));
 
 const port = process.env.PORT || 8787;
-app.listen(port, () => console.log(`RightSeat verification API on :${port}`));
+app.listen(port, () => console.log(`Positive Rate verification API on :${port}`));

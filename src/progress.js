@@ -1,4 +1,4 @@
-// Training progress: combines lessons/hours logged in RightSeat with a student's previous (self-reported) experience.
+// Training progress: combines lessons/hours logged in Positive Rate with a student's previous (self-reported) experience.
 import { SYLLABUS } from './data';
 import { PPL_MINIMUMS, r2 } from './logic';
 

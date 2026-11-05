@@ -52,7 +52,7 @@ function LiveInbox({ nav, uid }) {
           {t.unread && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.blue, marginLeft: 8 }} />}
         </Card>
       ))}
-      <Text style={s.policy}>Messages stay in RightSeat so bookings, payments and your training record stay protected. Phone numbers and emails are shared after your first booking together.</Text>
+      <Text style={s.policy}>Messages stay in Positive Rate so bookings, payments and your training record stay protected. Phone numbers and emails are shared after your first booking together.</Text>
     </ScrollView>
   );
 }
@@ -78,7 +78,7 @@ function DemoInbox({ nav }) {
           </Card>
         );
       })}
-      <Text style={s.policy}>Messages stay in RightSeat so bookings, payments and your training record stay protected. Phone numbers and emails are shared automatically after your first booking.</Text>
+      <Text style={s.policy}>Messages stay in Positive Rate so bookings, payments and your training record stay protected. Phone numbers and emails are shared automatically after your first booking.</Text>
     </ScrollView>
   );
 }
@@ -167,7 +167,7 @@ function LiveChat({ nav, params, uid, other, cfi, plane }) {
           <View style={s.nudge}>
             <Text style={{ fontWeight: '800', color: '#92400E' }}>{notice === 'masked' ? 'We hid that contact info' : 'Heads up'}</Text>
             <Text style={{ color: '#92400E', fontSize: 13, marginTop: 4, lineHeight: 18 }}>
-              Lessons and rentals paid outside RightSeat aren’t covered by payment protection, free weather cancellations or your automatic training record.
+              Lessons and rentals paid outside Positive Rate aren’t covered by payment protection, free weather cancellations or your automatic training record.
             </Text>
           </View>
         )}
@@ -230,7 +230,7 @@ function DemoChat({ nav, params }) {
           <View style={s.nudge}>
             <Text style={{ fontWeight: '800', color: '#92400E' }}>{notice === 'masked' ? 'We hid that contact info' : 'Heads up'}</Text>
             <Text style={{ color: '#92400E', fontSize: 13, marginTop: 4, lineHeight: 18 }}>
-              Lessons and rentals paid outside RightSeat aren’t covered by payment protection, free weather cancellations or your automatic training record.
+              Lessons and rentals paid outside Positive Rate aren’t covered by payment protection, free weather cancellations or your automatic training record.
             </Text>
           </View>
         )}

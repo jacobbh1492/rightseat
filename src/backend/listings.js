@@ -18,7 +18,7 @@ export function cfiFromRow(row, names, planeIds, avatars = {}) {
     yearsInstructing: d.yearsInstructing || 0, passRate: d.passRate || 0, checkridesSent: d.checkridesSent || 0, studentsSoloed: d.studentsSoloed || 0,
     specialties: row.specialties || [], trainingTypes: d.trainingTypes || ['Part 61'], availability: row.availability || [],
     timeOfDay: d.timeOfDay || ['Daytime'], teachingStyle: d.teachingStyle || '', background: d.background || '', bio: d.bio || '',
-    languages: d.languages || ['English'], responseTime: 'New on RightSeat', teachesInYourPlane: !!d.teachesInYourPlane,
+    languages: d.languages || ['English'], responseTime: 'New on Positive Rate', teachesInYourPlane: !!d.teachesInYourPlane,
     insured: !!d.insured, verified: !!row.verified, pro: !!row.pro, rating: 0, reviewCount: 0, reviews: [],
     aircraftIds: planeIds, packages: d.packages || [], platformHours: 0, monthEarnings: 0,
   };
@@ -43,7 +43,7 @@ export function planeFromRow(row, photos = []) {
 
 // Verified reviews, in the shape the app's ReviewCard shows.
 const reviewFromRow = (subject) => (r) => ({
-  name: r.author_name || 'RightSeat pilot', verified: true, role: subject === 'cfi' ? 'Student' : 'Renter', lesson: r.lesson || '',
+  name: r.author_name || 'Positive Rate pilot', verified: true, role: subject === 'cfi' ? 'Student' : 'Renter', lesson: r.lesson || '',
   date: new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
   tags: r.tags || [], rating: r.rating, text: r.body || '', reply: r.reply || null,
 });

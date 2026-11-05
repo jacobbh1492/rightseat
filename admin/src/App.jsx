@@ -36,7 +36,7 @@ function Login() {
   return (
     <div className="login">
       <div className="login-art">
-        <div style={{ fontWeight: 900, fontSize: 22, color: '#93C5FD' }}>RightSeat</div>
+        <div style={{ fontWeight: 900, fontSize: 22, color: '#93C5FD' }}>Positive Rate</div>
         <h1 style={{ fontSize: 40, lineHeight: 1.1, marginTop: 10 }}>Admin console</h1>
         <p style={{ color: '#B9C7DD', maxWidth: 420, fontSize: 15, lineHeight: 1.5 }}>Run the marketplace: bookings and payouts, verification, disputes, trust & safety. Every action is permissioned and logged.</p>
       </div>
@@ -83,7 +83,7 @@ export default function App() {
   return (
     <div className="shell">
       <aside className="side">
-        <div className="brand">RightSeat <small>ADMIN</small></div>
+        <div className="brand">Positive Rate <small>ADMIN</small></div>
         <nav className="nav" aria-label="Admin sections">
           {NAV.map((g) => {
             const items = g.items.filter((i) => canSee(me.role, i.key));

@@ -56,7 +56,7 @@ export function Overview({ go }) {
       <div className="grid g4" style={{ marginBottom: 16 }}>
         <Stat label="Lessons flown · 7 days" value={last7} sub={`${change >= 0 ? '▲' : '▼'} ${Math.abs(change)}% vs prior week`} tone={change >= 0 ? 'good' : 'bad'} onClick={() => go('bookings')} />
         <Stat label="Booked · 30 days" value={money(gmv)} sub={`${d30.length} completed flights`} onClick={() => go('payments')} />
-        <Stat label="RightSeat revenue · 30 days" value={money(rev)} sub={`${pct(rev / gmv)} take rate after card fees`} onClick={() => go('payments')} />
+        <Stat label="Positive Rate revenue · 30 days" value={money(rev)} sub={`${pct(rev / gmv)} take rate after card fees`} onClick={() => go('payments')} />
         <Stat label="Student–CFI rebooking" value={`${rebook}%`} sub="Goal 80%+. Watch leakage" tone={rebook >= 80 ? 'good' : 'warn'} onClick={() => go('trust')} />
       </div>
       <div className="grid g4" style={{ marginBottom: 16 }}>
@@ -67,7 +67,7 @@ export function Overview({ go }) {
       </div>
       <div className="grid g2" style={{ marginBottom: 16 }}>
         <WeeklyChart title="Lessons flown per week" caption="Completed flights, last 8 weeks" data={weekly(db.bookings, (b) => b.length)} />
-        <WeeklyChart title="RightSeat revenue per week" caption="Booking + host fees, after card processing" type="line" data={weekly(db.bookings, (b) => Math.round(b.reduce((a, x) => a + x.split.platform, 0)))} format={(v) => money(v)} />
+        <WeeklyChart title="Positive Rate revenue per week" caption="Booking + host fees, after card processing" type="line" data={weekly(db.bookings, (b) => Math.round(b.reduce((a, x) => a + x.split.platform, 0)))} format={(v) => money(v)} />
       </div>
       <div className="grid g2">
         <div className="card">
@@ -98,7 +98,7 @@ export function Overview({ go }) {
   );
 }
 
-const NOTES = ['Name variation OK', 'Matches certificate photo', 'Authority confirmed (LLC/leaseback)', 'Need a clearer photo', 'Upload IA card', 'Add RightSeat as additional insured'];
+const NOTES = ['Name variation OK', 'Matches certificate photo', 'Authority confirmed (LLC/leaseback)', 'Need a clearer photo', 'Upload IA card', 'Add Positive Rate as additional insured'];
 
 export function Verification() {
   const { db, decideDoc, can } = useAdmin();

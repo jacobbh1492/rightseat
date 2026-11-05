@@ -19,7 +19,7 @@ export async function syncAircraftJob({ db, aircraft, now = new Date() }) {
     if (problems.length) {
       changes.push({ tail: l.tail, problems });
       db.upsertListing({ id: l.id, paused: true, pausedReason: problems.join('; ') });
-      await notifyUser(db.getUser(l.ownerId), { title: `${l.tail} paused`, body: `We paused bookings: ${problems.join('; ')}. Update your registration in RightSeat to resume.` });
+      await notifyUser(db.getUser(l.ownerId), { title: `${l.tail} paused`, body: `We paused bookings: ${problems.join('; ')}. Update your registration in Positive Rate to resume.` });
     } else if (l.paused && /registr|owner/i.test(l.pausedReason || '')) {
       db.upsertListing({ id: l.id, paused: false, pausedReason: null });
     }
@@ -68,7 +68,7 @@ export async function expirationSweep({ db, now = new Date() }) {
     }
     const due = REMINDER_DAYS.filter((r) => days <= r && !db.reminderSent(d.id, r)).sort((a, b) => a - b)[0];
     if (due != null) {
-      await notifyUser(user, { title: `Expires in ${days} days`, body: `Your ${d.type} expires ${d.expires}. Upload the renewal in RightSeat. It verifies in seconds.` });
+      await notifyUser(user, { title: `Expires in ${days} days`, body: `Your ${d.type} expires ${d.expires}. Upload the renewal in Positive Rate. It verifies in seconds.` });
       REMINDER_DAYS.filter((r) => r >= due).forEach((r) => db.reminderSent(d.id, r) || db.markReminder(d.id, r));
       out.reminders++;
     }

@@ -411,7 +411,7 @@ export function StoreProvider({ children }) {
         return exists ? prev.map((t) => (t.key === key ? { ...t, messages: [...t.messages, msg] } : t)) : [{ key, messages: [msg] }, ...prev];
       });
       const reply = scan.offApp || scan.masked
-        ? 'Let’s keep it in RightSeat — that way my pay is guaranteed and your lesson goes on your training record. Just book here and I’ll confirm.'
+        ? 'Let’s keep it in Positive Rate — that way my pay is guaranteed and your lesson goes on your training record. Just book here and I’ll confirm.'
         : 'Sounds good! Grab a time on my calendar and I’ll confirm.';
       timers.current.push(setTimeout(() => setThreads((prev) => prev.map((t) => (t.key === key ? { ...t, messages: [...t.messages, { from: 'them', text: reply, at: 'Now' }] } : t))), 1200));
       return scan;

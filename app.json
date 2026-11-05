@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "RightSeat",
+    "name": "Positive Rate",
     "slug": "right-seat-aviation",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -30,7 +30,7 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
-      "name": "RightSeat"
+      "name": "Positive Rate"
     },
     "plugins": [
       [
@@ -48,8 +48,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "RightSeat uses your photos so you can add a profile picture, aircraft photos and insurance documents.",
-          "cameraPermission": "RightSeat uses the camera to scan your card when you add a payment method, and to take photos for your profile and aircraft listings.",
+          "photosPermission": "Positive Rate uses your photos so you can add a profile picture, aircraft photos and insurance documents.",
+          "cameraPermission": "Positive Rate uses the camera to scan your card when you add a payment method, and to take photos for your profile and aircraft listings.",
           "microphonePermission": false
         }
       ],

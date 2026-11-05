@@ -133,7 +133,7 @@ function DemoTraining({ nav }) {
         <SectionTitle>Cost to checkride</SectionTitle>
         <Card>
           <View style={{ flexDirection: 'row' }}>
-            <View style={{ flex: 1 }}><Text style={t.label}>Spent on RightSeat</Text><Text style={t.money}>{money(training.spent)}</Text></View>
+            <View style={{ flex: 1 }}><Text style={t.label}>Spent on Positive Rate</Text><Text style={t.money}>{money(training.spent)}</Text></View>
             <View style={{ flex: 1 }}><Text style={t.label}>Est. remaining</Text><Text style={t.money}>{money(proj.est)}</Text></View>
             <View style={{ flex: 1 }}><Text style={t.label}>Projected</Text><Text style={[t.money, { color: C.blue }]}>{money(proj.projected)}</Text></View>
           </View>
@@ -158,7 +158,7 @@ function DemoTraining({ nav }) {
           ))}
           {prior && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-              <View style={[t.legend, { backgroundColor: C.blue }]} /><Text style={t.legendText}>Logged in RightSeat</Text>
+              <View style={[t.legend, { backgroundColor: C.blue }]} /><Text style={t.legendText}>Logged in Positive Rate</Text>
               <View style={[t.legend, { backgroundColor: '#93C5FD', marginLeft: 12 }]} /><Text style={t.legendText}>Previous ({prior.status === 'confirmed' ? 'confirmed' : 'self-reported'})</Text>
             </View>
           )}
@@ -236,7 +236,7 @@ function DemoTraining({ nav }) {
         <View style={t.lock}>
           <Text style={{ fontWeight: '800', color: C.navy }}>Your record builds itself</Text>
           <Text style={{ color: C.navy, fontSize: 13, marginTop: 4, lineHeight: 19 }}>
-            Every lesson booked in RightSeat adds hours, syllabus progress and signed endorsements automatically when your CFI closes out the flight. Previous experience stays marked until a CFI confirms it.
+            Every lesson booked in Positive Rate adds hours, syllabus progress and signed endorsements automatically when your CFI closes out the flight. Previous experience stays marked until a CFI confirms it.
           </Text>
         </View>
       </View>
