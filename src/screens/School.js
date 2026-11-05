@@ -71,6 +71,12 @@ export function SchoolDashboard({ nav }) {
         </View>
 
         <View style={{ padding: 16 }}>
+          <Pressable onPress={() => nav.push('SchoolImport')} accessibilityRole="button">
+            <Card style={{ borderWidth: 1.5, borderColor: C.blue }}>
+              <Text style={{ fontWeight: '900', color: C.text, fontSize: 16 }}>Switching from Flight Schedule Pro? ›</Text>
+              <Text style={{ color: C.sub, fontSize: 13, marginTop: 2, lineHeight: 18 }}>Import your instructors, students, aircraft and upcoming reservations from FSP’s CSV exports.</Text>
+            </Card>
+          </Pressable>
           {tab === 'schedule' && (
             <>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>

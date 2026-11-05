@@ -1,10 +1,12 @@
 // POST /booking-sweep — hourly housekeeping (.github/workflows/booking-sweep.yml).
 // Service role only. Releases shared-flight invites that ran out, reminds instructors
 // whose pay is waiting on a debrief (1, 3 and 7 days), and pays out debriefs that were
-// written straight from the app (older app versions save them without telling us).
+// written straight from the app (older app versions save them without telling us), and
+// books reservations imported from Flight Schedule Pro once everyone needed has joined.
 import { serve, json, admin } from '../_shared/server.ts';
 import { HttpError } from '../_shared/bookings.js';
 import { releaseDebrief } from '../_shared/payouts.ts';
+import { convertAllReservations } from '../_shared/imports.ts';
 
 serve(async (req) => {
   const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
@@ -35,5 +37,8 @@ serve(async (req) => {
       }
     }
   }
-  return json({ ...sweeps, debriefPayReleased: Math.round(released * 100) / 100, failed });
+  // Schools switching from Flight Schedule Pro: book imported reservations that are now ready.
+  let importsBooked = 0;
+  try { importsBooked = await convertAllReservations(); } catch (e) { console.error('imports', e); }
+  return json({ ...sweeps, importsBooked, debriefPayReleased: Math.round(released * 100) / 100, failed });
 });

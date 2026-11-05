@@ -82,6 +82,7 @@ export function Me({ nav }) {
       key: 'school', mode: 'teach', show: roles.includes('school'), title: 'Flight school',
       rows: [
         { icon: 'calendar', title: 'School dashboard', subtitle: 'Schedule, instructors, join requests, your share', go: 'SchoolDashboard' },
+        { icon: 'file', title: 'Switch from Flight Schedule Pro', subtitle: 'Import your people, aircraft and upcoming reservations', go: 'SchoolImport' },
         { icon: 'school', title: mySchool ? 'Edit school page' : 'Create school page', subtitle: 'Instructors, fleet, programs, reviews', go: 'SchoolForm', params: { id: mySchoolId } },
       ],
     },
