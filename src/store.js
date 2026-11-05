@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { fetchMyBookings } from './backend/bookings';
 import { fetchLiveListings } from './backend/listings';
+import { onMaintenanceChange } from './backend/maintenance';
 import { useAuth } from './backend/auth';
 import { fetchMyPromos, redeemPromoCode } from './backend/promos';
 import { promoFor, promoEnds, isActive } from './promos';
@@ -114,6 +115,8 @@ export function StoreProvider({ children }) {
     }
   };
   useEffect(() => { refreshListings().catch(() => {}); }, [auth?.session?.user?.id]);
+  // A squawk or inspection changed somewhere: plane pages and booking checks pick it up.
+  useEffect(() => onMaintenanceChange(() => { refreshListings().catch(() => {}); }), [auth?.session?.user?.id]);
 
   // Live bookings: the student's go into `requests` (Lessons tab), the instructor's
   // and owner's into `teaching` (Lesson requests screen).

@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { MaintenancePanel } from './Maintenance';
+import { aircraftChecks } from '../aircraftStatus';
+import { ymdIn } from '../renterChecks';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useStore, money } from '../store';
 import { PLANS, CFI_STUDENTS, SEED_PAIRS } from '../data';
@@ -151,7 +154,9 @@ export function OwnerDashboard({ nav }) {
   const p = getPlane(sel);
   const left = r2(p.next100At - p.hobbsTotal);
   const open = p.squawks.filter((q) => q.status === 'open');
-  const grounded = left <= 0 || open.some((q) => q.grounding);
+  const grounded = p.live
+    ? aircraftChecks({ plane: p, squawks: p.squawks, flightHours: 0.1, day: ymdIn(new Date()) }).some((c) => c.blocking && !c.ok)
+    : left <= 0 || open.some((q) => q.grounding);
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -179,6 +184,7 @@ export function OwnerDashboard({ nav }) {
           <Stat value={open.length} label="Open squawks" />
         </Card>
 
+        {p.live ? <MaintenancePanel planeId={p.id} nav={nav} owner /> : <>
         <SectionTitle>100-hour inspection</SectionTitle>
         <Card>
           <Row label="Due at Hobbs" value={p.next100At} />
@@ -208,6 +214,7 @@ export function OwnerDashboard({ nav }) {
             <Button title="Add squawk" variant="outline" style={{ paddingVertical: 10 }} onPress={() => { addSquawk(p.id, sq, grounding); setSq(''); setGrounding(false); }} />
           </>
         ) : null}
+        </>}
 
         <SectionTitle>Renter checks</SectionTitle>
         <Card>

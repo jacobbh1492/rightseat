@@ -1,4 +1,7 @@
 import React from 'react';
+import { aircraftChecks, blockingIssues } from '../aircraftStatus';
+import { ymdIn } from '../renterChecks';
+import { useAuth } from '../backend/auth';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useStore, money } from '../store';
 import { AIRPORTS } from '../data';
@@ -82,6 +85,11 @@ export function CfiDetail({ nav, params }) {
           <Row label="Flight instruction" value={`${money(c.flightRate)}/hr`} />
           <Row label="Ground instruction" value={`${money(c.groundRate)}/hr`} />
           {c.discoveryFlight > 0 && <Row label="Discovery flight (incl. plane)" value={money(c.discoveryFlight)} />}
+          {c.discoveryFlight > 0 && (
+            <Pressable onPress={() => nav.push('GiftFlight', { cfiId: c.id })} style={{ paddingVertical: 6 }} accessibilityRole="button">
+              <Text style={{ color: C.blue, fontWeight: '700' }}>🎁 Gift a discovery flight with {c.name.split(' ')[0]} ›</Text>
+            </Pressable>
+          )}
           <Row label="Teaches in your own aircraft" value={c.teachesInYourPlane ? 'Yes' : 'No'} />
           <Row label="Carries CFI insurance" value={c.insured ? 'Yes' : 'No'} />
           {c.packages.length > 0 && <Text style={[ds.label, { marginTop: 10 }]}>Packages</Text>}
@@ -165,11 +173,13 @@ export function CfiDetail({ nav, params }) {
 
 export function PlaneDetail({ nav, params }) {
   const { getPlane, cfisForPlane, getSchool } = useStore();
+  const auth = useAuth();
   const p = getPlane(params.id);
   if (!p) return null;
   const school = p.schoolId ? getSchool(p.schoolId) : null;
   const cfis = cfisForPlane(p.id);
   const engineLife = Math.max(0, Math.min(1, 1 - p.engineSMOH / p.tbo));
+  const grounded = blockingIssues(aircraftChecks({ plane: p, squawks: p.squawks || [], flightHours: 0.1, day: ymdIn(new Date()) })).length > 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -198,9 +208,15 @@ export function PlaneDetail({ nav, params }) {
           </Card>
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
-            <Tag label={`100-hr in ${Math.max(0, Math.round((p.next100At - p.hobbsTotal) * 10) / 10)} hrs`} color={p.next100At - p.hobbsTotal < 10 ? '#B45309' : C.green} bg={p.next100At - p.hobbsTotal < 10 ? '#FEF3C7' : '#E3F7EF'} />
+            {grounded && <Tag label="Grounded · not bookable" color="#DC2626" bg="#FEE2E2" />}
+            {p.next100At > 0 && <Tag label={`100-hr in ${Math.max(0, Math.round((p.next100At - p.hobbsTotal) * 10) / 10)} hrs`} color={p.next100At - p.hobbsTotal < 10 ? '#B45309' : C.green} bg={p.next100At - p.hobbsTotal < 10 ? '#FEF3C7' : '#E3F7EF'} />}
             <Tag label={`${(p.squawks || []).filter((q) => q.status === 'open').length} open squawks`} color={C.sub} bg="#EEF1F5" />
           </View>
+          {p.live && auth?.session && (
+            <Pressable onPress={() => nav.push('ReportSquawk', { planeId: p.id })} style={{ paddingVertical: 6 }} accessibilityRole="button">
+              <Text style={{ color: C.blue, fontWeight: '700' }}>Flew it and found a problem? Report a squawk ›</Text>
+            </Pressable>
+          )}
 
           <SectionTitle>Verified by RightSeat</SectionTitle>
           <VerifiedCard kind="plane" entity={p} />

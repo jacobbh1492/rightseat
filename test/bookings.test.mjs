@@ -88,7 +88,8 @@ test('who can do what', () => {
   assert.doesNotThrow(() => assertTransition('confirm', b, 'cfi'));
   const solo = { ...b, cfi_id: null };
   assert.doesNotThrow(() => assertTransition('confirm', solo, 'owner'));
-  assert.throws(() => assertTransition('complete', { ...b, status: 'confirmed' }, 'cfi'), /once it has started/);
+  // (relative to the real clock: the rule compares with Date.now())
+  assert.throws(() => assertTransition('complete', { ...b, status: 'confirmed', starts_at: new Date(Date.now() + 48 * 3600000).toISOString() }, 'cfi'), /once it has started/);
   assert.doesNotThrow(() => assertTransition('complete', { ...b, status: 'confirmed', starts_at: new Date(Date.now() - 3600000).toISOString() }, 'cfi'));
   assert.throws(() => assertTransition('cancel', { ...b, status: 'completed' }, 'student'), /already completed/);
 });

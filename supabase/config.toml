@@ -34,3 +34,6 @@ verify_jwt = false
 
 [functions.promo]
 verify_jwt = false
+
+[functions.gift]
+verify_jwt = false

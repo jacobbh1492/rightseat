@@ -135,6 +135,25 @@ export default function Explore({ nav }) {
             </View>
           )}
 
+          {mode !== 'plane' && (
+            <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+              <Pressable onPress={() => nav.push('GetMatched')} style={[st.quick, { marginRight: 8 }]} accessibilityRole="button" accessibilityLabel="Get matched with an instructor">
+                <Icon name="users" size={18} color={C.blue} />
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={st.quickTitle}>Get matched</Text>
+                  <Text style={st.quickSub}>We pick instructors for you</Text>
+                </View>
+              </Pressable>
+              <Pressable onPress={() => nav.push('GiftFlight')} style={st.quick} accessibilityRole="button" accessibilityLabel="Gift a flight">
+                <Icon name="star" size={18} color="#F59E0B" />
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={st.quickTitle}>Gift a flight</Text>
+                  <Text style={st.quickSub}>A first lesson for someone</Text>
+                </View>
+              </Pressable>
+            </View>
+          )}
+
           {active.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
               {active.map(([k, label]) => (
@@ -366,6 +385,9 @@ export function SchoolCard({ x, nav }) {
 }
 
 const st = StyleSheet.create({
+  quick: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: C.line, minHeight: 56 },
+  quickTitle: { fontWeight: '800', color: C.text, fontSize: 14 },
+  quickSub: { color: C.sub, fontSize: 11, marginTop: 1 },
   hero: { backgroundColor: C.navy, paddingTop: 14, paddingHorizontal: 16, paddingBottom: 18 },
   hello: { color: '#9FB3D1', fontWeight: '700', fontSize: 14 },
   title: { color: '#fff', fontSize: 26, fontWeight: '900', letterSpacing: -0.5, marginTop: 2 },

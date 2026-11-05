@@ -10,9 +10,10 @@ export async function assertRenterReady(userId: string, plane: any, flightHours:
     admin.from('plane_checkouts').select('status, solo_until').eq('plane_id', plane.id).eq('pilot_id', userId).maybeSingle(),
   ]);
   const checks = renterChecks({
-    profile: p ? { certificate: p.certificate, medicalClass: p.medical_class, medicalExpires: p.medical_expires, flightReviewDate: p.flight_review_date, totalHours: Number(p.total_hours) } : null,
+    profile: p ? { certificate: p.certificate, medicalClass: p.medical_class, medicalExpires: p.medical_expires, flightReviewDate: p.flight_review_date, totalHours: Number(p.total_hours),
+      lastFlightDate: p.last_flight_date, dayLandingsDate: p.day_landings_date, nightLandingsDate: p.night_landings_date } : null,
     checkout: c ? { status: c.status, soloUntil: c.solo_until } : null,
-    plane: { tail: plane.tail, soloRental: plane.details?.soloRental !== false, checkoutBy: plane.details?.checkoutBy || 'cfi', insuranceMinHours: Number(plane.details?.insuranceMinHours || 0), hobbsTotal: plane.hobbs_total, next100At: plane.next_100_at },
+    plane: { tail: plane.tail, soloRental: plane.details?.soloRental !== false, checkoutBy: plane.details?.checkoutBy || 'cfi', insuranceMinHours: Number(plane.details?.insuranceMinHours || 0), hobbsTotal: plane.hobbs_total, next100At: plane.next_100_at, recentFlightDays: Number(plane.details?.recentFlightDays || 0) },
     flightHours, start, forCheckout: !!opts.forCheckout,
   });
   const bad = failing(checks);

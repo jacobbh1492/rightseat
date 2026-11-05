@@ -10,6 +10,7 @@ const changed = () => listeners.forEach((fn) => fn());
 const fromRow = (p) => p && ({
   certificate: p.certificate, medicalClass: p.medical_class, medicalExpires: p.medical_expires,
   flightReviewDate: p.flight_review_date, totalHours: Number(p.total_hours), updatedAt: p.updated_at,
+  lastFlightDate: p.last_flight_date || null, dayLandingsDate: p.day_landings_date || null, nightLandingsDate: p.night_landings_date || null,
 });
 const fromCheckout = (c) => c && ({
   id: c.id, planeId: c.plane_id, pilotId: c.pilot_id, status: c.status, soloUntil: c.solo_until,
@@ -26,6 +27,7 @@ export async function savePilotProfile(uid, p) {
   const row = {
     user_id: uid, certificate: p.certificate, medical_class: p.medicalClass, medical_expires: p.medicalExpires,
     flight_review_date: p.certificate === 'Student' ? (p.flightReviewDate || null) : p.flightReviewDate, total_hours: Number(p.totalHours),
+    last_flight_date: p.lastFlightDate || null, day_landings_date: p.dayLandingsDate || null, night_landings_date: p.nightLandingsDate || null,
   };
   const { data, error } = await supabase.from('pilot_profiles').upsert(row).select().single();
   if (error) throw error;

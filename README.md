@@ -69,6 +69,29 @@ Cross-platform (iPhone + Android) app built with React Native + Expo.
 - **School dashboard:** earnings this month, upcoming share, a schedule of every lesson with its instructors or in its aircraft (filter by instructor, school share per lesson), an instructor roster with arrangement, rate (school-set for employees), this week's lessons and share, change terms or remove, join requests to review (with a verified-credentials summary and a live split example), and standard terms (arrangement, share, minimum rate, notice period).
 - **Leaving:** either side can end it after the school's notice period. Lessons already booked keep the split they were booked under.
 
+## Squawks, inspections & mechanics
+- **Report a squawk** from the plane page, the preflight screen, or at close-out (anyone who flies the plane, its owner or its mechanic), with up to 4 photos. Marking it **grounding** pauses new bookings and confirmations right away and notifies pilots and instructors with upcoming flights in it.
+- **Owners and mechanics** mark squawks fixed (with what was done), defer them (with why it's OK to fly) or change grounding. The reporter hears when it's fixed.
+- **Inspections:** log the 100-hour (resets the countdown from that Hobbs) and the annual (good through the end of the 12th calendar month, 91.409). An overdue 100-hour or expired annual blocks bookings. Rules: `src/aircraftStatus.js`, shared with the `book` and `booking-action` functions.
+- **Mechanic access:** Owner tools → Mechanics → invite by email. Once they accept (Account → Maintenance) they see the plane's squawks and inspections and can fix and log; never renters, bookings or money.
+- Database: `report_squawk`, `update_squawk`, `invite_mechanic`, `respond_mechanic_invite`, `remove_mechanic`, `log_inspection` (migration `20261109000000_squawks_mechanics_currency.sql`). Photos: public `squawk-photos` bucket.
+
+## Pilot currency
+- Pilot profile → Recent flying: last flight, and the date of the 3rd most recent day takeoff & landing / night full-stop landing. Close-outs update everyone's last flight automatically.
+- **Owners' recency rule** (plane form, or Owner tools → Recent flight rule: off / 30 / 60 / 90 days) blocks solo rentals for pilots who haven't flown recently. **Passenger currency (61.57)** shows as a heads-up, never a block.
+
+## Preflight
+- On every confirmed lesson (Lessons tab and the instructor's Schedule): live METAR/TAF from aviationweather.gov with flight category, wind and spread warnings; the plane's squawks, 100-hour and annual; the solo pilot's medical, flight review and currency; and an I'M SAFE checklist. Verdict: GO / CAUTION / NO-GO. Links to 1800wxbrief for an official briefing. Logic: `src/preflight.js`.
+
+## Get matched
+- Students pick a goal, airport, days, budget and teaching style; `src/matching.js` ranks instructors (certificate required for the goal, airport, availability, combined price with their plane, reviews, pass rate, style) and shows the reasons. They send the request to up to 3 published, verified instructors (5 requests a day max).
+- Instructors answer from Account → Student requests ("I'm interested" with a note, or "Not a fit"). Students see answers under Your matches and can message or book.
+
+## Gift flights
+- Explore → Gift a flight (or from an instructor's profile). The buyer pays now ($50–$1,500) through Stripe and gets a code (RS-XXXX-XXXX) to send. Gifts don't expire.
+- The recipient redeems it under Account → Gifts. On a lesson with an instructor the booking screen offers the gift; at close-out the gift pays first and the saved card pays any rest (Stripe's $0.50 minimum respected). Instructors and owners are paid from the gift's original charge.
+- Server: `gift` function (create/paid), `activateGift` (also run by the Stripe webhook on `payment_intent.succeeded`, which is already subscribed), `claim_gift` and `apply_gift` in the database (migration `20261109010000_matching_gifts.sql`). Refunds of unused gifts are manual for now (Stripe dashboard, then mark the gift `refunded`).
+
 ## Admin console (`admin/`)
 Browser-based back office: overview, bookings, payments, disputes, users, listings, verification queue, reviews, trust & safety, automation, settings, team roles and an audit log. Runs on demo data or against the server's `/api/admin` endpoints. See `admin/README.md`.
 

@@ -13,11 +13,13 @@ import { confirmProposalIfReady } from '../_shared/proposals.ts';
 import { assertTransition, roleIn, finalPrice, validateActuals, cancellationFee, cents, parseDebrief, splitShares, partnerSettlement, HttpError } from '../_shared/bookings.js';
 import { payShares, releaseDebrief, type Charge } from '../_shared/payouts.ts';
 import { loadSplit, refundDeposit } from '../_shared/splits.ts';
+import { assertAirworthy } from '../_shared/aircraft.ts';
+import { ymdIn } from '../_shared/renterChecks.js';
 
 async function load(id: string) {
   const { data: b } = await admin.from('bookings').select('*').eq('id', id).single();
   if (!b) throw new HttpError(404, 'Booking not found.');
-  const { data: plane } = b.plane_id ? await admin.from('planes').select('id, owner_id, school_id, tail').eq('id', b.plane_id).single() : { data: null };
+  const { data: plane } = b.plane_id ? await admin.from('planes').select('id, owner_id, school_id, tail, hobbs_total, next_100_at, annual_date').eq('id', b.plane_id).single() : { data: null };
   const { data: aff } = b.affiliation_id ? await admin.from('affiliations').select('school_id, school_pct').eq('id', b.affiliation_id).single() : { data: null };
   const split = b.plane_id && !b.cfi_id ? await loadSplit(b.id) : null;
   return { b, plane, split, schoolId: aff?.school_id || null, schoolPct: Number(aff?.school_pct || 0) };
@@ -116,6 +118,7 @@ serve(async (req, body) => {
   if (action === 'confirm') {
     if (!b.card_ready) throw new HttpError(409, 'Waiting for the student to finish adding their card.');
     if (b.split_pending) throw new HttpError(409, 'Waiting for the other pilot to accept and pay their deposit.');
+    if (plane) await assertAirworthy(plane, new Date(b.starts_at), Number(b.flight_hours || 1));
     await admin.from('bookings').update({ status: 'confirmed' }).eq('id', b.id).eq('status', 'requested');
     await audit(user.id, 'booking.confirmed', b.id);
     return json({ status: 'confirmed' });
@@ -167,10 +170,30 @@ serve(async (req, body) => {
   let bookerAmount = q.total, partnerShare = 0, settle = 0, coveredByBooker = 0;
   if (shared) ({ booker: bookerAmount, partner: partnerShare } = splitShares(q.total, shared.booker_pct));
 
-  const pi = await charge(b, bookerAmount, (shared ? 'Shared flight ' : 'Lesson ') + when, 'final-' + b.id);
-  const chargeId = String(pi.latest_charge);
-  charges.push({ id: chargeId, amount: bookerAmount });
-  await admin.from('ledger').insert({ booking_id: b.id, party_id: b.student_id, kind: 'charge', amount: bookerAmount, stripe_ref: pi.id });
+  // A gift pays first (once, even if close-out is retried); the saved card pays the rest.
+  let giftUsed = 0, giftCharge: string | null = null;
+  if (b.gift_id && !shared) {
+    const { data: g } = await admin.from('gifts').select('charge_id').eq('id', b.gift_id).single();
+    if (g?.charge_id) {
+      const { data: used, error: ge } = await admin.rpc('apply_gift', { p_booking: b.id, p_total: bookerAmount });
+      if (ge) throw ge;
+      giftUsed = Number(used || 0);
+      if (giftUsed > 0) {
+        giftCharge = g.charge_id;
+        charges.push({ id: giftCharge!, amount: giftUsed });
+        const { count } = await admin.from('ledger').select('id', { count: 'exact', head: true }).eq('booking_id', b.id).eq('kind', 'gift_applied');
+        if (!count) await admin.from('ledger').insert({ booking_id: b.id, party_id: b.student_id, kind: 'gift_applied', amount: giftUsed, stripe_ref: giftCharge });
+      }
+    }
+  }
+  const cardAmount = Math.round((bookerAmount - giftUsed) * 100) / 100;
+  let pi: any = null, chargeId: string | null = null;
+  if (cardAmount > 0) {
+    pi = await charge(b, cardAmount, (shared ? 'Shared flight ' : 'Lesson ') + when, 'final-' + b.id);
+    chargeId = String(pi.latest_charge);
+    charges.push({ id: chargeId, amount: cardAmount });
+    await admin.from('ledger').insert({ booking_id: b.id, party_id: b.student_id, kind: 'charge', amount: cardAmount, stripe_ref: pi.id });
+  }
 
   if (shared) {
     // The other pilot's deposit covers their share of the estimate; settle the difference.
@@ -204,9 +227,15 @@ serve(async (req, body) => {
   }
 
   const finalLine: any = { total: q.total, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft, bookingFee: q.bookingFee, protection: q.protection, flightHours: actual.flightHours, groundHours: actual.groundHours };
+  if (giftUsed) Object.assign(finalLine, { giftApplied: giftUsed, charged: cardAmount });
   if (shared) Object.assign(finalLine, { charged: Math.round((bookerAmount + coveredByBooker) * 100) / 100, bookerPct: shared.booker_pct, partnerShare, partnerDiff: coveredByBooker ? 0 : settle, coveredByBooker });
-  await admin.from('bookings').update({ status: 'completed', actual_hobbs: actual.flightHours, conditions, final_split: { ...q.split, final: finalLine }, payment_intent_id: pi.id, charge_id: chargeId }).eq('id', b.id);
+  await admin.from('bookings').update({ status: 'completed', actual_hobbs: actual.flightHours, conditions, final_split: { ...q.split, final: finalLine }, payment_intent_id: pi?.id || null, charge_id: chargeId || giftCharge }).eq('id', b.id);
   if (q.split.platform) await admin.from('ledger').insert({ booking_id: b.id, kind: 'fee', amount: q.split.platform });
+
+  // Everyone who flew it has a recent flight now (owners' recency rules, src/renterChecks.js).
+  const flownOn = ymdIn(new Date(b.starts_at));
+  const flew = [b.student_id, b.cfi_id, shared?.partner_id].filter(Boolean);
+  await admin.from('pilot_profiles').update({ last_flight_date: flownOn }).in('user_id', flew).or(`last_flight_date.is.null,last_flight_date.lt.${flownOn}`);
 
   // A checkout flight with the owner: record the result. A pass checks the renter out.
   let checkoutResult: string | null = null;
@@ -231,7 +260,7 @@ serve(async (req, body) => {
   if (b.cfi_id && body.debrief && await saveDebrief(b, body.debrief)) released = await releaseDebrief(b, schoolId);
   await audit(user.id, 'booking.completed', b.id, { total: q.total, actual, shared: !!shared, checkoutResult });
   return json({
-    status: 'completed', total: q.total, split: q.split, held: paid.held,
+    status: 'completed', total: q.total, split: q.split, held: paid.held, giftApplied: giftUsed, charged: cardAmount,
     awaitingDebrief: b.cfi_id && !released ? (q.split.cfi || 0) : 0,
     debriefReleased: released,
     shared: shared ? { bookerAmount, partnerShare, settle, coveredByBooker } : null,

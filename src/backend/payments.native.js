@@ -115,3 +115,34 @@ export function useAcceptProposal() {
     return { status: 'confirmed' };
   };
 }
+
+// Buy a gift flight: pay in Stripe's sheet, then the server confirms with Stripe and
+// returns the code to pass on.
+export function useGiftPurchase() {
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  return async (gift) => {
+    const res = await callFn('gift', { action: 'create', ...gift });
+    const { error: initErr } = await initPaymentSheet({
+      merchantDisplayName: 'RightSeat',
+      customerId: res.payment.customer,
+      customerEphemeralKeySecret: res.payment.ephemeralKey,
+      paymentIntentClientSecret: res.payment.paymentIntentClientSecret,
+      allowsDelayedPaymentMethods: false,
+      returnURL: Linking.createURL('stripe-redirect'),
+      primaryButtonLabel: `Pay $${Number(res.gift.amount).toFixed(2)}`,
+    });
+    if (initErr) throw new Error(initErr.message);
+    const { error } = await presentPaymentSheet();
+    if (error) {
+      if (error.code === 'Canceled') return { cancelled: true };
+      throw new Error(error.message);
+    }
+    let check = { gift: res.gift };
+    for (let i = 0; i < 4 && !check.gift?.code; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 1500));
+      check = await callFn('gift', { action: 'paid', giftId: res.gift.id });
+    }
+    if (!check.gift?.code) throw new Error('Your payment is still processing. Your gift code will show under Account → Gifts in a minute.');
+    return { gift: check.gift };
+  };
+}

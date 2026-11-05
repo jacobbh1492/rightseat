@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { reportSquawk } from '../backend/maintenance';
 import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet } from 'react-native';
 import { useStore } from '../store';
 import { useAuth } from '../backend/auth';
@@ -158,6 +159,9 @@ export function Teaching({ nav, asTab }) {
             {r.split?.pending && <Text style={ts.warn}>Shared flight: waiting for {r.split.partnerName.split(' ')[0]} to accept and pay their deposit.</Text>}
             {r.split?.status === 'accepted' && <Text style={ts.sub}>Shared flight: {r.split.bookerName.split(' ')[0]} {r.split.bookerPct}% · {r.split.partnerName.split(' ')[0]} {r.split.partnerPct}%. Both pilots are checked like solo renters.</Text>}
             {review(r)}
+            <Pressable onPress={() => nav.push('Preflight', { bookingId: r.id })} style={{ marginTop: 6 }} accessibilityRole="button">
+              <Text style={{ color: C.blue, fontWeight: '700' }}>Preflight: weather & aircraft ›</Text>
+            </Pressable>
             <View style={{ flexDirection: 'row', marginTop: 12 }}>
               <Button title={busy === `${r.id}:decline` ? 'Declining…' : 'Decline'} variant="outline" disabled={!!busy} style={{ flex: 0.6, marginRight: 8, paddingVertical: 10 }}
                 onPress={() => act(r, 'decline', { reason: `Declined by ${role(r)}` })} />
@@ -253,6 +257,9 @@ export function LiveCloseOut({ nav, params }) {
   const [inst, setInst] = useState(0);
   const [debrief, setDebrief] = useState({ wentWell: '', needsWork: '', nextPlan: '' });
   const [checkoutResult, setCheckoutResult] = useState(null); // checkout flight: 'approved' | 'more'
+  const [squawk, setSquawk] = useState('');
+  const [grounding, setGrounding] = useState(false);
+  const [squawkNote, setSquawkNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [result, setResult] = useState(null);
@@ -276,6 +283,11 @@ export function LiveCloseOut({ nav, params }) {
       });
       setResult(res);
       refreshLive().catch(() => {});
+      // Anything wrong with the plane goes to its owner and mechanic (and grounds it if unsafe).
+      if (r.planeId && squawk.trim().length >= 3) {
+        try { await reportSquawk({ planeId: r.planeId, text: squawk.trim(), grounding, bookingId: r.id }); setSquawkNote(grounding ? 'Squawk reported. The plane is grounded until it’s fixed.' : 'Squawk reported to the owner.'); }
+        catch (e) { setSquawkNote('The squawk didn’t save: ' + e.message); }
+      }
     } catch (e) { setErr(e.message); }
     setBusy(false);
   };
@@ -298,11 +310,13 @@ export function LiveCloseOut({ nav, params }) {
               <Row label={sh ? 'Pilots paid' : r.role === 'owner' ? 'Renter paid' : 'Student paid'} value={money2(result.total)} />
               {sh && <Row label={`  ${r.studentName.split(' ')[0]} · ${r.split?.bookerPct}%`} value={money2(sh.bookerAmount + (sh.coveredByBooker || 0))} />}
               {sh && <Row label={`  ${r.split?.partnerName?.split(' ')[0] || 'Other pilot'} · ${r.split?.partnerPct}%`} value={money2(sh.coveredByBooker ? sh.partnerShare - sh.coveredByBooker : sh.partnerShare)} />}
+              {result.giftApplied > 0 && <Row label="  Paid by gift" value={money2(result.giftApplied)} />}
               <Row bold label="Your share" value={money2(mine)} />
             </View>
             <Text style={[ts.sub, { marginTop: 8, color: held || waiting ? '#B45309' : C.green, fontWeight: '700' }]}>
               {waiting ? 'Waiting for your debrief. Write it to release your pay.' : held ? 'Held for you until you set up payouts.' : 'On its way to your bank (usually 2 business days).'}
             </Text>
+            {!!squawkNote && <Text style={[ts.sub, { marginTop: 8 }]}>{squawkNote}</Text>}
             {r.role === 'cfi' && result.debriefReleased && <Text style={[ts.sub, { marginTop: 8 }]}>Debrief saved to {r.studentName.split(' ')[0]}’s training record.</Text>}
             {result.checkoutResult && <Text style={[ts.sub, { marginTop: 8, fontWeight: '700', color: result.checkoutResult === 'approved' ? C.green : C.navy }]}>{result.checkoutResult === 'approved' ? `${r.studentName.split(' ')[0]} is checked out in ${r.tail || 'your plane'} and can rent it solo.` : `${r.studentName.split(' ')[0]} needs more time. They can book another checkout flight with you.`}</Text>}
             {waiting && <Button title="Write debrief now" style={{ marginTop: 14 }} onPress={() => nav.replace ? nav.replace('WriteDebrief', { id: r.id }) : nav.push('WriteDebrief', { id: r.id })} />}
@@ -332,6 +346,14 @@ export function LiveCloseOut({ nav, params }) {
           {hobbsIn && hobbsOut ? (valid ? `Flight time: ${fh} hr` : 'Check the Hobbs times (0.1 to 8.0 hr).') : 'Enter Hobbs out and in.'}
         </Text>
         {r.cfiId ? <Card><Stepper label="Ground instruction" value={ground} onChange={setGround} /></Card> : null}
+
+        {r.planeId && (
+          <>
+            <SectionTitle>Aircraft squawks</SectionTitle>
+            <Field value={squawk} onChangeText={setSquawk} placeholder="Anything wrong with the plane? (optional)" multiline />
+            {squawk.trim() ? <Toggle label="Grounding: unsafe to fly" value={grounding} onValueChange={setGrounding} hint="Pauses new bookings until the owner or mechanic fixes it" /> : null}
+          </>
+        )}
 
         <SectionTitle>Log to the training record</SectionTitle>
         <Toggle label="Night" value={night} onValueChange={setNight} />

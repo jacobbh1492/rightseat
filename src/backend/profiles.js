@@ -81,6 +81,7 @@ export async function savePlaneListing(uid, plane, { publish, addToMyCfiProfile 
       usefulLoad: plane.usefulLoad, fuelBurn: plane.fuelBurn, cruise: plane.cruise, engineSMOH: plane.engineSMOH,
       tbo: plane.tbo, last100hr: plane.last100hr, ownerName: plane.ownerName, insuranceMinHours: plane.insuranceMinHours,
       checkoutRequired: plane.checkoutRequired, soloRental: plane.soloRental, checkoutBy: plane.checkoutBy || 'cfi', notes: plane.notes,
+      recentFlightDays: Number(plane.recentFlightDays || 0),
     },
   };
   const { data, error } = await supabase.from('planes').insert(row).select('id').single();
