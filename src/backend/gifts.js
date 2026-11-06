@@ -30,7 +30,7 @@ export async function claimGift(code) {
   return giftFromRow(data);
 }
 
-export const giftShareText = (g, appUrl = 'https://flyingrightseat.com') =>
+export const giftShareText = (g, appUrl = 'https://positiverateflying.com') =>
   `${g.fromName ? g.fromName + ' sent' : 'You’ve got'} a $${Math.round(g.amount)} flight lesson on Positive Rate ✈️${g.message ? `\n\n“${g.message}”` : ''}\n\nYour gift code: ${g.code}\n\nGet the Positive Rate app (${appUrl}), sign in, and enter the code under Account → Gifts. Then book a discovery flight with any instructor.`;
 
 // The signed-in user's gifts, for the booking screen and Account → Gifts.

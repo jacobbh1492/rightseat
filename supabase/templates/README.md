@@ -1,6 +1,6 @@
 # Auth email templates (Supabase → Authentication → Emails)
 
-Sent through Resend SMTP from `Positive Rate <no-reply@mail.flyingrightseat.com>`.
+Sent through Resend SMTP from `Positive Rate <no-reply@mail.positiverateflying.com>`.
 
 | Supabase template   | Subject                              | Body file   |
 |---------------------|--------------------------------------|-------------|
