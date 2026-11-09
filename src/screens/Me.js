@@ -46,6 +46,7 @@ export function Me({ nav }) {
           { icon: 'shieldCheck', title: 'Verification', subtitle: `${verified} documents verified · ID, certificate, medical`, go: 'Verification' },
           { icon: 'file', title: 'Pilot credentials', subtitle: 'What CFIs and owners see before you fly', go: 'Credentials' },
         ]),
+        ...(auth?.session ? [{ icon: 'wallet', title: 'Payment methods', subtitle: 'Your saved cards · add, remove or change the default', go: 'PaymentMethods' }] : []),
         ...(auth?.session ? [{ icon: 'file', title: 'Pilot profile', subtitle: 'Certificate, medical, flight review, hours · needed to rent solo', go: 'PilotProfile' }] : []),
         { icon: 'book', title: 'Previous experience', subtitle: training.prior ? 'Update your hours and lessons' : 'Trained before? Add it here', go: 'PriorExperience' },
         { icon: 'users', title: 'Get matched with an instructor', subtitle: 'Tell us your goals, we rank instructors by fit', go: 'GetMatched' },
@@ -134,14 +135,7 @@ export function Me({ nav }) {
         </Pressable>
       )}
 
-      {!teachingMode && <Pressable onPress={() => nav.push('Wallet')} style={ms.wallet} accessibilityRole="button" accessibilityLabel={`Wallet, ${money2(available)} available`}>
-        <View style={ms.walletIcon}><Icon name="wallet" size={22} color="#fff" /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: '#9FB3D1', fontWeight: '700', fontSize: 12 }}>Wallet balance</Text>
-          <Text style={{ color: '#fff', fontWeight: '900', fontSize: 24 }}>{money2(available)}</Text>
-        </View>
-        <View style={ms.addFunds}><Text style={{ color: C.navy, fontWeight: '800', fontSize: 13 }}>Add funds</Text></View>
-      </Pressable>}
+      {/* Wallet (prepaid balance) is on the V2 list; cards are under Payment methods. */}
 
       {(
         <Card style={{ paddingVertical: 2 }}>

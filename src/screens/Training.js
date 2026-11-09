@@ -141,8 +141,6 @@ function DemoTraining({ nav }) {
           <Text style={t.note}>
             Based on ~{training.targetHours} hrs to checkride ({proj.remaining} to go{prior ? ', counting your previous hours' : ''}), your CFI’s rate, {plane?.tail} at {money(plane?.wetRate || 0)}/hr, plus the written test, examiner fee and supplies.
           </Text>
-          <Row label="Wallet balance (prepaid rates)" value={money2(available)} />
-          <Pressable onPress={() => nav.push('Wallet')}><Text style={{ color: C.blue, fontWeight: '700', marginTop: 4 }}>Prepay & save with block rates ›</Text></Pressable>
         </Card>
 
         <SectionTitle>FAA minimums · 61.109</SectionTitle>

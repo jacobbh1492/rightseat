@@ -95,7 +95,7 @@ export function RequestLesson({ nav, params }) {
   const [goal, setGoal] = useState(params.goal || (params.cfiId && !isRepeat(requests, { cfiId: params.cfiId }) ? (hasPrior(training) ? 'Assessment flight' : 'Discovery flight') : 'Private Pilot lesson'));
   const [flightHours, setFlightHours] = useState(params.flightHours || 1.5);
   const [groundHours, setGroundHours] = useState(0.5);
-  const [method, setMethod] = useState(available > 300 ? 'wallet' : 'card');
+  const [method, setMethod] = useState('card'); // wallet (prepaid) is on the V2 list
   const [sent, setSent] = useState(null);
   const [moreGoals, setMoreGoals] = useState(false);
   const [showChecks, setShowChecks] = useState(false);
@@ -259,7 +259,7 @@ export function RequestLesson({ nav, params }) {
             </Card>
           )}
           <Card style={{ alignSelf: 'stretch', marginTop: 18 }}>
-            <Row label={sent.method === 'wallet' ? 'Held in your wallet' : sent.live ? 'Card saved (charged after the flight)' : 'Card hold (Visa •• 4242)'} value={money2(sent.myTotal ?? sent.total)} />
+            <Row label={sent.method === 'wallet' ? 'Held in your wallet' : sent.live ? 'Card saved (charged after the flight)' : 'Card hold'} value={money2(sent.myTotal ?? sent.total)} />
             {sent.deposit > 0 && <Row label="Damage deposit hold" value={money2(sent.deposit)} />}
             <Text style={{ color: C.sub, fontSize: 12, marginTop: 6 }}>
               You’re only charged for actual Hobbs time after the flight. Weather cancellations are always free.
@@ -434,17 +434,11 @@ export function RequestLesson({ nav, params }) {
         )}
 
         <Step n={cfi ? 5 : canShare ? 5 : 4} title="Pay with" done />
-        <Pressable onPress={() => setMethod('wallet')} style={[bs.pay, method === 'wallet' && bs.pickOn]}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '800', color: C.text }}>Positive Rate wallet · {money2(available)}</Text>
-            <Text style={{ color: C.green, fontSize: 12, fontWeight: '700', marginTop: 2 }}>
-              {plane && q.prepaidSavings > 0 ? `Prepaid block rate saves ${money2(q.prepaidSavings)}` : plane ? 'Prepaid block rate applied' : 'No card processing'}
-            </Text>
-          </View>
-          <View style={[bs.radio, method === 'wallet' && { borderColor: C.blue }]}>{method === 'wallet' && <View style={bs.radioDot} />}</View>
-        </Pressable>
         <Pressable onPress={() => setMethod('card')} style={[bs.pay, method === 'card' && bs.pickOn]}>
-          <Text style={{ flex: 1, fontWeight: '800', color: C.text }}>Visa •• 4242</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontWeight: '800', color: C.text }}>Card</Text>
+            <Text style={{ color: C.sub, fontSize: 12, marginTop: 2 }}>Choose or add a card at the next step. Charged after the flight.</Text>
+          </View>
           <View style={[bs.radio, method === 'card' && { borderColor: C.blue }]}>{method === 'card' && <View style={bs.radioDot} />}</View>
         </Pressable>
         {myGifts.length > 0 && (
@@ -459,12 +453,6 @@ export function RequestLesson({ nav, params }) {
             <Text style={[bs.hint, { marginTop: 6 }]}>{gift ? `Covers about ${money2(giftCover)} of this lesson. ${giftCover < q.total ? 'Your card pays the rest after the flight.' : 'Your card is saved but only charged if the flight runs over.'}` : 'Not using a gift for this lesson.'}</Text>
           </Card>
         )}
-        {walletShort && (
-          <Pressable onPress={() => nav.push('Wallet')}>
-            <Text style={bs.warn}>Wallet balance is short by {money2(q.total - available)}. Add funds ›</Text>
-          </Pressable>
-        )}
-
         <Card style={{ marginTop: 18 }}>
           <Pressable onPress={() => setShowCost(!showCost)} style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityRole="button">
             <View style={{ flex: 1 }}>

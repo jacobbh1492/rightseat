@@ -28,6 +28,7 @@ import { PilotProfile, Checkouts } from './src/screens/Renter';
 import { ProposeLesson } from './src/screens/Propose';
 import { GetVerified, StaffReview } from './src/screens/GetVerified';
 import { DeleteAccount } from './src/screens/DeleteAccount';
+import { PaymentMethods } from './src/screens/PaymentMethods';
 import { Schedule, Students, StudentDetail, Earnings } from './src/screens/Instructor';
 import { Library, LessonView, PreflightReview, AssignReview } from './src/screens/Library';
 import { Availability, BlockTime, CfiCalendar } from './src/screens/Availability';
@@ -56,7 +57,7 @@ const TEACH_ONLY = ['Schedule', 'Students', 'Earnings', 'Teaching'];
 const LEARN_ONLY = ['Explore', 'Lessons', 'Training'];
 const MODE_KEY = 'rightseat.mode';
 const SignInScreen = ({ nav, params }) => <SignIn askName={false} title="Sign in" subtitle={params?.reason || 'We’ll email you a 6-digit code. No password needed.'} onCancel={nav.pop} onDone={() => nav.pop()} />;
-const STACK_SCREENS = { SignIn: SignInScreen, Cfi: CfiDetail, Plane: PlaneDetail, School: SchoolDetail, Review: LeaveReview, Request: RequestLesson, CfiForm, PlaneForm, SchoolForm, Cancel: CancelLesson, CloseOut, Receipt, Chat, Wallet, CfiDashboard, OwnerDashboard, Plans, Credentials, Insights, Verification: VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, Automation: AutomationMonitor, PriorExperience, PriorReview, Debrief: DebriefView, Debriefs: DebriefList, EditDebrief, StudentFile, AmendDebrief, SchoolDashboard, AffiliationReview, JoinSchool, Teaching, LiveCloseOut, GetVerified, StaffReview, DeleteAccount, StudentDetail, Library, LessonView, PreflightReview, AssignReview, Availability, BlockTime, CfiCalendar, SplitInvite, WriteDebrief, PilotProfile, Checkouts, ProposeLesson, PromoCode, Maintenance, ReportSquawk, MechanicHome, Preflight, GetMatched, MyMatches, StudentRequests, GiftFlight, Gifts };
+const STACK_SCREENS = { SignIn: SignInScreen, Cfi: CfiDetail, Plane: PlaneDetail, School: SchoolDetail, Review: LeaveReview, Request: RequestLesson, CfiForm, PlaneForm, SchoolForm, Cancel: CancelLesson, CloseOut, Receipt, Chat, Wallet, CfiDashboard, OwnerDashboard, Plans, Credentials, Insights, Verification: VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, Automation: AutomationMonitor, PriorExperience, PriorReview, Debrief: DebriefView, Debriefs: DebriefList, EditDebrief, StudentFile, AmendDebrief, SchoolDashboard, AffiliationReview, JoinSchool, Teaching, LiveCloseOut, GetVerified, StaffReview, DeleteAccount, PaymentMethods, StudentDetail, Library, LessonView, PreflightReview, AssignReview, Availability, BlockTime, CfiCalendar, SplitInvite, WriteDebrief, PilotProfile, Checkouts, ProposeLesson, PromoCode, Maintenance, ReportSquawk, MechanicHome, Preflight, GetMatched, MyMatches, StudentRequests, GiftFlight, Gifts };
 
 function Shell() {
   const { profile, setProfile, training, requests, teaching } = useStore();
