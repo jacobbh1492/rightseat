@@ -253,7 +253,6 @@ export function Plans({ nav }) {
           <Text style={k.line}>Students and renters: $10 booking fee on every lesson and rental ($5 when it’s with a School Pro school).</Text>
           <Text style={k.line}>Instructors: 5% host fee on a new student’s first lesson. $0 on repeat students and on CFI Pro.</Text>
           <Text style={k.line}>Owners: 8% of rental revenue.</Text>
-          <Text style={k.line}>Wallet: prepaid balances get block rates and bonus credit.</Text>
         </Card>
         <Pressable onPress={() => nav.push('PromoCode')} style={k.promo} accessibilityRole="button">
           <Text style={{ fontWeight: '900', color: '#065F46', flex: 1 }}>Have a launch promo code?</Text>

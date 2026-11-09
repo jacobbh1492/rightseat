@@ -31,15 +31,29 @@ async function isSchoolAdmin(userId: string, schoolId: string | null) {
   return (count || 0) > 0;
 }
 
+// The card saved for this booking, unless the student removed it (Account → Payment
+// methods); then their default card, then any card they still have on file.
+async function cardToCharge(customer: string, bookingCard: string) {
+  const pm = await stripe.paymentMethods.retrieve(bookingCard).catch(() => null);
+  if (pm?.customer === customer) return pm.id;
+  const cust: any = await stripe.customers.retrieve(customer);
+  const def = cust?.invoice_settings?.default_payment_method;
+  if (def) return typeof def === 'string' ? def : def.id;
+  const any = await stripe.customers.listPaymentMethods(customer, { type: 'card', limit: 1 });
+  return any.data[0]?.id || null;
+}
+
 // Charge the student's saved card off-session.
 async function charge(b: any, amount: number, description: string, key: string) {
   const { data: student } = await admin.from('profiles').select('stripe_customer_id').eq('id', b.student_id).single();
   if (!student?.stripe_customer_id || !b.setup_intent_id) throw new HttpError(409, 'The student hasn’t added a card for this booking.');
   const si = await stripe.setupIntents.retrieve(b.setup_intent_id);
   if (si.status !== 'succeeded' || !si.payment_method) throw new HttpError(409, 'The student’s card isn’t set up for this booking yet.');
+  const pm = await cardToCharge(student.stripe_customer_id, String(si.payment_method));
+  if (!pm) throw new HttpError(409, 'The student has no card on file. Ask them to add one under Account → Payment methods.');
   return await stripe.paymentIntents.create({
     amount: cents(amount), currency: 'usd', customer: student.stripe_customer_id,
-    payment_method: String(si.payment_method), off_session: true, confirm: true,
+    payment_method: pm, off_session: true, confirm: true,
     description, transfer_group: b.id, metadata: { booking_id: b.id },
   }, { idempotencyKey: key });
 }
@@ -209,7 +223,7 @@ serve(async (req, body) => {
       try {
         const customer = await customerFor({ id: shared.partner_id });
         const extra = await stripe.paymentIntents.create({
-          amount: cents(settle), currency: 'usd', customer, payment_method: shared.partner_pm, off_session: true, confirm: true,
+          amount: cents(settle), currency: 'usd', customer, payment_method: (await cardToCharge(customer, shared.partner_pm)) || shared.partner_pm, off_session: true, confirm: true,
           description: 'Shared flight ' + when + ' (difference from deposit)', transfer_group: b.id, metadata: { booking_id: b.id, split_id: shared.id },
         }, { idempotencyKey: 'split-extra-' + b.id });
         charges.push({ id: String(extra.latest_charge), amount: settle });

@@ -146,3 +146,27 @@ export function useGiftPurchase() {
     return { gift: check.gift };
   };
 }
+
+// Account → Payment methods: save a new card with Stripe's sheet (nothing is charged).
+export function useAddCard() {
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  return async () => {
+    const res = await callFn('payment-methods', { action: 'setup' });
+    const { error: initErr } = await initPaymentSheet({
+      merchantDisplayName: 'Positive Rate',
+      customerId: res.payment.customer,
+      customerEphemeralKeySecret: res.payment.ephemeralKey,
+      setupIntentClientSecret: res.payment.setupIntentClientSecret,
+      allowsDelayedPaymentMethods: false,
+      returnURL: Linking.createURL('stripe-redirect'),
+      primaryButtonLabel: 'Save card',
+    });
+    if (initErr) throw new Error(initErr.message);
+    const { error } = await presentPaymentSheet();
+    if (error) {
+      if (error.code === 'Canceled') return { cancelled: true };
+      throw new Error(error.message);
+    }
+    return await callFn('payment-methods', { action: 'added' });
+  };
+}

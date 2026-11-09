@@ -37,3 +37,6 @@ verify_jwt = false
 
 [functions.gift]
 verify_jwt = false
+
+[functions.payment-methods]
+verify_jwt = false

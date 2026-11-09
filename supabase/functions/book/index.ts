@@ -114,7 +114,7 @@ serve(async (req, body) => {
   const { count: prior } = await rq;
 
   const fees = await feeContext({ studentId: user.id, affiliation, plane });
-  const q = priceBooking({ cfi, plane, affiliation, flightHours: r.flightHours, groundHours: r.groundHours, repeat: (prior || 0) > 0, prepaid: r.prepaid, ...fees });
+  const q = priceBooking({ cfi, plane, affiliation, flightHours: r.flightHours, groundHours: r.groundHours, repeat: (prior || 0) > 0, prepaid: false, ...fees }); // no wallet yet: prepaid block rates come with it (V2)
 
   const customer = await customerFor(user);
   const { data: booking, error } = await admin.from('bookings').insert({
