@@ -116,15 +116,15 @@ Backend + accounts (e.g. Supabase/Firebase), photo uploads, payments (Stripe Con
 2. Every push to `main` publishes the app to the `preview` channel (GitHub Action "Phone preview").
 3. Open this link on the phone: `exp://u.expo.dev/37f99b48-0f43-4273-b1d2-fd84e925532b?channel-name=preview&runtime-version=exposdk:58.0.0`
 
-Payments are in Stripe **test mode** — use card `4242 4242 4242 4242`, any future date, any CVC/ZIP.
+Payments are **live** (Stripe live mode since Nov 9, 2026). For test-mode work use a Stripe sandbox and card `4242 4242 4242 4242`.
 
 ## Launch checklist
 
-- [ ] Switch Stripe to live keys: `STRIPE_SECRET_KEY` and both webhook signing secrets in Supabase, and `STRIPE_PUBLISHABLE_KEY` in `src/backend/config.js`.
-- [ ] Set up the live Stripe webhooks (pointing at `.../functions/v1/stripe-webhook`) with the same events as test mode:
+- [x] Switch Stripe to live keys: `STRIPE_SECRET_KEY` and both webhook signing secrets in Supabase, and `STRIPE_PUBLISHABLE_KEY` in `src/backend/config.js`.
+- [x] Set up the live Stripe webhooks (pointing at `.../functions/v1/stripe-webhook`) with the same events as test mode:
   - Account events: `setup_intent.succeeded`, `payment_intent.payment_failed`, `payment_intent.succeeded` (shared-flight deposits), `identity.verification_session.verified`, `identity.verification_session.requires_input`.
   - Connected-account events: `account.updated`.
-- [ ] Remove the test listing and test bookings (`supabase/seed/test_listing.sql` rows, Test Instructor, N0TEST).
+- [x] Remove the test listing and test bookings (migration `20261110010000_launch_reset.sql`: test-era bookings and money records, every test account, test-mode Stripe IDs).
 - [ ] **First live test of payout setup.** Stripe's legacy test mode can't open onboarding for Accounts v2 payout accounts, so in test mode the app says payout setup turns on at launch. With live keys, set up payouts on a real instructor account, close out a small lesson, and confirm the transfer arrives. Held pay from earlier lessons is released automatically when setup finishes.
-- [ ] TestFlight / Play internal testing builds (EAS).
+- [x] TestFlight build with live keys (EAS). Play internal testing still to do.
 - [ ] Verification before booking is enforced: only `cfis.verified = true` instructors and planes with `airworthy_verified` and `insured` can be booked (server `book` function; the app hides the rest from search). Until the verification server (`server/`) is deployed, verify each early instructor/plane by hand (FAA Airmen/Aircraft Registry + insurance) and set those flags.
