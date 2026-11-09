@@ -64,7 +64,7 @@ async function saveDebrief(b: any, raw: any) {
 // touches bookings on the test listing (supabase/seed/test_listing.sql).
 const SANDBOX_CFI = 'a0000000-0000-4000-8000-000000000001';
 const sandboxAllowed = (req: Request) =>
-  req.headers.get('x-rightseat-sandbox') === 'act-as-test-cfi' && (Deno.env.get('STRIPE_SECRET_KEY') || '').startsWith('sk_test_');
+  req.headers.get('x-rightseat-sandbox') === 'act-as-test-cfi' && /^(sk|rk)_test_/.test(Deno.env.get('STRIPE_SECRET_KEY') || '');
 
 serve(async (req, body) => {
   const sandbox = sandboxAllowed(req);

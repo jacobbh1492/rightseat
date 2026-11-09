@@ -28,7 +28,7 @@ serve(async (req, body) => {
   // Stripe's legacy test mode can't open onboarding for Accounts v2 recipients (Stripe
   // asks for a sandbox instead). We test everything else in test mode and run payout
   // setup for the first time with live keys, so say that plainly instead of erroring.
-  if ((Deno.env.get('STRIPE_SECRET_KEY') || '').startsWith('sk_test_')) {
+  if (/^(sk|rk)_test_/.test(Deno.env.get('STRIPE_SECRET_KEY') || '')) {
     throw new HttpError(409, 'Payout setup can’t be tested yet. It turns on when Positive Rate goes live. Until then your pay is held safely and sent as soon as you set up payouts.');
   }
   if (!account) {
