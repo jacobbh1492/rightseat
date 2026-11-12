@@ -253,6 +253,8 @@ export function Config() {
         </div>
       )}
 
+      {tab === 'data' && <LiveAccounts />}
+
       {tab === 'audit' && (
         <>
           <div className="toolbar"><Search value={q} onChange={setQ} placeholder="Search actor, action, target" /></div>
@@ -269,5 +271,45 @@ export function Config() {
         </>
       )}
     </>
+  );
+}
+
+// Sign in to the live Positive Rate backend for the account tools (create / edit CFIs, schools, owners).
+function LiveAccounts() {
+  const { sb, sendStaffCode, verifyStaffCode, disconnectStaff, acctState, loadAccounts } = useAdmin();
+  const [email, setEmail] = useState('admin@positiverateflying.com');
+  const [code, setCode] = useState('');
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const run = (fn) => async () => { setBusy(true); setErr(null); try { await fn(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  return (
+    <div className="card" style={{ maxWidth: 720, marginTop: 16 }}>
+      <h3>Accounts: live Positive Rate data</h3>
+      <p className="muted">Create and edit real CFI, flight school and plane-owner accounts. Sign in with a Positive Rate account that’s on the admin team (we email a 6-digit code, same as the app). Every change is checked on the server and written to the audit log.</p>
+      {sb ? (
+        <>
+          <div className="row gap8" style={{ margin: '12px 0' }}>
+            <Badge>Connected</Badge><span>{sb.email}</span>
+            {acctState.loadedAt && <span className="sub2">· loaded {fmtDateTime(acctState.loadedAt)}</span>}
+          </div>
+          {acctState.error && <div className="banner bad">{acctState.error}</div>}
+          <div className="row gap8">
+            <Btn icon="refresh" onClick={loadAccounts} disabled={acctState.loading}>{acctState.loading ? 'Loading…' : 'Reload accounts'}</Btn>
+            <Btn kind="ghost" onClick={disconnectStaff}>Disconnect</Btn>
+          </div>
+        </>
+      ) : (
+        <form onSubmit={(e) => { e.preventDefault(); (sent ? run(() => verifyStaffCode(email, code)) : run(async () => { await sendStaffCode(email); setSent(true); }))(); }}>
+          <label className="field"><span>Admin email</span><input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setSent(false); }} autoComplete="username" /></label>
+          {sent && <label className="field"><span>6-digit code from the email</span><input value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" maxLength={6} /></label>}
+          {err && <div className="banner bad">{err}</div>}
+          <div className="row gap8">
+            <Btn type="submit" disabled={busy || !email.trim() || (sent && code.trim().length < 6)}>{busy ? 'Working…' : sent ? 'Connect' : 'Email me a code'}</Btn>
+            {sent && <button type="button" className="link" onClick={run(() => sendStaffCode(email))}>Resend code</button>}
+          </div>
+        </form>
+      )}
+    </div>
   );
 }
