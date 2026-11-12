@@ -1,11 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
-import { supabase } from './supabase';
+import { supabase, callFn } from './supabase';
 import { unregisterPush } from './push';
 
 // Session + profile for the signed-in user. Sign-in is a 6-digit code sent by email
 // (no passwords to forget, works the same on iPhone, Android and web).
 const Ctx = createContext(null);
+
+// Apple's App Review account: it can't receive email, so a fixed code (server secret)
+// is checked by the review-login function instead. Every other email works as normal.
+const REVIEW_EMAIL = 'appreview@positiverateflying.com';
 
 const ROLE_MAP = { learn: 'student', rent: 'student', teach: 'cfi', own: 'owner', school: 'school_admin' };
 
@@ -33,10 +37,17 @@ export function AuthProvider({ children }) {
     user: session?.user || null,
     account,
     sendCode: async (email) => {
+      if (email.trim().toLowerCase() === REVIEW_EMAIL) return;
       const { error } = await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: true } });
       if (error) throw error;
     },
     verifyCode: async (email, token) => {
+      if (email.trim().toLowerCase() === REVIEW_EMAIL) {
+        const { token_hash } = await callFn('review-login', { email, code: token.trim() });
+        const { error } = await supabase.auth.verifyOtp({ token_hash, type: 'magiclink' });
+        if (error) throw error;
+        return;
+      }
       const { error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: token.trim(), type: 'email' });
       if (error) throw error;
     },
