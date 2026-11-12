@@ -118,3 +118,14 @@ tr.clickable { cursor: pointer; } tr.clickable:hover td { background: #F8FAFC; }
 .login-form { display: flex; align-items: center; justify-content: center; padding: 32px; }
 .login-card { width: 100%; max-width: 380px; }
 @media (max-width: 900px) { .login { grid-template-columns: 1fr; } .login-art { display: none; } .shell { grid-template-columns: 1fr; } .side { position: static; height: auto; } }
+
+/* Account create / edit */
+.modal.wide { width: min(760px, 96vw); max-height: 92vh; display: flex; flex-direction: column; }
+.modal.wide .form-scroll { overflow-y: auto; padding-right: 4px; margin-right: -4px; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; }
+.form-grid .field { margin: 8px 0; }
+@media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+.field-err { color: var(--bad); font-style: normal; font-weight: 600; font-size: 12px; }
+.banner.bad { background: #FEE2E2; color: #991B1B; }
+.plane-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 6px 0; border-bottom: 1px solid #F1F4F8; }
+.plane-row .field { margin: 4px 0; width: 110px; }

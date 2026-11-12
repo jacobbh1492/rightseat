@@ -35,12 +35,29 @@ export function buildDemo() {
     stage: c.certs.join(' · '), joined: day(-200 - Math.floor(rnd() * 200)), status: 'Active', verified: c.id === 'c3' ? 'Pending' : 'Verified',
     pro: c.pro, schoolId: c.schoolId || null, notes: [],
   }));
+  cfiUsers.forEach((u) => {
+    const c = CFIS.find((x) => x.id === u.id);
+    u.account = {
+      id: u.id, kind: 'cfi', name: u.name, email: u.email, phone: '', airport: u.airport, published: true, verified: u.verified === 'Verified', pro: c.pro,
+      cfi: { certs: c.certs, flightRate: c.flightRate, groundRate: c.groundRate, discoveryPrice: c.discoveryFlight ?? null, specialties: c.specialties || [], bio: c.bio || '' },
+    };
+  });
+  const planeAcct = (p) => ({ id: p.id, tail: p.tail, make: p.make, model: p.model, airport: p.homeAirport, ownerType: p.ownerType, wetRate: p.wetRate, dryRate: p.dryRate ?? null, published: true, verified: true });
   const ownerNames = [...new Set(PLANES.filter((p) => p.ownerType !== 'Flight school').map((p) => p.ownerName))];
   const owners = ownerNames.map((n, i) => ({
     id: 'o' + (i + 1), name: n, email: `owner${i + 1}@example.com`, role: 'Owner', airport: PLANES.find((p) => p.ownerName === n).homeAirport,
     stage: `${PLANES.filter((p) => p.ownerName === n).length} aircraft`, joined: day(-150 - i * 20), status: 'Active', verified: 'Verified', notes: [],
   }));
-  const schoolUsers = SCHOOLS.map((s) => ({ id: s.id, name: s.name, email: `admin@${s.website}`, role: 'School', airport: s.homeAirport, stage: s.trainingTypes.join(' & '), joined: day(-300), status: 'Active', verified: 'Verified', notes: [] }));
+  owners.forEach((u) => {
+    u.account = { id: u.id, kind: 'owner', name: u.name, email: u.email, phone: '', airport: u.airport, published: true, verified: true, planes: PLANES.filter((p) => p.ownerName === u.name).map(planeAcct) };
+  });
+  const schoolUsers = SCHOOLS.map((s) => ({ id: s.id, name: s.name, email: `admin@${s.website}`, role: 'School', airport: s.homeAirport, stage: s.trainingTypes.join(' & '), joined: day(-300), status: 'Active', verified: 'Verified', notes: [],
+    account: {
+      id: s.id, kind: 'school', name: s.name, email: `admin@${s.website}`, phone: s.phone || '', airport: s.homeAirport, published: true, verified: true,
+      contacts: [{ id: s.id + '-admin', name: `${s.name} admin`, email: `admin@${s.website}`, phone: s.phone || '', airport: s.homeAirport }],
+      school: { website: s.website || '', about: s.about || '', trainingTypes: s.trainingTypes || [], plan: 'pro', termsModel: s.terms?.model || 'split', schoolPct: s.terms?.schoolPct ?? 0.25 },
+      planes: PLANES.filter((p) => p.ownerName === s.name).map(planeAcct),
+    } }));
 
   // ---- bookings over the last 8 weeks + next 2
   const bookings = [];

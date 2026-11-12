@@ -3,6 +3,7 @@ import { useAdmin } from '../store.jsx';
 import { PageHeader, Stat, WeeklyChart, Badge, Btn, Table, Drawer, ReasonModal, Search, Segmented, KV, Icon, money, pct } from '../ui.jsx';
 import { fmtDate, fmtDateTime } from '../data/demo.js';
 import { DOC_TYPES, SOURCES } from '../../../src/verification.js';
+import { AccountForm, AccountDetails, isAccountRole } from './accounts.jsx';
 
 export const useLookups = () => {
   const { db } = useAdmin();
@@ -181,7 +182,8 @@ export function Verification() {
 }
 
 export function Users() {
-  const { db, setUserStatus, addUserNote, can } = useAdmin();
+  const { db, setUserStatus, addUserNote, can, sb, acctState, loadAccounts } = useAdmin();
+  const [form, setForm] = useState(null); // { user } to edit, { user: null } to create
   const [role, setRole] = useState('All');
   const [status, setStatus] = useState('All');
   const [q, setQ] = useState('');
@@ -208,7 +210,11 @@ export function Users() {
 
   return (
     <>
-      <PageHeader title="Users" subtitle={`${db.users.length} accounts`} />
+      <PageHeader title="Users" subtitle={`${db.users.length} accounts${sb ? ` · CFIs, schools and owners live from Positive Rate${acctState.loading ? ' (loading…)' : ''}` : ''}`}>
+        {sb && <Btn kind="ghost" icon="refresh" onClick={loadAccounts}>Refresh</Btn>}
+        {can('accounts') && <Btn icon="plus" onClick={() => setForm({ user: null })}>New account</Btn>}
+      </PageHeader>
+      {acctState.error && <div className="banner bad">Couldn’t load live accounts: {acctState.error}</div>}
       <div className="toolbar">
         <Search value={q} onChange={setQ} placeholder="Search name, email or airport" />
         <Segmented options={['All', 'Student', 'CFI', 'Owner', 'School']} value={role} onChange={setRole} />
@@ -235,9 +241,14 @@ export function Users() {
         open={!!u}
         onClose={() => setSel(null)}
         title={u?.name}
-        footer={u && can('suspend') && (u.status === 'Active'
-          ? <Btn kind="danger" onClick={() => setModal(true)}>Suspend account</Btn>
-          : <Btn kind="good" onClick={() => setModal(true)}>Reinstate account</Btn>)}
+        footer={u && (
+          <>
+            {can('accounts') && isAccountRole(u.role) && u.account && <Btn kind="ghost" icon="edit" onClick={() => setForm({ user: u })}>Edit details</Btn>}
+            {can('suspend') && !u.live && (u.status === 'Active'
+              ? <Btn kind="danger" onClick={() => setModal(true)}>Suspend account</Btn>
+              : <Btn kind="good" onClick={() => setModal(true)}>Reinstate account</Btn>)}
+          </>
+        )}
       >
         {u && (
           <>
@@ -246,6 +257,7 @@ export function Users() {
               ['Verification', <Badge>{u.verified}</Badge>], ['Status', <Badge>{u.status}</Badge>],
               ['Completed flights', stats[u.id]?.bookings || 0], [u.role === 'Student' ? 'Total spent' : 'Total earned', money(stats[u.id]?.money || 0, true)],
             ]} />
+            <AccountDetails user={u} />
             <div className="section-title">Recent bookings</div>
             {uBookings.length === 0 && <div className="sub2">No bookings.</div>}
             {uBookings.map((b) => (
@@ -263,6 +275,7 @@ export function Users() {
           </>
         )}
       </Drawer>
+      <AccountForm open={!!form} user={form?.user || null} onClose={() => setForm(null)} onSaved={(nu) => setSel(nu.id)} />
       <ReasonModal
         open={modal}
         onClose={() => setModal(false)}

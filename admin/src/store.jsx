@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { buildDemo } from './data/demo.js';
+import { readSession, sendCode, verifyCode, signOutLive, callAccounts, toUser } from './accounts.js';
 
 // ---------- Roles & permissions ----------
 export const ROLES = ['Owner', 'Admin', 'Reviewer', 'Support'];
@@ -12,6 +13,7 @@ const PAGE_ACCESS = {
 const ACTION_ACCESS = {
   verify: ['Owner', 'Admin', 'Reviewer'],
   suspend: ['Owner', 'Admin', 'Support'],
+  accounts: ['Owner', 'Admin', 'Support'],
   refund: ['Owner', 'Admin', 'Support'],
   pauseListing: ['Owner', 'Admin', 'Reviewer', 'Support'],
   moderate: ['Owner', 'Admin', 'Reviewer', 'Support'],
@@ -33,6 +35,9 @@ export function AdminProvider({ children }) {
   const [cfg, setCfg] = useState(() => ({ mode: 'demo', apiUrl: '', adminKey: '', ...readCfg() }));
   const [toast, setToast] = useState(null);
   const [liveError, setLiveError] = useState(null);
+  // Live account tools (Supabase): staff session + load state.
+  const [sb, setSb] = useState(readSession);
+  const [acctState, setAcctState] = useState({ loading: false, error: null, loadedAt: null });
   const notify = (text, kind = 'ok') => { setToast({ text, kind, id: Date.now() }); setTimeout(() => setToast(null), 3200); };
 
   const audit = (action, target, note = '') =>
@@ -71,8 +76,95 @@ export function AdminProvider({ children }) {
   };
   useEffect(() => { if (me) refreshLive(); }, [cfg.mode, cfg.apiUrl, cfg.adminKey, me?.id]);
 
+  // ---------- Live accounts (Supabase admin-accounts function) ----------
+  const accounts = async (body) => {
+    try {
+      const { data, session } = await callAccounts(sb, body);
+      if (session.access_token !== sb.access_token) setSb(session);
+      return data;
+    } catch (e) {
+      if (e.status === 401) { signOutLive(); setSb(null); }
+      throw e;
+    }
+  };
+  const ACCT_ROLES = ['CFI', 'Owner', 'School'];
+  const loadAccounts = async () => {
+    if (!sb) return;
+    setAcctState((x) => ({ ...x, loading: true, error: null }));
+    try {
+      const { accounts: list } = await accounts({ action: 'list' });
+      setDb((d) => ({ ...d, users: [...d.users.filter((u) => !ACCT_ROLES.includes(u.role)), ...list.map(toUser)] }));
+      setAcctState({ loading: false, error: null, loadedAt: new Date().toISOString() });
+    } catch (e) {
+      setAcctState({ loading: false, error: e.message, loadedAt: null });
+    }
+  };
+  useEffect(() => { if (me && sb) loadAccounts(); }, [me?.id, sb?.email]);
+  const upsertUser = (u) => setDb((d) => ({ ...d, users: d.users.some((x) => x.id === u.id) ? d.users.map((x) => (x.id === u.id ? { ...x, ...u, notes: x.notes } : x)) : [u, ...d.users] }));
+
+  // Demo mode: apply a create/update to the in-browser data so the screens behave the same.
+  const KIND_ROLE = { cfi: 'CFI', owner: 'Owner', school: 'School' };
+  const demoStage = (a) => (a.kind === 'cfi' ? (a.cfi.certs || []).join(' · ') : a.kind === 'owner' ? `${(a.planes || []).length} aircraft` : (a.school.trainingTypes || []).join(' & ') || 'Starter');
+  const splitList = (v) => (Array.isArray(v) ? v : String(v || '').split(',')).map((x) => x.trim()).filter(Boolean);
+  const demoCreate = (kind, f) => {
+    const email = f.email.trim().toLowerCase();
+    if (db.users.some((u) => u.email.toLowerCase() === email && u.role === KIND_ROLE[kind])) throw new Error(`${email} already has a ${KIND_ROLE[kind]} account.`);
+    const id = `${kind}-${Date.now()}`;
+    const a = { id, kind, name: kind === 'school' ? f.schoolName.trim() : f.name.trim(), email, phone: f.phone || '', airport: f.airport.toUpperCase(), published: false, verified: false, planes: [] };
+    if (kind === 'cfi') a.cfi = { certs: splitList(f.certs).length ? splitList(f.certs) : ['CFI'], flightRate: Number(f.flightRate), groundRate: Number(f.groundRate || 0), discoveryPrice: f.discoveryPrice === '' ? null : Number(f.discoveryPrice), specialties: splitList(f.specialties), bio: f.bio || '' };
+    if (kind === 'school') {
+      a.contacts = [{ id: id + '-admin', name: f.name.trim(), email, phone: f.phone || '', airport: a.airport }];
+      a.school = { website: f.website || '', about: f.about || '', trainingTypes: splitList(f.trainingTypes), plan: f.plan, termsModel: f.termsModel, schoolPct: Number(f.schoolPct) };
+    }
+    return { id, name: a.name, email, role: KIND_ROLE[kind], airport: a.airport, stage: demoStage(a), joined: new Date().toISOString(), status: 'Active', verified: 'Pending', notes: [], account: a };
+  };
+  const demoUpdate = (u, ch) => {
+    const a = structuredClone(u.account);
+    for (const k of ['name', 'email', 'phone', 'airport']) if (k in ch) a[k] = k === 'airport' ? ch[k].toUpperCase() : ch[k];
+    if (ch.cfi) a.cfi = { ...a.cfi, ...ch.cfi, ...(ch.cfi.certs !== undefined ? { certs: splitList(ch.cfi.certs) } : {}), ...(ch.cfi.specialties !== undefined ? { specialties: splitList(ch.cfi.specialties) } : {}) };
+    if (ch.school) a.school = { ...a.school, ...ch.school, ...(ch.school.trainingTypes !== undefined ? { trainingTypes: splitList(ch.school.trainingTypes) } : {}) };
+    if (ch.contact) a.contacts = a.contacts.map((c) => (c.id === ch.contact.id ? { ...c, ...ch.contact } : c));
+    if (ch.planes) a.planes = a.planes.map((p) => ({ ...p, ...(ch.planes.find((x) => x.id === p.id) || {}) }));
+    if (a.kind === 'school' && a.contacts?.[0]) a.email = a.contacts[0].email;
+    return { ...u, name: a.name, email: a.email, airport: a.airport, stage: demoStage(a), account: a };
+  };
+
   const value = useMemo(() => ({
     db, me, cfg, toast, live: !!live, liveError,
+    sb, acctState, loadAccounts,
+    sendStaffCode: (email) => sendCode(email),
+    verifyStaffCode: async (email, code) => { const s = await verifyCode(email, code); setSb(s); notify(`Connected as ${s.email}.`); },
+    disconnectStaff: () => { signOutLive(); setSb(null); setDb((d) => ({ ...d, users: buildDemo().users.filter((u) => ['CFI', 'Owner', 'School'].includes(u.role)).concat(d.users.filter((u) => !['CFI', 'Owner', 'School'].includes(u.role))) })); },
+
+    // Create a CFI, flight school or plane-owner account. Returns the new user row.
+    createAccount: async (kind, form, reason) => {
+      let u;
+      if (sb) {
+        const { account } = await accounts({ action: 'create', kind, reason, ...form });
+        u = toUser(account);
+      } else {
+        u = demoCreate(kind, form);
+      }
+      upsertUser(u);
+      audit(`Created ${KIND_ROLE[kind] === 'School' ? 'flight school' : KIND_ROLE[kind] === 'Owner' ? 'plane owner' : 'CFI'} account`, `${u.name} <${u.email}>`, reason);
+      notify(sb ? `${u.name} created. They sign in to the app with ${u.email}.` : `${u.name} created (demo data only).`);
+      return u;
+    },
+    // Save edits. `changes` holds only the fields that changed.
+    updateAccount: async (userId, changes, reason) => {
+      const u = db.users.find((x) => x.id === userId);
+      let next;
+      if (sb && u.live) {
+        const { account } = await accounts({ action: 'update', kind: u.account.kind, id: u.account.id, reason, ...changes });
+        next = toUser(account);
+      } else {
+        next = demoUpdate(u, changes);
+      }
+      upsertUser(next);
+      audit('Edited account details', `${next.name} (${next.role})`, reason);
+      notify(`${next.name} updated.`);
+      return next;
+    },
     signIn: (member) => setMe(member),
     signOut: () => setMe(null),
     switchRole: (role) => setMe((m) => ({ ...m, role })),
@@ -158,7 +250,7 @@ export function AdminProvider({ children }) {
       setDb((d) => ({ ...d, team: d.team.map((x) => (x.id === id ? { ...x, role } : x)) }));
       audit('Changed team role', m.name, `${m.role} → ${role}`);
     },
-  }), [db, me, cfg, toast, live, liveError]);
+  }), [db, me, cfg, toast, live, liveError, sb, acctState]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
