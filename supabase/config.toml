@@ -40,3 +40,6 @@ verify_jwt = false
 
 [functions.payment-methods]
 verify_jwt = false
+
+[functions.review-login]
+verify_jwt = false
