@@ -18,6 +18,7 @@ import { RequestLesson, Lessons, LessonDetail, LeaveReview, CancelLesson, CloseO
 import Training from './src/screens/Training';
 import { Inbox, Chat, Wallet } from './src/screens/Inbox';
 import { CfiDashboard, OwnerDashboard, Plans, Credentials, Insights } from './src/screens/Dashboards';
+import { OwnerBookings, OwnerEarnings } from './src/screens/Owner';
 import { PromoCode } from './src/screens/Promo';
 import { PriorExperience, PriorReview } from './src/screens/Prior';
 import { SchoolDashboard, AffiliationReview, JoinSchool } from './src/screens/School';
@@ -53,7 +54,16 @@ const TEACH_TABS = [
   { key: 'Earnings', icon: 'dollar', label: 'Earnings' },
   { key: 'Me', icon: 'user', label: 'Account' },
 ];
-const TAB_SCREENS = { Explore, Lessons, Training, Inbox, Me, Schedule, Students, Earnings };
+// Owners who don't teach get tabs for what they manage.
+const OWN_TABS = [
+  { key: 'Aircraft', icon: 'plane', label: 'Aircraft' },
+  { key: 'Bookings', icon: 'calendar', label: 'Bookings' },
+  { key: 'Inbox', icon: 'chat', label: 'Inbox' },
+  { key: 'OwnerEarnings', icon: 'dollar', label: 'Earnings' },
+  { key: 'Me', icon: 'user', label: 'Account' },
+];
+const Aircraft = (props) => <OwnerDashboard {...props} asTab />;
+const TAB_SCREENS = { Explore, Lessons, Training, Inbox, Me, Schedule, Students, Earnings, Aircraft, Bookings: OwnerBookings, OwnerEarnings };
 const TEACH_ONLY = ['Schedule', 'Students', 'Earnings', 'Teaching'];
 const LEARN_ONLY = ['Explore', 'Lessons', 'Training'];
 const MODE_KEY = 'rightseat.mode';
@@ -87,8 +97,10 @@ function Shell() {
   const roles = profile.roles || [];
   const canTeach = roles.includes('teach') || roles.includes('own') || teaching.length > 0;
   const [mode, setModeState] = useState('learn');
+  const ownerOnly = roles.includes('own') && !roles.includes('teach') && !teaching.some((r) => r.role === 'cfi');
+  const homeTab = ownerOnly ? 'Aircraft' : 'Schedule';
   const switchMode = (m) => {
-    setModeState(m); setStack([]); setTab(m === 'teach' ? 'Schedule' : 'Explore');
+    setModeState(m); setStack([]); setTab(m === 'teach' ? homeTab : 'Explore');
     AsyncStorage.setItem(MODE_KEY, m).catch(() => {});
   };
   // Start in the mode used last; a teach-only account starts in teaching.
@@ -96,12 +108,12 @@ function Shell() {
     if (!profile.onboarded) return;
     AsyncStorage.getItem(MODE_KEY).then((m) => {
       const want = m || (roles.includes('teach') && !roles.includes('learn') && !roles.includes('rent') ? 'teach' : 'learn');
-      if (want === 'teach' && canTeach) { setModeState('teach'); setTab('Schedule'); }
+      if (want === 'teach' && canTeach) { setModeState('teach'); setTab(homeTab); }
     }).catch(() => {});
   }, [profile.onboarded, canTeach]);
   // Lost access to teaching (signed out, role removed): back to learning.
   useEffect(() => { if (mode === 'teach' && !canTeach) { setModeState('learn'); setTab('Explore'); } }, [canTeach]);
-  const TABS = mode === 'teach' ? TEACH_TABS : LEARN_TABS;
+  const TABS = mode === 'teach' ? (ownerOnly ? OWN_TABS : TEACH_TABS) : LEARN_TABS;
   // Push notifications: register this phone once signed in; taps open the right screen.
   // Ask once with our own explanation first (iOS only shows its prompt once).
   const [askPush, setAskPush] = useState(false);
@@ -139,7 +151,7 @@ function Shell() {
     pop: () => setStack((s) => s.slice(0, -1)),
     replace: (name, params = {}) => setStack((s) => [...s.slice(0, -1), { name, params, key: name + Date.now() }]),
     goTab: (t) => { setStack([]); setTab(t); },
-    mode, canTeach, switchMode,
+    mode, canTeach, switchMode, ownerOnly,
   };
 
   useEffect(() => {

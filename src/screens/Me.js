@@ -129,12 +129,12 @@ export function Me({ nav }) {
       )}
 
       {nav.canTeach && (
-        <Pressable onPress={() => nav.switchMode(teachingMode ? 'learn' : 'teach')} style={ms.switch} accessibilityRole="button" accessibilityLabel={teachingMode ? 'Switch to learning' : 'Switch to teaching'}>
+        <Pressable onPress={() => nav.switchMode(teachingMode ? 'learn' : 'teach')} style={ms.switch} accessibilityRole="button" accessibilityLabel={teachingMode ? 'Switch to flying' : nav.ownerOnly ? 'Switch to my aircraft' : 'Switch to teaching'}>
           <View style={ms.switchIcon}><Icon name={teachingMode ? 'plane' : 'users'} size={20} color={C.blue} /></View>
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={{ fontWeight: '900', color: C.text, fontSize: 15 }}>{teachingMode ? 'Switch to learning' : 'Switch to teaching'}</Text>
+            <Text style={{ fontWeight: '900', color: C.text, fontSize: 15 }}>{teachingMode ? 'Switch to flying' : nav.ownerOnly ? 'Switch to my aircraft' : 'Switch to teaching'}</Text>
             <Text style={{ color: C.sub, fontSize: 12, marginTop: 1 }}>
-              {teachingMode ? 'Find instructors and planes, your lessons and training record' : pendingTeach ? `${pendingTeach} lesson request${pendingTeach > 1 ? 's' : ''} waiting for you` : 'Your schedule, students and earnings'}
+              {teachingMode ? 'Find instructors and planes, your lessons and training record' : pendingTeach ? `${pendingTeach} lesson request${pendingTeach > 1 ? 's' : ''} waiting for you` : nav.ownerOnly ? 'Bookings, maintenance and rental earnings' : 'Your schedule, students and earnings'}
             </Text>
           </View>
           {!teachingMode && pendingTeach > 0 && <View style={ms.count}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>{pendingTeach}</Text></View>}

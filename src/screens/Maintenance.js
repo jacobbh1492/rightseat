@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image, RefreshControl } from 'react-native';
-import { C, Card, Button, Field, Toggle, Tag, Chip, SectionTitle, Row, pickImages } from '../ui';
+import { C, Card, Button, Field, Toggle, Tag, Chip, SectionTitle, Row, pickImages, Icon } from '../ui';
 import { Header } from './Details';
 import { useAuth } from '../backend/auth';
 import { useStore } from '../store';
@@ -118,11 +118,28 @@ export function MaintenancePanel({ planeId, nav, owner }) {
   const [inviteMsg, setInviteMsg] = useState('');
   const load = useCallback(async () => {
     setLoading(true);
-    try { setD(await fetchMaintenance(planeId)); setErr(''); } catch (e) { setErr(e.message); }
+    try {
+      const r = await Promise.race([fetchMaintenance(planeId), new Promise((_, no) => setTimeout(() => no(new Error('Maintenance is taking too long to load. Check your connection.')), 12000))]);
+      setD(r); setErr('');
+    } catch (e) { setErr(e.message || 'Couldn’t load maintenance.'); }
     setLoading(false);
   }, [planeId]);
   useEffect(() => { load(); return onMaintenanceChange(load); }, [load]);
-  if (!d) return <Text style={[ms.sub, { marginTop: 12 }]}>{err || 'Loading maintenance…'}</Text>;
+  if (!d) {
+    if (err) return (
+      <Card style={{ alignItems: 'center', paddingVertical: 20 }}>
+        <Icon name="cloud" size={26} color={C.sub} />
+        <Text style={[ms.title, { marginTop: 8, flex: 0, marginRight: 0, textAlign: 'center' }]}>Couldn’t load maintenance</Text>
+        <Text style={[ms.sub, { textAlign: 'center', marginTop: 4 }]}>{err}</Text>
+        <Button title={loading ? 'Trying…' : 'Try again'} icon="refresh" variant="outline" small disabled={loading} style={{ marginTop: 12, alignSelf: 'stretch' }} onPress={load} />
+      </Card>
+    );
+    return (
+      <View accessible accessibilityLabel="Loading maintenance">
+        {[70, 120, 90].map((h, i) => <View key={i} style={[ms.skel, { height: h }]} />)}
+      </View>
+    );
+  }
   const p = d.plane || {};
   const listing = getPlane(planeId);
   const open = openSquawks(d.squawks);
@@ -141,9 +158,12 @@ export function MaintenancePanel({ planeId, nav, owner }) {
 
   return (
     <View>
-      <Card style={{ borderWidth: 1.5, borderColor: bad.length ? '#FCA5A5' : '#A7F3D0' }}>
-        <Text style={{ fontWeight: '900', fontSize: 16, color: bad.length ? '#B91C1C' : C.green }}>{bad.length ? 'Grounded · bookings paused' : 'Airworthy · accepting bookings'}</Text>
-        {bad.map((c) => <Text key={c.key} style={[ms.sub, { color: '#B91C1C', marginTop: 4 }]}>✕ {c.label}</Text>)}
+      <Card style={{ borderWidth: 1.5, borderColor: bad.length ? C.red : C.green, backgroundColor: bad.length ? C.redBg : C.greenBg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Icon name={bad.length ? 'alert' : 'shieldCheck'} size={22} color={bad.length ? C.red : C.green} />
+          <Text style={{ fontWeight: '900', fontSize: 16, color: bad.length ? C.red : C.green, marginLeft: 8 }}>{bad.length ? 'Can’t fly · bookings paused' : 'Ready to fly · taking bookings'}</Text>
+        </View>
+        {bad.map((c) => <Text key={c.key} style={[ms.sub, { color: C.red, marginTop: 4 }]}>✕ {c.label}</Text>)}
         {!bad.length && <Text style={[ms.sub, { marginTop: 4 }]}>New bookings and confirmations pause automatically for a grounding squawk, an overdue 100-hour or an expired annual.</Text>}
       </Card>
 
@@ -151,6 +171,11 @@ export function MaintenancePanel({ planeId, nav, owner }) {
       <Card>
         <Row label="Hobbs" value={p.hobbsTotal ? String(p.hobbsTotal) : '—'} />
         <Row label="100-hour due at" value={p.next100At ? `${p.next100At}${left != null ? ` (${left > 0 ? left + ' hrs left' : 'overdue'})` : ''}` : 'Not set'} />
+        {left != null && (
+          <View style={ms.bar} accessible accessibilityLabel={`${Math.max(0, left)} of 100 hours left before the 100-hour`}>
+            <View style={[ms.barFill, { width: `${Math.max(0, Math.min(1, left / 100)) * 100}%`, backgroundColor: left < 10 ? C.red : C.amber }]} />
+          </View>
+        )}
         <Row label="Annual" value={annualThrough ? `${pretty(p.annualDate)} · good through ${pretty(annualThrough)}` : 'Not logged'} />
         {!form && (
           <View style={ms.actions}>
@@ -273,7 +298,12 @@ export function ReportSquawk({ nav, params }) {
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <Header nav={nav} title="Report a squawk" />
-        <View style={{ padding: 16 }}><Button title="Sign in to report a squawk" onPress={() => nav.push('SignIn')} /></View>
+        <View style={{ padding: 24, alignItems: 'center' }}>
+          <View style={ms.emptyIcon}><Icon name="wrench" size={26} color={C.navy} /></View>
+          <Text style={{ fontSize: 18, fontWeight: '900', color: C.text, marginTop: 12 }}>Sign in to report a squawk</Text>
+          <Text style={[ms.sub, { textAlign: 'center', marginTop: 6 }]}>Reports go to the owner and their mechanic, so we need to know who saw it.</Text>
+          <Button title="Sign in" style={{ marginTop: 16, alignSelf: 'stretch' }} onPress={() => nav.push('SignIn')} />
+        </View>
       </View>
     );
   }
@@ -282,7 +312,7 @@ export function ReportSquawk({ nav, params }) {
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <Header nav={nav} title="Squawk reported" />
         <View style={{ padding: 24, alignItems: 'center' }}>
-          <Text style={{ fontSize: 40 }}>🔧</Text>
+          <View style={ms.emptyIcon}><Icon name="check" size={28} color={C.green} strokeWidth={3} /></View>
           <Text style={{ fontSize: 20, fontWeight: '900', color: C.text, marginTop: 8 }}>Thanks, the owner has it</Text>
           <Text style={[ms.sub, { textAlign: 'center', marginTop: 8 }]}>
             {done.grounding ? `${plane?.tail || 'The plane'} is now grounded: new bookings are paused, and pilots with upcoming flights were told. It goes back online when the owner or mechanic marks it fixed.` : 'The owner and their mechanic were notified. The next pilot will see it on the preflight screen.'}
@@ -296,10 +326,23 @@ export function ReportSquawk({ nav, params }) {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Report a squawk" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
-        <Text style={ms.sub}>{plane ? `${plane.tail} · ${plane.make} ${plane.model}` : ''}</Text>
-        <Field label="What’s wrong?" value={text} onChangeText={setText} multiline placeholder="Left nav light inop. Noticed on preflight." />
-        <Toggle label="Unsafe to fly (grounding)" value={grounding} onValueChange={setGrounding}
-          hint="Pauses new bookings right away and tells pilots with upcoming flights. Use it for anything that affects airworthiness." />
+        {plane && (
+          <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Icon name="plane" size={22} color={C.navy} />
+            <View style={{ marginLeft: 10, flex: 1 }}>
+              <Text style={{ fontWeight: '900', color: C.text }}>{plane.tail} · {plane.make} {plane.model}</Text>
+              {params.bookingId && <Text style={ms.sub}>From your booking</Text>}
+            </View>
+          </Card>
+        )}
+        <Field label="What’s wrong?" value={text} onChangeText={setText} multiline placeholder="e.g. Left nav light inop. Noticed on preflight." />
+        <Text style={{ fontWeight: '800', color: C.text, marginBottom: 8 }}>Is it safe to fly?</Text>
+        {[[false, 'Not grounding', 'Safe to fly. The owner and next pilot are told about it.'], [true, 'Grounding', 'Unsafe to fly. New bookings pause and pilots with upcoming flights are told.']].map(([v, t, d]) => (
+          <Pressable key={t} onPress={() => setGrounding(v)} style={[ms.choice, grounding === v && { borderColor: v ? C.red : C.navy, backgroundColor: v ? C.redBg : C.sky }]} accessibilityRole="radio" accessibilityState={{ checked: grounding === v }}>
+            <View style={[ms.radio, grounding === v && { borderColor: v ? C.red : C.navy }]}>{grounding === v && <View style={[ms.radioDot, { backgroundColor: v ? C.red : C.navy }]} />}</View>
+            <View style={{ flex: 1 }}><Text style={{ fontWeight: '800', color: v && grounding ? C.red : C.text }}>{t}</Text><Text style={ms.sub}>{d}</Text></View>
+          </Pressable>
+        ))}
         <SectionTitle>Photos</SectionTitle>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
           {photos.map((u, i) => (
@@ -358,7 +401,12 @@ export function MechanicHome({ nav }) {
           </Card>
         ))}
         <SectionTitle>Your planes</SectionTitle>
-        {!loading && active.length === 0 && <Text style={ms.sub}>No planes yet.</Text>}
+        {!loading && active.length === 0 && invites.length === 0 && (
+          <Card>
+            <Text style={ms.title}>No planes yet</Text>
+            <Text style={[ms.sub, { marginTop: 4 }]}>Mechanic access is invite-only. Ask the owner to open their plane’s Maintenance screen and invite you with {auth?.session?.user?.email ? auth.session.user.email : 'the email you sign in with'}. The invite appears here; accept it and the plane’s squawks and inspections show up below.</Text>
+          </Card>
+        )}
         {active.map((r) => (
           <Card key={r.id} onPress={() => nav.push('Maintenance', { planeId: r.planeId })}>
             <Text style={ms.title}>{r.plane ? `${r.plane.tail} · ${r.plane.make} ${r.plane.model}` : 'Plane'}</Text>
@@ -371,6 +419,13 @@ export function MechanicHome({ nav }) {
 }
 
 const ms = StyleSheet.create({
+  emptyIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.amberBg, alignItems: 'center', justifyContent: 'center' },
+  choice: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: C.border, borderRadius: 12, padding: 12, marginBottom: 8, backgroundColor: '#fff' },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  radioDot: { width: 10, height: 10, borderRadius: 5 },
+  skel: { backgroundColor: '#E8EDF4', borderRadius: 14, marginBottom: 12 },
+  bar: { height: 8, borderRadius: 4, backgroundColor: C.sky, overflow: 'hidden', marginTop: 6, marginBottom: 4 },
+  barFill: { height: 8, borderRadius: 4 },
   sub: { color: C.sub, fontSize: 13, lineHeight: 18 },
   err: { color: '#B91C1C', fontWeight: '600', marginTop: 8 },
   title: { fontWeight: '800', color: C.text, fontSize: 15, flex: 1, marginRight: 8 },

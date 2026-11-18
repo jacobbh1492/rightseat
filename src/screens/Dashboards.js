@@ -7,7 +7,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useStore, money } from '../store';
 import { PLANS, CFI_STUDENTS, SEED_PAIRS } from '../data';
 import { money2, slotStatus, SLOTS, FEES, r2, pairMetrics, dateLabel } from '../logic';
-import { C, Card, Avatar, SectionTitle, Button, Row, Tag, Stat, Field, Toggle, Stars } from '../ui';
+import { C, Card, Avatar, SectionTitle, Button, Row, Tag, Stat, Field, Toggle, Stars, Chip, Icon } from '../ui';
 import { PlaneImage } from '../art';
 import { Header } from './Details';
 import { allHours, hasPrior } from '../progress';
@@ -146,8 +146,8 @@ export function CfiDashboard({ nav }) {
   );
 }
 
-export function OwnerDashboard({ nav, params }) {
-  const { myPlaneIds, getPlane, addSquawk, resolveSquawk, complete100hr, planeRole } = useStore();
+export function OwnerDashboard({ nav, params, asTab }) {
+  const { myPlaneIds, getPlane, addSquawk, resolveSquawk, planeRole, teaching } = useStore();
   const ids = myPlaneIds.length ? myPlaneIds : ['p2'];
   const [sel, setSel] = useState(params?.planeId && ids.includes(params.planeId) ? params.planeId : ids[0]);
   const role = planeRole(sel) || 'owner';
@@ -169,12 +169,19 @@ export function OwnerDashboard({ nav, params }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Header nav={nav} title={role === 'owner' ? 'Aircraft owner' : role === 'co_owner' ? 'Co-owner' : 'Plane manager'} />
+      {!asTab && <Header nav={nav} title={role === 'owner' ? 'Aircraft owner' : role === 'co_owner' ? 'Co-owner' : 'Plane manager'} />}
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
-        {!myPlaneIds.length && <Text style={k.demo}>Demo: viewing as Bay Area Flyers Club (N7340P)</Text>}
+        {asTab && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ flex: 1, fontSize: 28, fontWeight: '900', color: C.text }} accessibilityRole="header">Aircraft</Text>
+            <Pressable onPress={() => nav.push('PlaneForm')} style={k.addBtn} accessibilityRole="button" accessibilityLabel="List another plane"><Icon name="plus" size={20} color={C.navy} /></Pressable>
+          </View>
+        )}
+        {asTab && role === 'owner' && <OwnerSetup nav={nav} plane={myPlaneIds.length ? p : null} />}
+        {!myPlaneIds.length && <Text style={k.demo}>Sample plane: Bay Area Flyers Club (N7340P)</Text>}
         {ids.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-            {ids.map((i) => <Pressable key={i} onPress={() => setSel(i)}><Tag label={getPlane(i).tail} bg={i === sel ? C.blue : C.sky} color={i === sel ? '#fff' : C.blue} /></Pressable>)}
+            {ids.map((i) => <Chip key={i} small label={getPlane(i).tail} active={i === sel} onPress={() => setSel(i)} />)}
           </ScrollView>
         )}
         <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -183,10 +190,14 @@ export function OwnerDashboard({ nav, params }) {
             <Text style={{ fontWeight: '900', color: C.text, fontSize: 16 }}>{p.tail} · {p.make} {p.model}</Text>
             <Text style={{ color: C.sub, marginTop: 2 }}>Hobbs {p.hobbsTotal} · {money(p.wetRate)}/hr wet</Text>
             <View style={{ flexDirection: 'row', marginTop: 6 }}>
-              <Tag label={grounded ? 'Grounded — bookings paused' : 'Airworthy — accepting bookings'} color={grounded ? '#B91C1C' : C.green} bg={grounded ? '#FEE2E2' : '#DDF3E8'} />
+              <Tag label={grounded ? 'Grounded · bookings paused' : '✓ Airworthy · taking bookings'} color={grounded ? C.red : C.green} bg={grounded ? C.redBg : C.greenBg} />
             </View>
           </View>
         </Card>
+        <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+          <Button title="Preview listing" icon="eye" variant="outline" small style={{ flex: 1, marginRight: 8 }} onPress={() => nav.push('Plane', { id: p.id })} />
+          <Button title="Report squawk" icon="flag" variant="outline" small style={{ flex: 1 }} onPress={() => nav.push('ReportSquawk', { planeId: p.id })} />
+        </View>
         {role !== 'owner' && (
           <Text style={k.roleNote}>You’re {role === 'co_owner' ? 'a co-owner' : 'a manager'} of {p.tail}. {canSeeEarnings(role) ? 'Payouts go to the owner.' : 'Earnings and payouts stay with the owner.'}</Text>
         )}
@@ -199,11 +210,15 @@ export function OwnerDashboard({ nav, params }) {
         {p.live ? <MaintenancePanel planeId={p.id} nav={nav} owner /> : <>
         <SectionTitle>100-hour inspection</SectionTitle>
         <Card>
-          <Row label="Due at Hobbs" value={p.next100At} />
-          <Row label="Hours remaining" value={left > 0 ? `${left} hrs` : 'OVERDUE'} />
-          <View style={k.bar}><View style={[k.barFill, { width: `${Math.max(0, Math.min(1, 1 - left / 100)) * 100}%`, backgroundColor: left < 10 ? '#B91C1C' : C.blue }]} /></View>
-          <Text style={{ color: C.sub, fontSize: 12, marginTop: 6 }}>Positive Rate blocks any booking that would run past the 100-hr. Hobbs updates automatically when each flight is closed out.</Text>
-          {left < 10 && <Button title="Mark 100-hr complete (signed off)" variant="outline" style={{ marginTop: 10, paddingVertical: 10 }} onPress={() => complete100hr(p.id)} />}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 34, fontWeight: '900', color: left <= 0 ? C.red : C.text }}>{left > 0 ? left : 0}</Text>
+            <Text style={{ color: C.sub, fontWeight: '700', marginLeft: 6, marginBottom: 6 }}>{left > 0 ? 'hrs left' : 'hrs · inspection overdue'}</Text>
+          </View>
+          <View style={k.bar} accessible accessibilityLabel={`${Math.max(0, left)} of 100 hours left`}>
+            <View style={[k.barFill, { width: `${Math.max(0, Math.min(1, left / 100)) * 100}%`, backgroundColor: left < 10 ? C.red : C.amber }]} />
+          </View>
+          <Text style={{ color: C.sub, fontSize: 13, marginTop: 8 }}>Due at Hobbs {p.next100At} (now {p.hobbsTotal}). Bookings that would run past it are blocked automatically.</Text>
+          {left < 10 && <Button title="Upload 100-hr sign-off" icon="upload" variant="outline" style={{ marginTop: 10 }} onPress={() => nav.push('DocUpload', { type: 'hundredHr', key: p.id })} />}
         </Card>
 
         <SectionTitle>Squawks</SectionTitle>
@@ -245,17 +260,44 @@ export function OwnerDashboard({ nav, params }) {
           </Card>
         </>}
 
-        <SectionTitle>Renter checks</SectionTitle>
+        <SectionTitle>How renters are checked</SectionTitle>
         <Card>
-          <Text style={k.line}>✓ Every renter’s ID, certificate, medical, solo endorsement, checkout and insurance minimum ({p.insuranceMinHours} hrs) are checked before booking.</Text>
-          <Text style={k.line}>✓ Paid by Hobbs automatically. No cash, no chasing.</Text>
-          <Text style={[k.line, { color: '#B45309' }]}>Rentals arranged off the app skip these checks.</Text>
+          <Text style={k.line}>Before every booking we check the renter’s ID, certificate, medical, solo endorsement, checkout and your {p.insuranceMinHours}-hour minimum.</Text>
+          <Text style={k.line}>Rentals are billed by Hobbs and paid out to you automatically. These checks apply to bookings made in the app.</Text>
         </Card>
 
         <SectionTitle>Schedule</SectionTitle>
         <WeekCalendar plane={p} />
       </ScrollView>
     </View>
+  );
+}
+
+// First-run checklist for owners: what's left before renters can book.
+function OwnerSetup({ nav, plane }) {
+  const items = [
+    ['List your plane', 'Photos, rates and renter rules', !!plane, () => nav.push('PlaneForm')],
+    ['Verify it', 'Registration, airworthiness, insurance, annual and 100-hour', !!(plane && plane.insured && plane.airworthyVerified), () => nav.push('Verification', plane ? { planeId: plane.id } : {})],
+    ['Set up payouts', 'So rental income reaches your bank', false, () => nav.goTab('OwnerEarnings')],
+    ['Approve instructors', 'Who can teach and do checkouts in it', !!(plane && plane.approvedCfiIds?.length), () => plane ? nav.push('PlanePeople', { planeId: plane.id }) : nav.push('PlaneForm')],
+    ['Add your mechanic', 'Optional · they see squawks and inspections', false, () => plane ? nav.push('Maintenance', { planeId: plane.id }) : nav.push('PlaneForm')],
+  ];
+  const done = items.filter((x) => x[2]).length;
+  if (done >= 2 && plane?.insured && plane?.airworthyVerified) return null;
+  return (
+    <Card style={{ borderWidth: 2, borderColor: C.navy }}>
+      <Text style={k.kicker}>Get ready for renters · {done} of {items.length}</Text>
+      {items.map(([t, d, ok, go], i) => (
+        <Pressable key={t} onPress={ok ? undefined : go} style={[k.setRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.line }]} accessibilityRole="button" accessibilityState={{ checked: ok }}>
+          <View style={[k.setDot, ok && { backgroundColor: C.green, borderColor: C.green }]}>{ok ? <Icon name="check" size={14} color="#fff" strokeWidth={3} /> : <Text style={{ color: C.sub, fontWeight: '800', fontSize: 12 }}>{i + 1}</Text>}</View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontWeight: '800', color: ok ? C.sub : C.text, textDecorationLine: ok ? 'line-through' : 'none' }}>{t}</Text>
+            {!ok && <Text style={{ color: C.sub, fontSize: 13 }}>{d}</Text>}
+          </View>
+          {!ok && <Icon name="chevron" size={18} color={C.chevron} />}
+        </Pressable>
+      ))}
+    </Card>
   );
 }
 
@@ -376,6 +418,10 @@ export function Insights({ nav }) {
 }
 
 const k = StyleSheet.create({
+  addBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.amberBg, alignItems: 'center', justifyContent: 'center' },
+  kicker: { color: C.sub, fontSize: 12, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 4 },
+  setRow: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: 8 },
+  setDot: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   promo: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#DDF3E8', borderWidth: 1, borderColor: '#A7F3D0', borderRadius: 12, padding: 14, marginTop: 4 },
   demo: { color: C.sub, fontSize: 12, fontWeight: '700', marginBottom: 8 },
   roleNote: { color: '#475569', fontSize: 13, lineHeight: 18, marginBottom: 10 },
