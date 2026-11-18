@@ -153,3 +153,21 @@ export async function fetchDebriefsIWrote(uid) {
   if (error) throw error;
   return data;
 }
+
+// A plain-text copy of the student's training record (flights, hours, debriefs) to keep.
+export function trainingRecordText({ name, flights, debriefs }) {
+  const H = hoursFromFlights(flights);
+  const lines = [
+    `Positive Rate training record — ${name || 'Pilot'}`,
+    `Exported ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+    '',
+    `Total ${H.total} hr · dual ${H.dual} · solo ${H.solo} · dual XC ${H.dualXC} · solo XC ${H.soloXC} · night ${H.night} · instrument ${H.instrument} · ground ${H.ground}`,
+    '',
+    'FLIGHTS',
+    ...flights.map((f) => `${f.date} · ${f.goal || 'Flight'} · ${f.tail || ''} · ${f.actualHobbs ?? f.flightHours} hr${f.cfiName ? ` · ${f.cfiName}` : ' · solo'}`),
+    '',
+    'DEBRIEFS',
+    ...(debriefs || []).flatMap((d) => [`${d.flown_on}`, d.went_well ? `  Went well: ${d.went_well}` : null, d.needs_work ? `  Needs work: ${d.needs_work}` : null, d.next_plan ? `  Next: ${d.next_plan}` : null].filter(Boolean)),
+  ];
+  return lines.join('\n');
+}

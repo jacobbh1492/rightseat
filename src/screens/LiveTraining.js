@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, StyleSheet, Share } from 'react-native';
 import { useStore } from '../store';
 import { useAuth } from '../backend/auth';
-import { hoursFromFlights, fetchDebriefs, acknowledgeDebrief } from '../backend/bookings';
+import { hoursFromFlights, fetchDebriefs, acknowledgeDebrief, trainingRecordText } from '../backend/bookings';
 import { PPL_MINIMUMS } from '../logic';
 import { C, Card, SectionTitle, Button, Field, Tag, Tabs } from '../ui';
 import { LibraryCard } from './Library';
@@ -110,6 +110,8 @@ export default function LiveTraining({ nav }) {
         </>}
 
         {tab === 'record' && <>
+        {flights.length > 0 && <Button title="Save a copy of my record" icon="upload" variant="outline" style={{ marginTop: 8 }}
+          onPress={() => Share.share({ title: 'My training record', message: trainingRecordText({ name: auth?.account?.full_name, flights, debriefs }) }).catch(() => {})} />}
         <SectionTitle>Flights</SectionTitle>
         {flights.length === 0 && <Text style={l.sub}>No completed flights yet.</Text>}
         {flights.map((f) => (

@@ -711,7 +711,11 @@ export function SchoolForm({ nav, params }) {
     programs: e.programs && e.programs.length ? e.programs.map((p) => ({ ...p, price: String(p.price) })) : [{ name: '', price: '', includes: '' }],
     cfiIds: ex ? cfisForSchool(ex.id).map((c) => c.id) : [],
     planeIds: ex ? planesForSchool(ex.id).map((p) => p.id) : [],
+    logo: e.logo || null,
   });
+  const [cq, setCq] = useState('');
+  const [pq, setPq] = useState('');
+  const match = (txt, q) => q.trim().length >= 2 && txt.toLowerCase().includes(q.trim().toLowerCase());
   const set = (k) => (v) => setF((prev) => ({ ...prev, [k]: v }));
   const setProg = (i, k, v) => set('programs')(f.programs.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
   const toggleId = (k, id) => set(k)(f[k].includes(id) ? f[k].filter((x) => x !== id) : [...f[k], id]);
@@ -725,6 +729,7 @@ export function SchoolForm({ nav, params }) {
         id,
         name: f.name.trim(),
         initials,
+        logo: f.logo,
         color: ex?.color || '#0B1F3A',
         homeAirport: f.homeAirport[0],
         trainingTypes: f.trainingTypes,
@@ -750,59 +755,70 @@ export function SchoolForm({ nav, params }) {
       <Header nav={nav} title={ex ? 'Edit school' : 'Create school profile'} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }}>
         <SectionTitle>Company</SectionTitle>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+          <Pressable onPress={async () => { const [u] = await pickImages(false); if (u) set('logo')(u); }} accessibilityRole="button" accessibilityLabel={f.logo ? 'Change logo' : 'Add logo'}>
+            {f.logo ? <Avatar photo={f.logo} initials="" color={C.navy} size={72} /> : <View style={[ms.photoSlot, { width: 72, height: 72, borderRadius: 16 }]}><Icon name="camera" size={24} color={C.navy} /></View>}
+          </Pressable>
+          <View style={{ marginLeft: 14, flex: 1 }}>
+            <Text style={{ fontWeight: '800', color: C.text }}>School logo</Text>
+            <Text style={ms.hint}>Shown on your page and in search. Square works best.</Text>
+          </View>
+        </View>
         <Field label="School name" value={f.name} onChangeText={set('name')} placeholder="e.g. Pinellas Flight Academy" />
         <MultiSelect single label="Based at" options={AIRPORTS.map((a) => a.code)} selected={f.homeAirport} onChange={set('homeAirport')} />
         <MultiSelect label="Certification" options={['Part 61', 'Part 141']} selected={f.trainingTypes} onChange={set('trainingTypes')} />
         <Field label="About the school" multiline value={f.about} onChangeText={set('about')} placeholder="What makes training here different?" />
         <View style={ms.two}>
-          <View style={{ flex: 1, marginRight: 8 }}><Field label="Phone" value={f.phone} onChangeText={set('phone')} placeholder="(727) 555-0100" /></View>
-          <View style={{ flex: 1 }}><Field label="Founded" keyboardType="numeric" value={f.founded} onChangeText={set('founded')} placeholder="2015" /></View>
+          <View style={{ flex: 1, marginRight: 8 }}><Field label="Phone" value={f.phone} onChangeText={set('phone')} placeholder="e.g. (727) 555-0100" /></View>
+          <View style={{ flex: 1 }}><Field label="Founded" keyboardType="numeric" value={f.founded} onChangeText={set('founded')} placeholder="e.g. 2015" /></View>
         </View>
-        <Field label="Website" value={f.website} onChangeText={set('website')} placeholder="yourschool.com" />
+        <Field label="Website" value={f.website} onChangeText={set('website')} placeholder="e.g. yourschool.com" />
         <Toggle label="VA approved (GI Bill)" value={f.vaApproved} onValueChange={set('vaApproved')} />
         <Toggle label="Offers financing" value={f.financing} onValueChange={set('financing')} />
 
         <SectionTitle>Programs & pricing</SectionTitle>
         {f.programs.map((p, i) => (
           <Card key={i}>
-            <Field label="Program" value={p.name} onChangeText={(v) => setProg(i, 'name', v)} placeholder="Private Pilot" />
+            <Field label="Program" value={p.name} onChangeText={(v) => setProg(i, 'name', v)} placeholder="e.g. Private Pilot" />
             <View style={ms.two}>
-              <View style={{ flex: 1, marginRight: 8 }}><Field label="Price" prefix="$" keyboardType="numeric" value={p.price} onChangeText={(v) => setProg(i, 'price', v)} placeholder="12900" /></View>
-              <View style={{ flex: 1.6 }}><Field label="Includes" value={p.includes} onChangeText={(v) => setProg(i, 'includes', v)} placeholder="~50 hrs + ground" /></View>
+              <View style={{ flex: 1, marginRight: 8 }}><Field label="Price" prefix="$" keyboardType="numeric" value={p.price} onChangeText={(v) => setProg(i, 'price', v)} placeholder="e.g. 12900" /></View>
+              <View style={{ flex: 1.6 }}><Field label="Includes" value={p.includes} onChangeText={(v) => setProg(i, 'includes', v)} placeholder="e.g. ~50 hrs + ground" /></View>
             </View>
           </Card>
         ))}
         <Pressable onPress={() => set('programs')([...f.programs, { name: '', price: '', includes: '' }])} style={{ paddingVertical: 6 }}>
-          <Text style={{ color: C.blue, fontWeight: '700' }}>+ Add another program</Text>
+          <Text style={{ color: C.blue, fontWeight: '800' }}>+ Add another program</Text>
         </Pressable>
 
         <SectionTitle>Your instructors</SectionTitle>
-        <Text style={ms.hint}>Tap instructors who teach for you. Each gets an invite and must accept before they’re linked to your school.</Text>
-        {cfis.map((c) => {
+        <Text style={ms.hint}>Search instructors on Positive Rate. Each gets an invite and must accept before they’re linked to your school.</Text>
+        <Field label="Find an instructor" value={cq} onChangeText={setCq} placeholder="Search name or airport" autoCorrect={false} />
+        {cfis.filter((c) => f.cfiIds.includes(c.id) || match(`${c.name} ${c.homeAirport}`, cq)).map((c) => {
           const on = f.cfiIds.includes(c.id);
           return (
-            <Pressable key={c.id} onPress={() => toggleId('cfiIds', c.id)} style={[ms.planeRow, on && { borderColor: C.blue, backgroundColor: C.sky }]}>
+            <Pressable key={c.id} onPress={() => toggleId('cfiIds', c.id)} style={[ms.planeRow, on && { borderColor: C.navy, backgroundColor: C.sky }]} accessibilityRole="checkbox" accessibilityState={{ checked: on }}>
+              <View style={[ms.box, on && { backgroundColor: C.navy, borderColor: C.navy }]}>{on && <Icon name="check" size={14} color="#fff" strokeWidth={3} />}</View>
               <Avatar initials={c.initials} color={c.color} photo={c.photo} size={40} />
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={{ fontWeight: '700', color: C.text }}>{c.name}</Text>
                 <Text style={{ color: C.sub, fontSize: 12 }}>{c.certs.join(' · ')} · {c.homeAirport}</Text>
               </View>
-              <Text style={{ fontSize: 20, color: on ? C.blue : C.line, fontWeight: '900' }}>{on ? '✓' : '+'}</Text>
             </Pressable>
           );
         })}
 
         <SectionTitle>Your fleet</SectionTitle>
-        {planes.map((p) => {
+        <Field label="Find a plane" value={pq} onChangeText={setPq} placeholder="Search tail number" autoCapitalize="characters" autoCorrect={false} />
+        {planes.filter((p) => f.planeIds.includes(p.id) || match(`${p.tail} ${p.make} ${p.model}`, pq)).map((p) => {
           const on = f.planeIds.includes(p.id);
           return (
-            <Pressable key={p.id} onPress={() => toggleId('planeIds', p.id)} style={[ms.planeRow, on && { borderColor: C.blue, backgroundColor: C.sky }]}>
+            <Pressable key={p.id} onPress={() => toggleId('planeIds', p.id)} style={[ms.planeRow, on && { borderColor: C.navy, backgroundColor: C.sky }]} accessibilityRole="checkbox" accessibilityState={{ checked: on }}>
+              <View style={[ms.box, on && { backgroundColor: C.navy, borderColor: C.navy }]}>{on && <Icon name="check" size={14} color="#fff" strokeWidth={3} />}</View>
               <PlaneImage plane={p} size={44} />
               <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={{ fontWeight: '700', color: C.text }}>{p.year} {p.make} {p.model}</Text>
-                <Text style={{ color: C.sub, fontSize: 12 }}>{p.tail} · {p.homeAirport} · {money(p.wetRate)}/hr</Text>
+                <Text style={{ fontWeight: '700', color: C.text }}>{p.tail} · {p.make} {p.model}</Text>
+                <Text style={{ color: C.sub, fontSize: 12 }}>{p.homeAirport} · {money(p.wetRate)}/hr</Text>
               </View>
-              <Text style={{ fontSize: 20, color: on ? C.blue : C.line, fontWeight: '900' }}>{on ? '✓' : '+'}</Text>
             </Pressable>
           );
         })}
