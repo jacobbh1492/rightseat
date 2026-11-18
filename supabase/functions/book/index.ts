@@ -32,6 +32,13 @@ serve(async (req, body) => {
   if (cfi && !cfi.verified) throw new HttpError(409, 'This instructor is still being verified by Positive Rate. Try again soon.');
   if (plane && !(plane.airworthy_verified && plane.insured)) throw new HttpError(409, 'This plane’s registration and insurance are still being verified. Try again soon.');
   if (cfi && cfi.id === user.id) throw new HttpError(400, 'You can’t book yourself.');
+  // The owner decides who teaches in their plane: instruction can be off, or limited to approved instructors.
+  if (cfi && plane) {
+    const d = plane.details || {};
+    const approved: string[] = Array.isArray(d.approvedCfiIds) ? d.approvedCfiIds : [];
+    if (d.lessons === false) throw new HttpError(409, 'The owner doesn’t allow lessons in this plane. Pick another plane.');
+    if (approved.length && !approved.includes(cfi.id) && plane.owner_id !== cfi.id) throw new HttpError(409, 'This instructor isn’t approved to teach in this plane. Pick another plane or instructor.');
+  }
   if (plane && !cfi && plane.owner_id === user.id) throw new HttpError(400, 'You can’t rent your own plane.');
   if (plane && !cfi && plane.details?.soloRental === false) throw new HttpError(400, 'This plane is dual-only. Add an instructor.');
 

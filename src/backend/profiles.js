@@ -71,6 +71,14 @@ export async function postReview(uid, { bookingId, subject, rating, tags, text }
 }
 
 // plane: the app's plane shape (from PlaneForm). Returns the new plane id.
+// An instructor's public card, found by their account email (for approving who teaches in a plane).
+export async function findCfiByEmail(email) {
+  const { data, error } = await supabase.rpc('find_cfi_by_email', { p_email: email });
+  if (error) throw error;
+  const r = Array.isArray(data) ? data[0] : data;
+  return r ? { id: r.id, name: r.full_name, photo: r.avatar_url, certs: r.certs || [], homeAirport: r.home_airport, verified: !!r.verified } : null;
+}
+
 export async function savePlaneListing(uid, plane, { publish, addToMyCfiProfile }) {
   const row = {
     owner_id: uid, tail: plane.tail, make: plane.make, model: plane.model, year: plane.year || null,
@@ -82,7 +90,10 @@ export async function savePlaneListing(uid, plane, { publish, addToMyCfiProfile 
       tbo: plane.tbo, last100hr: plane.last100hr, ownerName: plane.ownerName, insuranceMinHours: plane.insuranceMinHours,
       checkoutRequired: plane.checkoutRequired, soloRental: plane.soloRental, checkoutBy: plane.checkoutBy || 'cfi', notes: plane.notes,
       recentFlightDays: Number(plane.recentFlightDays || 0),
+      panel: plane.panel || null, lessons: plane.lessons !== false, approvedCfiIds: plane.approvedCfiIds || [], checkoutCfiIds: plane.checkoutCfiIds || [],
+      minSoloRating: plane.minSoloRating || 'student', minTypeHours: Number(plane.minTypeHours || 0), overnight: !!plane.overnight,
     },
+    ...(plane.hobbsTotal ? { hobbs_total: plane.hobbsTotal } : {}),
   };
   const { data, error } = await supabase.from('planes').insert(row).select('id').single();
   if (error) {
