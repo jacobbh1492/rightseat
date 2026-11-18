@@ -8,7 +8,7 @@ import { useAuth } from '../backend/auth';
 import { saveCfiProfile, savePlaneListing, findCfiByEmail } from '../backend/profiles';
 import { fetchMyMechanicAccess } from '../backend/maintenance';
 import { fetchMyPlaneAccess } from '../backend/planePeople';
-import { C, Card, Field, MultiSelect, Toggle, Button, SectionTitle, Avatar, pickImages, ListRow, Icon, Chip, Steps } from '../ui';
+import { C, Card, Field, MultiSelect, Toggle, Button, SectionTitle, Avatar, pickImages, ListRow, Icon, Chip, Steps, Banner } from '../ui';
 import { Header } from './Details';
 import { CfiCard, PlaneCard, SchoolCard } from './Explore';
 import { WeeklyHours } from './Availability';
@@ -260,10 +260,10 @@ export function CfiForm({ nav, params }) {
     teachesInYourPlane: e.teachesInYourPlane ?? true,
     insured: e.insured ?? true,
     aircraftIds: e.aircraftIds || [],
-    pkgName: e.packages?.[0]?.name || '',
-    pkgPrice: e.packages?.[0]?.price ? String(e.packages[0].price) : '',
-    pkgIncludes: e.packages?.[0]?.includes || '',
+    packages: (e.packages || []).map((x) => ({ name: x.name || '', price: x.price ? String(x.price) : '', includes: x.includes || '' })),
   });
+  const [step, setStep] = useState(0);
+  const [q, setQ] = useState('');
   const set = (k) => (v) => setF((prev) => ({ ...prev, [k]: v }));
   // Weekly hours (e.g. Mon 7 AM – 7 PM), the same calendar students book against.
   const [sched, setSched] = useState(() => normalizeSchedule(null, e.availability?.length ? e.availability : undefined));
@@ -273,7 +273,9 @@ export function CfiForm({ nav, params }) {
     fetchSchedule(uid, existing.availability).then(({ schedule }) => setSched(schedule)).catch(() => {}).finally(() => setHoursLoaded(true));
   }, [uid, existing?.live]);
   const workDays = workingDays(sched);
-  const valid = f.name.trim() && num(f.flightRate) > 0 && workDays.length > 0 && hoursLoaded;
+  const valid = f.name.trim() && num(f.flightRate) > 0 && workDays.length > 0 && hoursLoaded && !!f.photo;
+  const stepOk = [!!(f.name.trim() && f.photo && workDays.length > 0 && hoursLoaded), num(f.flightRate) > 0, true, true];
+  const stepNeed = [!f.photo ? 'Add a profile photo' : !f.name.trim() ? 'Add your name' : 'Turn on at least one day', 'Add your flight rate', '', ''];
 
   const save = async () => {
     const id = uid || existing?.id || 'me-cfi';
@@ -313,7 +315,7 @@ export function CfiForm({ nav, params }) {
       reviewCount: existing?.reviewCount || 0,
       reviews: existing?.reviews || [],
       aircraftIds: f.aircraftIds,
-      packages: f.pkgName && num(f.pkgPrice) ? [{ name: f.pkgName, price: num(f.pkgPrice), includes: f.pkgIncludes }] : [],
+      packages: f.packages.filter((x) => x.name.trim() && num(x.price) > 0).map((x) => ({ name: x.name.trim(), price: num(x.price), includes: x.includes.trim() })),
     };
     if (!uid) { saveCfi(cfi); nav.replace('Cfi', { id }); return; }
     setErr(''); setBusy(true);
@@ -321,110 +323,154 @@ export function CfiForm({ nav, params }) {
       await saveCfiProfile(uid, cfi, { publish });
       await saveSchedule(uid, sched);
       await refreshListings();
-      nav.replace('Cfi', { id });
+      nav.replace(existing?.verified ? 'Cfi' : 'GetVerified', existing?.verified ? { id } : {});
     } catch (e) { setErr(e.message || 'Couldn’t save. Try again.'); }
     setBusy(false);
   };
 
+  const STEPS = ['Basics', 'Pricing', 'Experience', 'Planes'];
+  const home = f.homeAirport[0];
+  const employee = existing && affiliationFor(existing.id)?.model === 'employee';
+  const rate = num(f.flightRate);
+  const myAirports = [home, ...f.alsoTeachesAt];
+  const term = q.trim().toLowerCase();
+  const shown = term
+    ? planes.filter((p) => `${p.tail} ${p.make} ${p.model}`.toLowerCase().includes(term))
+    : planes.filter((p) => myAirports.includes(p.homeAirport) || f.aircraftIds.includes(p.id));
+  const setPkg = (i, k) => (v) => set('packages')(f.packages.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Header nav={nav} title={existing ? 'Edit CFI profile' : 'Create CFI profile'} />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }}>
-        <SectionTitle>The basics</SectionTitle>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-          <Avatar photo={f.photo} initials={(f.name || '?').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()} color={PALETTE[0]} size={72} />
-          <View style={{ marginLeft: 14, flex: 1 }}>
-            <Button title={f.photo ? 'Change photo' : 'Add profile photo'} variant="outline" style={{ paddingVertical: 10 }} onPress={async () => { const [u] = await pickImages(false); if (u) set('photo')(u); }} />
-            <Text style={ms.hint}>A friendly headshot gets more bookings.</Text>
-          </View>
-        </View>
-        <Field label="Full name" value={f.name} onChangeText={set('name')} placeholder="e.g. Jacob Henderson" />
-        <MultiSelect single label="Home airport" options={AIRPORTS.map((a) => a.code)} selected={f.homeAirport} onChange={set('homeAirport')} />
-        <MultiSelect label="Also willing to teach at" options={AIRPORTS.map((a) => a.code)} selected={f.alsoTeachesAt} onChange={set('alsoTeachesAt')} />
-        <MultiSelect label="Instructor certificates" options={CERTS} selected={f.certs} onChange={set('certs')} />
-        <MultiSelect label="Training type" options={['Part 61', 'Part 141']} selected={f.trainingTypes} onChange={set('trainingTypes')} />
+      <Header nav={step ? { pop: () => setStep(step - 1) } : nav} title={existing ? 'Edit instructor profile' : 'Instructor profile'} />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 150 }} keyboardShouldPersistTaps="handled">
+        <Steps labels={STEPS} current={step} />
+        <Text style={ms.stepLabel}>Step {step + 1} of 4 · {STEPS[step]}</Text>
 
-        <SectionTitle>Pricing</SectionTitle>
-        {existing && affiliationFor(existing.id)?.model === 'employee' && (
-          <Text style={[ms.hint, { color: '#7C3AED', fontWeight: '700' }]}>Your flight rate is set by {getSchool(affiliationFor(existing.id).schoolId)?.name} as your employer.</Text>
-        )}
-        <View style={ms.two}>
-          <View style={{ flex: 1, marginRight: 8 }}><Field label="Flight rate /hr" prefix="$" keyboardType="numeric" value={f.flightRate} onChangeText={set('flightRate')} placeholder="70" /></View>
-          <View style={{ flex: 1 }}><Field label="Ground rate /hr" prefix="$" keyboardType="numeric" value={f.groundRate} onChangeText={set('groundRate')} placeholder="50" /></View>
-        </View>
-        <Field label="Discovery flight price (incl. plane)" prefix="$" keyboardType="numeric" value={f.discoveryFlight} onChangeText={set('discoveryFlight')} placeholder="149" />
-        <Text style={ms.hint}>Optional package (e.g. “Private Pilot starter”)</Text>
-        <Field label="Package name" value={f.pkgName} onChangeText={set('pkgName')} placeholder="Instrument rating block" />
-        <View style={ms.two}>
-          <View style={{ flex: 1, marginRight: 8 }}><Field label="Package price" prefix="$" keyboardType="numeric" value={f.pkgPrice} onChangeText={set('pkgPrice')} placeholder="2950" /></View>
-          <View style={{ flex: 1.4 }}><Field label="Includes" value={f.pkgIncludes} onChangeText={set('pkgIncludes')} placeholder="40 hrs dual + ground" /></View>
-        </View>
-
-        <SectionTitle>Experience & results</SectionTitle>
-        <Text style={ms.hint}>Students compare instructors on these numbers. Be accurate — they’ll show on your profile.</Text>
-        <View style={ms.two}>
-          <View style={{ flex: 1, marginRight: 8 }}><Field label="Total hours" keyboardType="numeric" value={f.totalHours} onChangeText={set('totalHours')} placeholder="1200" /></View>
-          <View style={{ flex: 1 }}><Field label="Dual given" keyboardType="numeric" value={f.dualGiven} onChangeText={set('dualGiven')} placeholder="400" /></View>
-        </View>
-        <View style={ms.two}>
-          <View style={{ flex: 1, marginRight: 8 }}><Field label="Years instructing" keyboardType="numeric" value={f.yearsInstructing} onChangeText={set('yearsInstructing')} placeholder="1" /></View>
-          <View style={{ flex: 1 }}><Field label="1st-time pass rate %" keyboardType="numeric" value={f.passRate} onChangeText={set('passRate')} placeholder="100" /></View>
-        </View>
-        <View style={ms.two}>
-          <View style={{ flex: 1, marginRight: 8 }}><Field label="Checkrides sent" keyboardType="numeric" value={f.checkridesSent} onChangeText={set('checkridesSent')} placeholder="0" /></View>
-          <View style={{ flex: 1 }}><Field label="Students soloed" keyboardType="numeric" value={f.studentsSoloed} onChangeText={set('studentsSoloed')} placeholder="0" /></View>
-        </View>
-
-        <SectionTitle>What you teach</SectionTitle>
-        <MultiSelect options={SPECIALTIES} selected={f.specialties} onChange={set('specialties')} />
-
-        <SectionTitle>Planes you fly</SectionTitle>
-        <Text style={ms.hint}>Show students the aircraft you teach in. Tap to add.</Text>
-        {planes.map((p) => {
-          const on = f.aircraftIds.includes(p.id);
-          return (
-            <Pressable
-              key={p.id}
-              onPress={() => set('aircraftIds')(on ? f.aircraftIds.filter((x) => x !== p.id) : [...f.aircraftIds, p.id])}
-              style={[ms.planeRow, on && { borderColor: C.blue, backgroundColor: C.sky }]}
-            >
-              <PlaneImage plane={p} size={44} />
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={{ fontWeight: '700', color: C.text }}>{p.year} {p.make} {p.model}</Text>
-                <Text style={{ color: C.sub, fontSize: 12 }}>{p.tail} · {p.homeAirport} · {money(p.wetRate)}/hr</Text>
-              </View>
-              <Text style={{ fontSize: 20, color: on ? C.blue : C.line, fontWeight: '900' }}>{on ? '✓' : '+'}</Text>
-            </Pressable>
-          );
-        })}
-        <Pressable onPress={() => nav.push('PlaneForm')} style={{ paddingVertical: 10 }}>
-          <Text style={{ color: C.blue, fontWeight: '700' }}>+ My plane isn’t listed — list it</Text>
-        </Pressable>
-        <Toggle label="Will teach in a student’s own aircraft" value={f.teachesInYourPlane} onValueChange={set('teachesInYourPlane')} />
-        <Toggle label="I carry CFI / non-owner insurance" value={f.insured} onValueChange={set('insured')} />
-
-        <SectionTitle>Weekly hours</SectionTitle>
-        <Text style={[ms.hint, { marginTop: -4, marginBottom: 10 }]}>Students can only request times inside these hours. Change them, block time off and see your lessons anytime from the Schedule tab.</Text>
-        {hoursLoaded ? <WeeklyHours weekly={sched.weekly} onChange={(weekly) => setSched((x) => ({ ...x, weekly }))} /> : <Text style={ms.hint}>Loading your hours…</Text>}
-        {hoursLoaded && workDays.length === 0 && <Text style={[ms.hint, { color: '#B45309', marginTop: 8 }]}>Turn on at least one day.</Text>}
-        <View style={{ height: 6 }} />
-
-        <SectionTitle>About you</SectionTitle>
-        <Field label="Short bio" multiline value={f.bio} onChangeText={set('bio')} placeholder="What should a new student know about you?" />
-        <Field label="Teaching style" multiline value={f.teachingStyle} onChangeText={set('teachingStyle')} placeholder="Structured? Laid-back? Scenario-based?" />
-        <Field label="Aviation background" value={f.background} onChangeText={set('background')} placeholder="e.g. Trained at ATP, building time for the airlines" />
-        <Field label="Languages" value={f.languages} onChangeText={set('languages')} placeholder="English, Spanish" />
-
-        {uid && (
+        {step === 0 && (
           <>
-            <SectionTitle>Visibility</SectionTitle>
-            <Toggle label="Show my profile to students" value={publish} onValueChange={setPublish} hint={publish ? 'Students can find and book you once Positive Rate verifies your certificate.' : 'Saved as a draft. Only you can see it.'} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+              <Pressable onPress={async () => { const [u] = await pickImages(false); if (u) set('photo')(u); }} accessibilityRole="button" accessibilityLabel={f.photo ? 'Change profile photo' : 'Add profile photo'}>
+                {f.photo ? <Avatar photo={f.photo} initials="" color={C.navy} size={80} /> : <View style={ms.photoSlot}><Icon name="camera" size={26} color={C.navy} /></View>}
+              </Pressable>
+              <View style={{ marginLeft: 14, flex: 1 }}>
+                <Text style={{ fontWeight: '800', color: C.text }}>Profile photo {f.photo ? '✓' : '(required)'}</Text>
+                <Text style={ms.hint}>Students book people they can picture. A clear, friendly headshot works best.</Text>
+                <Pressable onPress={async () => { const [u] = await pickImages(false); if (u) set('photo')(u); }} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
+                  <Text style={{ color: C.blue, fontWeight: '800' }}>{f.photo ? 'Change photo' : 'Add photo'}</Text>
+                </Pressable>
+              </View>
+            </View>
+            <Field label="Full name" value={f.name} onChangeText={set('name')} placeholder="e.g. Alex Rivera" />
+            <Text style={ms.fieldLabel}>Home airport</Text>
+            <View style={ms.wrapRow}>{AIRPORTS.map((a) => <Chip key={a.code} small label={a.code} active={home === a.code} onPress={() => setF((x) => ({ ...x, homeAirport: [a.code], alsoTeachesAt: x.alsoTeachesAt.filter((c) => c !== a.code) }))} />)}</View>
+            <Text style={ms.fieldLabel}>Also teaches at (optional)</Text>
+            <View style={ms.wrapRow}>{AIRPORTS.filter((a) => a.code !== home).map((a) => { const on = f.alsoTeachesAt.includes(a.code); return <Chip key={a.code} small label={a.code} active={on} onPress={() => set('alsoTeachesAt')(on ? f.alsoTeachesAt.filter((c) => c !== a.code) : [...f.alsoTeachesAt, a.code])} />; })}</View>
+            <Text style={ms.fieldLabel}>Instructor certificates</Text>
+            <View style={ms.wrapRow}>{CERTS.map((c) => { const on = f.certs.includes(c); return <Chip key={c} small label={c} active={on} onPress={() => set('certs')(on ? f.certs.filter((x) => x !== c) : [...f.certs, c])} />; })}</View>
+            <Text style={ms.fieldLabel}>Training type</Text>
+            <View style={ms.wrapRow}>{['Part 61', 'Part 141'].map((c) => { const on = f.trainingTypes.includes(c); return <Chip key={c} small label={c} active={on} onPress={() => set('trainingTypes')(on ? f.trainingTypes.filter((x) => x !== c) : [...f.trainingTypes, c])} />; })}</View>
+            <SectionTitle>When you teach</SectionTitle>
+            <Text style={[ms.hint, { marginTop: -4, marginBottom: 10 }]}>Students can only request times inside these hours. You can block time off later from Schedule.</Text>
+            {hoursLoaded ? <WeeklyHours weekly={sched.weekly} onChange={(weekly) => setSched((x) => ({ ...x, weekly }))} /> : <Text style={ms.hint}>Loading your hours…</Text>}
           </>
         )}
-        {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', marginTop: 10 }} accessibilityLiveRegion="polite">{err}</Text>}
+
+        {step === 1 && (
+          <>
+            {employee && <Banner tone="gray" title={`Your flight rate is set by ${getSchool(affiliationFor(existing.id).schoolId)?.name}`}>They employ you, so they set the rate students pay.</Banner>}
+            <View style={ms.two}>
+              <View style={{ flex: 1, marginRight: 8 }}><Field label="Flight rate (per hr)" prefix="$" keyboardType="numeric" value={f.flightRate} onChangeText={set('flightRate')} placeholder="e.g. 70" /></View>
+              <View style={{ flex: 1 }}><Field label="Ground rate (per hr)" prefix="$" keyboardType="numeric" value={f.groundRate} onChangeText={set('groundRate')} placeholder="e.g. 50" /></View>
+            </View>
+            <Field label="Discovery flight, plane included (optional)" prefix="$" keyboardType="numeric" value={f.discoveryFlight} onChangeText={set('discoveryFlight')} placeholder="e.g. 149" />
+            {rate > 0 && (
+              <Card style={{ backgroundColor: C.sky, borderColor: C.sky }}>
+                <Text style={ms.kicker}>What students see</Text>
+                <Text style={{ fontWeight: '900', color: C.text, fontSize: 18 }}>{money(rate)}/hr flight{num(f.groundRate) ? ` · ${money(num(f.groundRate))}/hr ground` : ''}</Text>
+                <Text style={[ms.hint, { marginTop: 4, marginBottom: 0 }]}>You keep your full rate from repeat students. On a new student’s first lesson Positive Rate keeps 5% ({money2(rate * 0.05)} per flight hour). Students pay a separate $10 booking fee.</Text>
+              </Card>
+            )}
+            <SectionTitle>Packages (optional)</SectionTitle>
+            {f.packages.map((x, i) => (
+              <Card key={i}>
+                <Field label="Package name" value={x.name} onChangeText={setPkg(i, 'name')} placeholder="e.g. Instrument rating block" />
+                <View style={ms.two}>
+                  <View style={{ flex: 1, marginRight: 8 }}><Field label="Price" prefix="$" keyboardType="numeric" value={x.price} onChangeText={setPkg(i, 'price')} placeholder="e.g. 2950" /></View>
+                  <View style={{ flex: 1.4 }}><Field label="Includes" value={x.includes} onChangeText={setPkg(i, 'includes')} placeholder="e.g. 40 hrs dual + ground" /></View>
+                </View>
+                <Pressable onPress={() => set('packages')(f.packages.filter((_, j) => j !== i))} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button"><Text style={{ color: C.red, fontWeight: '700' }}>Remove package</Text></Pressable>
+              </Card>
+            ))}
+            <Button title="Add a package" icon="plus" variant="outline" onPress={() => set('packages')([...f.packages, { name: '', price: '', includes: '' }])} />
+            <View style={{ height: 8 }} />
+            <Toggle label="I carry CFI / non-owner insurance" hint="Verification will ask for the policy." value={f.insured} onValueChange={set('insured')} />
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <Banner tone="amber" title="Shown as self-reported">These numbers appear on your profile marked with *. Upload your logbook during verification to show “Hours verified”.</Banner>
+            <View style={ms.two}>
+              <View style={{ flex: 1, marginRight: 8 }}><Field label="Total hours" keyboardType="numeric" value={f.totalHours} onChangeText={set('totalHours')} placeholder="e.g. 1200" /></View>
+              <View style={{ flex: 1 }}><Field label="Dual given" keyboardType="numeric" value={f.dualGiven} onChangeText={set('dualGiven')} placeholder="e.g. 400" /></View>
+            </View>
+            <View style={ms.two}>
+              <View style={{ flex: 1, marginRight: 8 }}><Field label="Years instructing" keyboardType="numeric" value={f.yearsInstructing} onChangeText={set('yearsInstructing')} placeholder="e.g. 2" /></View>
+              <View style={{ flex: 1 }}><Field label="First-time pass rate %" keyboardType="numeric" value={f.passRate} onChangeText={set('passRate')} placeholder="e.g. 90" /></View>
+            </View>
+            <View style={ms.two}>
+              <View style={{ flex: 1, marginRight: 8 }}><Field label="Checkrides sent" keyboardType="numeric" value={f.checkridesSent} onChangeText={set('checkridesSent')} placeholder="e.g. 12" /></View>
+              <View style={{ flex: 1 }}><Field label="Students soloed" keyboardType="numeric" value={f.studentsSoloed} onChangeText={set('studentsSoloed')} placeholder="e.g. 15" /></View>
+            </View>
+            <SectionTitle>What you teach</SectionTitle>
+            <View style={ms.wrapRow}>{SPECIALTIES.map((c) => { const on = f.specialties.includes(c); return <Chip key={c} small label={c} active={on} onPress={() => set('specialties')(on ? f.specialties.filter((x) => x !== c) : [...f.specialties, c])} />; })}</View>
+            <Text style={ms.fieldLabel}>Teaching style</Text>
+            <View style={ms.wrapRow}>{['Structured', 'Laid-back', 'Scenario-based', 'Patient', 'Fast-paced', 'Checkride-focused'].map((c) => { const on = f.teachingStyle.split(', ').includes(c); const cur = f.teachingStyle ? f.teachingStyle.split(', ').filter(Boolean) : []; return <Chip key={c} small label={c} active={on} onPress={() => set('teachingStyle')((on ? cur.filter((x) => x !== c) : [...cur, c]).join(', '))} />; })}</View>
+            <SectionTitle>About you</SectionTitle>
+            <Field label={`Short bio (${f.bio.length}/300)`} multiline value={f.bio} onChangeText={(v) => set('bio')(v.slice(0, 300))} placeholder="e.g. What a new student should know about learning with you" />
+            <Field label="Aviation background" value={f.background} onChangeText={set('background')} placeholder="e.g. Trained at ATP, building time for the airlines" />
+            <Field label="Languages" value={f.languages} onChangeText={set('languages')} placeholder="e.g. English, Spanish" />
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <Field label="Find a plane" value={q} onChangeText={setQ} placeholder="Search tail number, make or model" autoCapitalize="characters" />
+            <Text style={ms.kicker}>{term ? `${shown.length} match${shown.length === 1 ? '' : 'es'}` : `At your airports · selected (${f.aircraftIds.length})`}</Text>
+            {shown.length === 0 && <Text style={ms.hint}>{term ? 'No listed plane matches.' : `No planes listed at ${myAirports.join(', ')} yet. Search by tail number.`}</Text>}
+            {shown.map((p) => {
+              const on = f.aircraftIds.includes(p.id);
+              return (
+                <Pressable key={p.id} onPress={() => set('aircraftIds')(on ? f.aircraftIds.filter((x) => x !== p.id) : [...f.aircraftIds, p.id])}
+                  style={[ms.planeRow, on && { borderColor: C.navy, backgroundColor: C.sky }]} accessibilityRole="checkbox" accessibilityState={{ checked: on }}>
+                  <View style={[ms.box, on && { backgroundColor: C.navy, borderColor: C.navy }]}>{on && <Icon name="check" size={14} color="#fff" strokeWidth={3} />}</View>
+                  <PlaneImage plane={p} size={44} />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={{ fontWeight: '800', color: C.text }}>{p.tail} · {p.make} {p.model}</Text>
+                    <Text style={{ color: C.sub, fontSize: 12 }}>{p.homeAirport} · {rate ? `${money(p.wetRate + rate)}/hr with you` : `${money(p.wetRate)}/hr plane`}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+            <Pressable onPress={() => nav.push('PlaneForm')} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
+              <Text style={{ color: C.blue, fontWeight: '800' }}>My plane isn’t listed — list it</Text>
+            </Pressable>
+            <Toggle label="I’ll teach in a student’s own plane" value={f.teachesInYourPlane} onValueChange={set('teachesInYourPlane')} />
+            {uid && <Toggle label="Show my profile to students" value={publish} onValueChange={setPublish} hint={publish ? 'Students can book you once your certificate is verified (usually within a day).' : 'Saved as a draft. Only you can see it.'} />}
+          </>
+        )}
+        {!!err && <Text style={{ color: C.red, fontWeight: '600', marginTop: 10 }} accessibilityLiveRegion="polite">{err}</Text>}
       </ScrollView>
       <View style={ms.cta}>
-        <Button title={busy ? 'Saving…' : valid ? 'Save & preview profile' : 'Add your name and flight rate'} disabled={!valid || busy} style={{ flex: 1 }} onPress={save} />
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row' }}>
+            {step > 0 && <Button title="Back" variant="outline" style={{ flex: 1, marginRight: 8 }} onPress={() => setStep(step - 1)} />}
+            {step < 3
+              ? <Button title={stepOk[step] ? `Next: ${STEPS[step + 1].toLowerCase()}` : stepNeed[step]} disabled={!stepOk[step]} style={{ flex: 1.4 }} onPress={() => setStep(step + 1)} />
+              : <Button title={busy ? 'Saving…' : existing ? 'Save profile' : 'Publish profile'} disabled={!valid || busy} style={{ flex: 1.4 }} onPress={save} />}
+          </View>
+          {step === 3 && !existing?.verified && <Text style={[ms.hint, { textAlign: 'center', marginTop: 6, marginBottom: 0 }]}>Next you’ll verify your certificate. Students can book you once it’s checked.</Text>}
+        </View>
       </View>
     </View>
   );
@@ -782,6 +828,7 @@ export function SchoolForm({ nav, params }) {
 }
 
 const ms = StyleSheet.create({
+  photoSlot: { width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderStyle: 'dashed', borderColor: C.navy, backgroundColor: C.amberBg, alignItems: 'center', justifyContent: 'center' },
   stepLabel: { color: C.sub, fontWeight: '700', marginTop: 8, marginBottom: 12 },
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
   panelBtn: { flex: 1, minHeight: 56, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
