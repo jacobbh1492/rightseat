@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet, Share } from 'react-native';
 import { useStore } from '../store';
 import { useAuth } from '../backend/auth';
 import { setUpPayouts, checkPayouts, fetchDebriefsIWrote, hoursFromFlights } from '../backend/bookings';
 import { money2 } from '../logic';
-import { C, Card, Button, SectionTitle, Row, Tag, Avatar } from '../ui';
+import { C, Card, Button, SectionTitle, Row, Tag, Avatar, Icon } from '../ui';
 import { Header } from './Details';
 import { Teaching } from './Teaching';
 
@@ -55,37 +55,59 @@ export function Students({ nav }) {
   const [refreshing, refresh] = useRefresh();
   useEffect(() => { refresh(); }, []);
   const list = studentsFrom(teaching);
+  const { myCfiId } = useStore();
+  const share = () => Share.share({ message: `Book a lesson with me on Positive Rate: https://positiverate.app/i/${myCfiId || ''}` }).catch(() => {});
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
-      <Text style={s.h1}>Students</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={s.h1} accessibilityRole="header">Students</Text>
+        {list.length > 0 && <Button title="Propose a lesson" small icon="plus" onPress={() => nav.push('ProposeLesson', {})} style={{ paddingHorizontal: 14 }} />}
+      </View>
+      {!auth?.session ? <SignedOut nav={nav} what="your students" /> : list.length === 0 ? (
+        <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+          <View style={s.emptyIcon}><Icon name="users" size={28} color={C.navy} /></View>
+          <Text style={[s.title, { marginTop: 12, fontSize: 17 }]}>No students yet</Text>
+          <Text style={[s.sub, { textAlign: 'center', marginTop: 4 }]}>Students show up here once they book with you, with their hours, progress and your debriefs.</Text>
+          <Button title="Share my profile link" icon="share" style={{ alignSelf: 'stretch', marginTop: 14 }} onPress={share} />
+          <Button title="Propose a lesson" variant="outline" style={{ alignSelf: 'stretch', marginTop: 10 }} onPress={() => nav.push('ProposeLesson', {})} />
+        </View>
+      ) : list.map((st) => {
+        const debriefDue = st.lessons.some((r) => r.payout === 'debrief');
+        const quiet = !st.next && st.last && Date.now() - new Date(st.last.when).getTime() > 21 * 86400e3;
+        const pct = Math.min(1, st.hours / 40);
+        return (
+          <Pressable key={st.id} onPress={() => nav.push('StudentDetail', { id: st.id })} accessibilityRole="button" accessibilityLabel={`${st.name}, ${st.completed} lessons${debriefDue ? ', debrief due' : ''}${quiet ? ', check in' : ''}`}>
+            <Card>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Avatar initials={initials(st.name)} color={colorFor(st.id)} size={44} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Text style={[s.title, { marginRight: 6 }]}>{st.name}</Text>
+                    {debriefDue && <Tag label="Debrief due" color={C.amberDark} bg={C.amberBg} />}
+                    {quiet && <Tag label="Check in" color={C.amberDark} bg={C.amberBg} />}
+                  </View>
+                  <Text style={s.sub}>{st.completed} lesson{st.completed === 1 ? '' : 's'} · {Math.round(st.hours * 10) / 10} hr with you</Text>
+                  <View style={s.pbar}><View style={[s.pfill, { width: `${pct * 100}%` }]} /></View>
+                  <Text style={[s.sub, st.next && { color: C.green, fontWeight: '700' }]}>
+                    {st.next ? `Next: ${st.next.date} · ${st.next.time}${st.next.status === 'Pending' ? ' (request)' : st.next.status === 'Proposed' ? ' (waiting on them)' : ''}` : st.last ? `Last flew ${st.last.date}` : ''}
+                  </Text>
+                </View>
+                <Icon name="chevron" size={18} color={C.chevron} />
+              </View>
+            </Card>
+          </Pressable>
+        );
+      })}
+      <SectionTitle>Tools</SectionTitle>
       <Pressable onPress={() => nav.push('Library')} accessibilityRole="button">
         <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
             <Text style={s.title}>Learning Library</Text>
-            <Text style={s.sub}>Browse the lessons you can assign. To assign a pre-flight review, open a lesson on your Schedule.</Text>
+            <Text style={s.sub}>Lessons you can assign as pre-flight reviews.</Text>
           </View>
-          <Text style={{ color: '#7A889C', fontSize: 22 }}>›</Text>
+          <Icon name="chevron" size={18} color={C.chevron} />
         </Card>
       </Pressable>
-      {!auth?.session ? <SignedOut nav={nav} what="your students" /> : list.length === 0 ? (
-        <Text style={s.empty}>Students show up here once they book a lesson with you, with their lessons, hours and your debriefs.</Text>
-      ) : list.map((st) => (
-        <Pressable key={st.id} onPress={() => nav.push('StudentDetail', { id: st.id })} accessibilityRole="button" accessibilityLabel={`${st.name}, ${st.completed} lessons`}>
-          <Card>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Avatar initials={initials(st.name)} color={colorFor(st.id)} size={44} />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={s.title}>{st.name}</Text>
-                <Text style={s.sub}>{st.completed} lesson{st.completed === 1 ? '' : 's'} · {Math.round(st.hours * 10) / 10} hr with you</Text>
-                <Text style={[s.sub, st.next && { color: C.blue, fontWeight: '700' }]}>
-                  {st.next ? `Next: ${st.next.date} · ${st.next.time}${st.next.status === 'Pending' ? ' (request)' : st.next.status === 'Proposed' ? ' (waiting on them)' : ''}` : st.last ? `Last flew ${st.last.date}` : ''}
-                </Text>
-              </View>
-              <Text style={{ color: '#7A889C', fontSize: 22 }}>›</Text>
-            </View>
-          </Card>
-        </Pressable>
-      ))}
     </ScrollView>
   );
 }
@@ -252,6 +274,9 @@ export function Earnings({ nav }) {
 
 const s = StyleSheet.create({
   h1: { fontSize: 28, fontWeight: '900', color: C.text, marginTop: 6, marginBottom: 8 },
+  emptyIcon: { width: 60, height: 60, borderRadius: 18, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center' },
+  pbar: { height: 6, borderRadius: 3, backgroundColor: '#D7DEE8', marginTop: 6, overflow: 'hidden' },
+  pfill: { height: 6, borderRadius: 3, backgroundColor: C.amber },
   title: { fontWeight: '900', color: C.text, fontSize: 16, flex: 1 },
   sub: { color: C.sub, marginTop: 2, fontSize: 13, lineHeight: 18 },
   body: { color: C.text, marginTop: 6, lineHeight: 20 },

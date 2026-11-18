@@ -6,7 +6,7 @@ import { useAuth } from '../backend/auth';
 import { bookingAction, setUpPayouts, checkPayouts, submitDebrief } from '../backend/bookings';
 import { quote } from '../pricing';
 import { money2, r2 } from '../logic';
-import { C, Card, Button, SectionTitle, Row, Tag, Field, Stepper, Toggle } from '../ui';
+import { C, Card, Button, SectionTitle, Row, Tag, Field, Stepper, Toggle, Icon, Steps, Banner } from '../ui';
 import { Header } from './Details';
 import { useLibrary } from '../library/useLibrary';
 import { ReviewChip } from './Library';
@@ -20,7 +20,8 @@ const canCloseOut = (r) => new Date(r.when).getTime() <= Date.now() + CLOSE_OUT_
 const role = (r) => (r.role === 'owner' ? 'owner' : 'instructor');
 
 export function Teaching({ nav, asTab }) {
-  const { teaching, refreshLive, myPlaneIds } = useStore();
+  const { teaching, refreshLive, myPlaneIds, myCfiId, getCfi } = useStore();
+  const myCfi = myCfiId ? getCfi(myCfiId) : null;
   const auth = useAuth();
   const [busy, setBusy] = useState(null); // `${id}:${action}`
   const [err, setErr] = useState('');
@@ -93,14 +94,33 @@ export function Teaching({ nav, asTab }) {
             <Button title="Sign in" style={{ marginTop: 12 }} onPress={() => nav.push('SignIn')} />
           </Card>
         )}
-        {asTab && auth?.session && !ready && (
-          <Pressable onPress={() => nav.goTab('Earnings')} accessibilityRole="button">
-            <Card style={{ borderWidth: 1.5, borderColor: C.blue }}>
-              <Text style={ts.title}>Set up payouts to get paid ›</Text>
-              <Text style={ts.sub}>{held > 0 ? `${money2(held)} is waiting for you. ` : ''}Takes about 5 minutes in Earnings.</Text>
+        {asTab && auth?.session && (() => {
+          // One checklist for a new instructor instead of steps scattered across four screens.
+          const steps = [
+            { k: 'profile', t: 'Create your instructor profile', d: 'Photo, rates and the planes you teach in', ok: !!myCfi, go: () => nav.push('CfiForm') },
+            { k: 'verify', t: 'Get verified', d: 'FAA certificate, ID and insurance. About 5 minutes', ok: !!myCfi?.verified, go: () => nav.push('GetVerified') },
+            { k: 'hours', t: 'Set your teaching hours', d: 'Students only see times you’re available', ok: !!myCfi && (myCfi.availability || []).length > 0, go: () => nav.push('Availability') },
+            { k: 'payouts', t: 'Set up payouts', d: held > 0 ? `${money2(held)} is waiting for you` : 'Stripe, about 5 minutes', ok: ready, go: () => nav.goTab('Earnings') },
+          ];
+          const n = steps.filter((x) => x.ok).length;
+          if (n === steps.length) return null;
+          return (
+            <Card>
+              <Text style={ts.kicker}>GET READY TO TEACH · {n} OF {steps.length}</Text>
+              <View style={ts.pbar}><View style={[ts.pfill, { width: `${(n / steps.length) * 100}%` }]} /></View>
+              {steps.map((x, i) => (
+                <Pressable key={x.k} onPress={x.ok ? undefined : x.go} disabled={x.ok} style={[ts.step, i > 0 && { borderTopWidth: 1, borderTopColor: C.line }]} accessibilityRole="button" accessibilityState={{ checked: x.ok, disabled: x.ok }}>
+                  <View style={[ts.stepDot, x.ok && { backgroundColor: C.green, borderColor: C.green }]}>{x.ok ? <Icon name="check" size={14} color="#fff" strokeWidth={3} /> : <Text style={{ fontWeight: '800', color: C.navy, fontSize: 12 }}>{i + 1}</Text>}</View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[ts.title, x.ok && { color: C.sub, textDecorationLine: 'line-through' }]}>{x.t}</Text>
+                    {!x.ok && <Text style={ts.sub}>{x.d}</Text>}
+                  </View>
+                  {!x.ok && <Icon name="chevron" size={18} color={C.chevron} />}
+                </Pressable>
+              ))}
             </Card>
-          </Pressable>
-        )}
+          );
+        })()}
         {/* Payouts */}
         {!asTab && <Card style={ready ? null : { borderWidth: 1.5, borderColor: C.blue }}>
           <Text style={ts.kicker}>PAYOUTS</Text>
@@ -126,7 +146,7 @@ export function Teaching({ nav, asTab }) {
 
         {auth?.session && needDebrief.length > 0 && (
           <Pressable onPress={() => nav.push('WriteDebrief', { id: needDebrief[0].id })} accessibilityRole="button">
-            <Card style={{ borderWidth: 1.5, borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
+            <Card style={{ borderWidth: 1.5, borderColor: C.amber, backgroundColor: C.amberBg }}>
               <Text style={ts.title}>Write {needDebrief.length > 1 ? `${needDebrief.length} debriefs` : 'your debrief'} to get paid ›</Text>
               <Text style={ts.sub}>{money2(waitingOnDebriefs)} is waiting. Your pay for a lesson is released once its debrief is written.</Text>
             </Card>
@@ -140,17 +160,24 @@ export function Teaching({ nav, asTab }) {
         {!!err && <Text style={ts.err} accessibilityLiveRegion="polite">{err}</Text>}
 
         {(!asTab || auth?.session) && <>
-        <SectionTitle>New requests</SectionTitle>
-        {requests.length === 0 && <Text style={ts.empty}>No new requests. Pull down to refresh.</Text>}
+        {asTab && requests.length === 0 && upcoming.length === 0 && proposed.length === 0 && (
+          <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+            <View style={ts.emptyIcon}><Icon name="calendar" size={28} color={C.navy} /></View>
+            <Text style={[ts.title, { marginTop: 12, fontSize: 17 }]}>Your schedule is clear</Text>
+            <Text style={[ts.sub, { textAlign: 'center' }]}>Requests from students land here to accept. You can also book a student yourself.</Text>
+            <Button title="Propose a lesson" style={{ alignSelf: 'stretch', marginTop: 14 }} onPress={() => nav.push('ProposeLesson', {})} />
+          </View>
+        )}
+        {requests.length > 0 && <SectionTitle>New requests · {requests.length}</SectionTitle>}
         {requests.map((r) => (
           <Card key={r.id}>
             <View style={ts.rowTop}>
               <Text style={ts.title}>{r.goal}</Text>
-              <Tag label="Request" color="#B45309" bg="#FEF3C7" />
+              <Tag label="Request" color={C.amberDark} bg={C.amberBg} />
             </View>
             <Text style={ts.sub}>{r.date} · {r.time}</Text>
             <Text style={ts.sub}>{who(r)} · {hours(r)}</Text>
-            <Text style={[ts.sub, { color: C.text, fontWeight: '700', marginTop: 6 }]}>You earn about {money2(r.share || 0)}</Text>
+            <View style={ts.earn}><Text style={{ color: C.green, fontWeight: '800' }}>You earn {money2(r.share || 0)}</Text><Text style={[ts.sub, { marginTop: 0 }]}> after fees{r.total ? ` · student pays ${money2(r.total)}` : ''}</Text></View>
             <Pressable onPress={() => nav.push('Chat', { key: r.studentId, other: r.studentId, name: r.studentName })} style={{ marginTop: 6 }} accessibilityRole="button">
               <Text style={{ color: C.blue, fontWeight: '700' }}>Message {r.studentName.split(' ')[0]} ›</Text>
             </Pressable>
@@ -163,10 +190,15 @@ export function Teaching({ nav, asTab }) {
               <Text style={{ color: C.blue, fontWeight: '700' }}>Preflight: weather & aircraft ›</Text>
             </Pressable>
             <View style={{ flexDirection: 'row', marginTop: 12 }}>
-              <Button title={busy === `${r.id}:decline` ? 'Declining…' : 'Decline'} variant="outline" disabled={!!busy} style={{ flex: 0.6, marginRight: 8, paddingVertical: 10 }}
+              <Button title={busy === `${r.id}:decline` ? 'Declining…' : 'Decline'} variant="outline" small disabled={!!busy} style={{ flex: 0.6, marginRight: 8 }}
                 onPress={() => act(r, 'decline', { reason: `Declined by ${role(r)}` })} />
-              <Button title={busy === `${r.id}:confirm` ? 'Confirming…' : 'Confirm'} disabled={!!busy || !r.cardReady || !!r.split?.pending} style={{ flex: 1, paddingVertical: 10 }}
+              <Button title={busy === `${r.id}:confirm` ? 'Accepting…' : 'Accept'} small disabled={!!busy || !r.cardReady || !!r.split?.pending} style={{ flex: 1 }}
                 onPress={() => act(r, 'confirm')} />
+            </View>
+            <View style={{ flexDirection: 'row', marginTop: 4 }}>
+              <Pressable onPress={() => nav.push('Chat', { key: r.studentId, other: r.studentId, name: r.studentName, draft: `Hi ${r.studentName.split(' ')[0]}! ${r.date} at ${r.time} doesn’t work for me. Could we do another time?` })} style={ts.linkBtn} accessibilityRole="button">
+                <Text style={{ color: C.blue, fontWeight: '700' }}>Suggest another time</Text>
+              </Pressable>
             </View>
           </Card>
         ))}
@@ -176,7 +208,7 @@ export function Teaching({ nav, asTab }) {
           <Card key={r.id}>
             <View style={ts.rowTop}>
               <Text style={ts.title}>{r.goal}</Text>
-              <Tag label="Sent" color="#7C3AED" bg="#F1E8FF" />
+              <Tag label="Sent" color={C.text} bg={C.sky} />
             </View>
             <Text style={ts.sub}>{r.date} · {r.time}</Text>
             <Text style={ts.sub}>{who(r)} · {hours(r)}</Text>
@@ -188,25 +220,32 @@ export function Teaching({ nav, asTab }) {
           </Card>
         ))}
 
-        <SectionTitle>Upcoming</SectionTitle>
-        {upcoming.length === 0 && <Text style={ts.empty}>Nothing confirmed yet.</Text>}
+        {upcoming.length > 0 && <SectionTitle>Upcoming</SectionTitle>}
         {upcoming.map((r) => (
           <Card key={r.id}>
-            <View style={ts.rowTop}>
-              <Text style={ts.title}>{r.goal}</Text>
-              <Tag label="Confirmed" color={C.green} bg="#DDF3E8" />
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <View style={ts.timeCol}>
+                <Text style={ts.time}>{r.time}</Text>
+                <Text style={ts.day}>{r.date.split(',')[0]}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={ts.title}>{r.goal}</Text>
+                <Text style={ts.sub}>{who(r)} · {hours(r)}</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
+                  <Tag label="✓ Confirmed" color={C.green} bg={C.greenBg} />
+                  {lib.reviews.some((x) => x.bookingId === r.id) && <Tag label="Review assigned" color={C.text} bg={C.sky} />}
+                </View>
+              </View>
             </View>
-            <Text style={ts.sub}>{r.date} · {r.time}</Text>
-            <Text style={ts.sub}>{who(r)} · {hours(r)} booked</Text>
             {r.checkoutFlight && <Text style={[ts.sub, { color: C.navy, fontWeight: '700' }]}>✈︎ Checkout flight with you on board</Text>}
             <Pressable onPress={() => nav.push('Chat', { key: r.studentId, other: r.studentId, name: r.studentName })} style={{ marginTop: 6 }} accessibilityRole="button">
               <Text style={{ color: C.blue, fontWeight: '700' }}>Message {r.studentName.split(' ')[0]} ›</Text>
             </Pressable>
             {review(r)}
             <View style={{ flexDirection: 'row', marginTop: 12 }}>
-              <Button title={busy === `${r.id}:cancel` ? 'Cancelling…' : 'Cancel'} variant="outline" disabled={!!busy} style={{ flex: 0.6, marginRight: 8, paddingVertical: 10 }}
+              <Button title={busy === `${r.id}:cancel` ? 'Cancelling…' : 'Cancel'} variant="outline" small disabled={!!busy} style={{ flex: 0.6, marginRight: 8 }}
                 onPress={() => act(r, 'cancel', { reason: `Cancelled by ${role(r)}` })} />
-              <Button title={canCloseOut(r) ? 'Close out' : 'Close out after start'} disabled={!!busy || !canCloseOut(r)} style={{ flex: 1, paddingVertical: 10 }}
+              <Button title={canCloseOut(r) ? 'Close out' : 'Close out after start'} small disabled={!!busy || !canCloseOut(r)} style={{ flex: 1 }}
                 onPress={() => nav.push('LiveCloseOut', { id: r.id })} />
             </View>
             {!canCloseOut(r) && <Text style={[ts.empty, { marginTop: 6, fontSize: 12 }]}>Opens 15 minutes before the lesson starts. Cancelling as the {role(r)} is always free for the student.</Text>}
@@ -220,7 +259,7 @@ export function Teaching({ nav, asTab }) {
           <Card key={r.id}>
             <View style={ts.rowTop}>
               <Text style={ts.title}>{r.goal}</Text>
-              <Tag label={r.status} color={r.status === 'Completed' ? C.green : C.sub} bg={r.status === 'Completed' ? '#DDF3E8' : '#EEF1F5'} />
+              {r.payout === 'debrief' ? <Tag label="Debrief due" color={C.amberDark} bg={C.amberBg} /> : <Tag label={r.status === 'Completed' ? (r.payout === 'paid' ? '✓ Paid' : 'Paying soon') : r.status} color={r.status === 'Completed' ? C.green : C.sub} bg={r.status === 'Completed' ? C.greenBg : C.sky} />}
             </View>
             <Text style={ts.sub}>{r.date} · {who(r)}{r.actualHobbs ? ` · ${r.actualHobbs} hr Hobbs` : ''}</Text>
             {r.status === 'Completed' && (
@@ -283,6 +322,11 @@ export function LiveCloseOut({ nav, params }) {
       });
       setResult(res);
       refreshLive().catch(() => {});
+      // Step 2: the debrief opens right after billing (it can also be finished later).
+      if (r.role === 'cfi' && !res.debriefReleased && !r.checkoutFlight) {
+        nav.replace('WriteDebrief', { id: r.id, step2: true, release: res.split?.cfi, hobbs: fh });
+        return;
+      }
       // Anything wrong with the plane goes to its owner and mechanic (and grounds it if unsafe).
       if (r.planeId && squawk.trim().length >= 3) {
         try { await reportSquawk({ planeId: r.planeId, text: squawk.trim(), grounding, bookingId: r.id }); setSquawkNote(grounding ? 'Squawk reported. The plane is grounded until it’s fixed.' : 'Squawk reported to the owner.'); }
@@ -331,6 +375,7 @@ export function LiveCloseOut({ nav, params }) {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Close out" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }}>
+        {r.role === 'cfi' && !r.checkoutFlight && <Steps labels={['Hobbs & billing', 'Debrief']} current={0} />}
         <Card>
           <Text style={ts.title}>{r.goal}</Text>
           <Text style={ts.sub}>{r.date} · {r.time} · {r.studentName}{r.tail ? ` · ${r.tail}` : ''}</Text>
@@ -344,7 +389,14 @@ export function LiveCloseOut({ nav, params }) {
         <Text style={{ color: valid || !hobbsIn ? C.navy : '#B91C1C', fontWeight: '800', marginBottom: 6 }}>
           {hobbsIn && hobbsOut ? (valid ? `Flight time: ${fh} hr` : 'Check the Hobbs times (0.1 to 8.0 hr).') : 'Enter Hobbs out and in.'}
         </Text>
-        {r.cfiId ? <Card><Stepper label="Ground instruction" value={ground} onChange={setGround} /></Card> : null}
+        {r.cfiId ? (
+          <Card>
+            <Stepper label="Ground instruction" value={ground} onChange={(v) => setGround(r2(v))} step={0.1} />
+            {r2(ground - (r.groundHours || 0)) !== 0 && (
+              <Text style={[ts.sub, { color: C.amberDark, fontWeight: '700' }]}>{ground > (r.groundHours || 0) ? '+' : ''}{r2(ground - (r.groundHours || 0))} hr vs. booked ({r.groundHours || 0} hr). The bill below updates.</Text>
+            )}
+          </Card>
+        ) : null}
 
         {r.planeId && (
           <>
@@ -358,16 +410,6 @@ export function LiveCloseOut({ nav, params }) {
         <Toggle label="Night" value={night} onValueChange={setNight} />
         <Toggle label="Cross-country" value={xc} onValueChange={setXc} />
         {r.cfiId ? <Card><Stepper label="Simulated instrument" value={inst} onChange={(v) => setInst(Math.min(v, fh || v))} step={0.1} /></Card> : null}
-
-        {r.role === 'cfi' && (
-          <>
-            <SectionTitle>Debrief</SectionTitle>
-            <Text style={[ts.sub, { marginBottom: 6 }]}>Your pay for this lesson is released once the debrief is written (all three parts). It’s saved to the student’s training record and locked once they read it. You can also write it later.</Text>
-            <Field label="What went well" multiline value={debrief.wentWell} onChangeText={(t) => setDebrief((d) => ({ ...d, wentWell: t }))} placeholder="Smooth radio calls, good energy management on final" />
-            <Field label="Needs work" multiline value={debrief.needsWork} onChangeText={(t) => setDebrief((d) => ({ ...d, needsWork: t }))} placeholder="Holding altitude in steep turns" />
-            <Field label="Next lesson" multiline value={debrief.nextPlan} onChangeText={(t) => setDebrief((d) => ({ ...d, nextPlan: t }))} placeholder="Slow flight and power-off stalls" />
-          </>
-        )}
 
         {r.checkoutFlight && r.role === 'owner' && (
           <>
@@ -401,7 +443,7 @@ export function LiveCloseOut({ nav, params }) {
         {!!err && <Text style={ts.err} accessibilityLiveRegion="polite">{err}</Text>}
       </ScrollView>
       <View style={ts.cta}>
-        <Button title={busy ? 'Charging…' : !valid ? 'Enter Hobbs times' : r.checkoutFlight && r.role === 'owner' && !checkoutResult ? 'Pick the checkout result' : r.role === 'cfi' && !debriefDone ? `Close out ${fh} hr · debrief later` : `Close out ${fh} hr & charge`} disabled={busy || !valid || (r.checkoutFlight && r.role === 'owner' && !checkoutResult)} style={{ flex: 1 }} onPress={submit} />
+        <Button title={busy ? 'Charging…' : !valid ? 'Enter Hobbs times' : r.checkoutFlight && r.role === 'owner' && !checkoutResult ? 'Pick the checkout result' : est ? `Close out & bill ${money2(est.total)}` : `Close out ${fh} hr & bill`} disabled={busy || !valid || (r.checkoutFlight && r.role === 'owner' && !checkoutResult)} style={{ flex: 1 }} onPress={submit} />
       </View>
     </View>
   );
@@ -418,7 +460,7 @@ export function WriteDebrief({ nav, params }) {
   useEffect(() => { if (!r) refreshLive().catch(() => {}); }, []);
   if (!r) return (<View style={{ flex: 1, backgroundColor: C.bg }}><Header nav={nav} title="Debrief" /><Text style={[ts.empty, { padding: 24, textAlign: 'center' }]}>Loading the lesson…</Text></View>);
   const ok = !!(d.wentWell.trim() && d.needsWork.trim() && d.nextPlan.trim());
-  const amount = r.awaitingDebrief || r.share || 0;
+  const amount = params.release || r.awaitingDebrief || r.share || 0;
   const submit = async () => {
     setErr(''); setBusy(true);
     try { setDone(await submitDebrief(r.id, { ...d, flownOn: r.when.slice(0, 10) })); refreshLive().catch(() => {}); }
@@ -446,8 +488,10 @@ export function WriteDebrief({ nav, params }) {
   }
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Header nav={nav} title="Write debrief" />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }}>
+      <Header nav={nav} title={params.step2 ? 'Close out' : 'Write debrief'} />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 160 }}>
+        {params.step2 && <Steps labels={['Hobbs & billing', 'Debrief']} current={1} />}
+        {params.step2 && <Banner tone="green" icon="checkCircle" title="Billed ✓">{`${r.studentName.split(' ')[0]} was charged for ${params.hobbs || r.actualHobbs} hr. Now, while it’s fresh:`}</Banner>}
         <Card>
           <Text style={ts.title}>{r.goal}</Text>
           <Text style={ts.sub}>{r.date} · {r.studentName}{r.tail ? ` · ${r.tail}` : ''}{r.actualHobbs ? ` · ${r.actualHobbs} hr` : ''}</Text>
@@ -456,17 +500,30 @@ export function WriteDebrief({ nav, params }) {
         <Field label="What went well" multiline value={d.wentWell} onChangeText={(t) => setD((x) => ({ ...x, wentWell: t }))} placeholder="Smooth radio calls, good energy management on final" />
         <Field label="Needs work" multiline value={d.needsWork} onChangeText={(t) => setD((x) => ({ ...x, needsWork: t }))} placeholder="Holding altitude in steep turns" />
         <Field label="Next lesson" multiline value={d.nextPlan} onChangeText={(t) => setD((x) => ({ ...x, nextPlan: t }))} placeholder="Slow flight and power-off stalls" />
-        <Text style={ts.sub}>Saved to the student’s training record. Once they read it, it’s locked (you can add an amendment).</Text>
+        <Text style={ts.sub}>Tip: tap the microphone on your keyboard to dictate. Saved to the student’s training record; once they read it, it’s locked (you can add an amendment).</Text>
         {!!err && <Text style={ts.err} accessibilityLiveRegion="polite">{err}</Text>}
       </ScrollView>
       <View style={ts.cta}>
-        <Button title={busy ? 'Saving…' : ok ? `Save debrief & get paid ${money2(amount)}` : 'Fill in all three parts'} disabled={busy || !ok} style={{ flex: 1 }} onPress={submit} />
+        <View style={{ flex: 1 }}>
+          <Button title={busy ? 'Saving…' : ok ? `Save debrief · release ${money2(amount)}` : 'Fill in all three parts'} disabled={busy || !ok} onPress={submit} />
+          <Button title="Finish later" variant="ghost" style={{ marginTop: 4 }} onPress={nav.pop} />
+        </View>
       </View>
     </View>
   );
 }
 
 const ts = StyleSheet.create({
+  pbar: { height: 6, borderRadius: 3, backgroundColor: '#D7DEE8', marginTop: 8, marginBottom: 4, overflow: 'hidden' },
+  pfill: { height: 6, borderRadius: 3, backgroundColor: C.amber },
+  step: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: 8 },
+  stepDot: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: C.chevron, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  emptyIcon: { width: 60, height: 60, borderRadius: 18, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center' },
+  earn: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', backgroundColor: C.greenBg, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginTop: 8 },
+  linkBtn: { minHeight: 44, justifyContent: 'center' },
+  timeCol: { width: 74, marginRight: 10 },
+  time: { fontSize: 16, fontWeight: '800', color: C.text },
+  day: { fontSize: 12, color: C.sub, marginTop: 2 },
   assign: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: '#9DBDF5', backgroundColor: C.sky, marginTop: 10 },
   h1:{ fontSize: 28, fontWeight: '900', color: C.text, marginTop: 6, marginBottom: 4 },
   kicker: { color: C.sub, fontSize: 12, fontWeight: '700' },
