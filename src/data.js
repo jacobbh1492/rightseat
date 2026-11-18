@@ -637,11 +637,14 @@ export const PACKS = [
 export const PLANS = {
   cfi: [
     { id: 'free', name: 'CFI Free', price: 0, perks: ['Profile & search listing', '5% host fee on first lesson with a new student', '$0 fee on repeat students', 'Standard payouts (2 days)'] },
-    { id: 'pro', name: 'CFI Pro', price: 29, perks: ['0% host fees — keep 100% of your rate', 'Free instant payouts', 'Search boost (labeled “Pro”)', 'Student progress & endorsement tools', 'Calendar sync'] },
+    { id: 'pro', name: 'CFI Pro', price: 9.99, recommended: true, perks: ['0% host fees — keep 100% of your rate', 'Free instant payouts', 'Search boost (labeled “Pro”)', 'Student progress & endorsement tools', 'Calendar sync'] },
   ],
   school: [
     { id: 'starter', name: 'School Starter', price: 99, perks: ['Company page with CFIs + fleet', 'Fleet & CFI scheduling', 'Up to 5 aircraft'] },
-    { id: 'pro', name: 'School Pro', price: 119, perks: ['Unlimited aircraft & instructors', 'Stage checks & training records', '$5 booking fee for your students (instead of $10)', 'Maintenance tracking & squawks'] },
+    { id: 'pro', name: 'School Pro', price: 119, recommended: true, perks: ['Unlimited aircraft & instructors', 'Stage checks & training records', '$5 booking fee for your students (instead of $10)', 'Maintenance tracking & squawks'] },
+  ],
+  owner: [
+    { id: 'owner', name: 'Aircraft owner', price: 0, recommended: true, perks: ['List as many planes as you like', '8% of rental revenue, nothing up front', 'Renter checks before every booking', '100-hour, annual and squawk tracking', 'Paid by Hobbs, straight to your bank'] },
   ],
 };
 

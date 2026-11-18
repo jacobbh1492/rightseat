@@ -120,7 +120,7 @@ export function CfiDashboard({ nav }) {
         <SectionTitle right={<Pressable onPress={() => nav.push('Plans')}><Text style={{ color: C.blue, fontWeight: '700' }}>Plans ›</Text></Pressable>}>Your plan</SectionTitle>
         <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '900', color: C.text, fontSize: 16 }}>{c.pro ? 'CFI Pro · $29/mo' : 'CFI Free'}</Text>
+            <Text style={{ fontWeight: '900', color: C.text, fontSize: 16 }}>{c.pro ? 'CFI Pro · $9.99/mo' : 'CFI Free'}</Text>
             <Text style={{ color: C.sub, marginTop: 2, fontSize: 13 }}>{c.pro ? '0% host fees · free instant payouts · Pro badge' : '5% host fee on new students only · $0 on repeat students'}</Text>
           </View>
           <Button title={c.pro ? 'Downgrade' : 'Go Pro'} variant={c.pro ? 'outline' : 'primary'} style={{ paddingHorizontal: 16, paddingVertical: 10 }} onPress={() => setCfiPro(id, !c.pro)} />
@@ -277,7 +277,7 @@ export function OwnerDashboard({ nav, params, asTab }) {
 function OwnerSetup({ nav, plane }) {
   const items = [
     ['List your plane', 'Photos, rates and renter rules', !!plane, () => nav.push('PlaneForm')],
-    ['Verify it', 'Registration, airworthiness, insurance, annual and 100-hour', !!(plane && plane.insured && plane.airworthyVerified), () => nav.push('Verification', plane ? { planeId: plane.id } : {})],
+    ['Verify it', 'FAA registration and insurance', !!(plane && plane.insured && plane.airworthyVerified), () => nav.push('Verification', plane ? { planeId: plane.id } : {})],
     ['Set up payouts', 'So rental income reaches your bank', false, () => nav.goTab('OwnerEarnings')],
     ['Approve instructors', 'Who can teach and do checkouts in it', !!(plane && plane.approvedCfiIds?.length), () => plane ? nav.push('PlanePeople', { planeId: plane.id }) : nav.push('PlaneForm')],
     ['Add your mechanic', 'Optional · they see squawks and inspections', false, () => plane ? nav.push('Maintenance', { planeId: plane.id }) : nav.push('PlaneForm')],
@@ -302,37 +302,49 @@ function OwnerSetup({ nav, plane }) {
 }
 
 export function Plans({ nav }) {
-  const { myCfiId, getCfi, setCfiPro, plans, setSchoolPlan } = useStore();
-  const id = myCfiId || 'c1';
-  const c = getCfi(id);
-  const card = (p, active, onPress) => (
-    <Card key={p.id} style={active ? { borderWidth: 2, borderColor: C.blue } : null}>
+  const { myCfiId, getCfi } = useStore();
+  const c = myCfiId ? getCfi(myCfiId) : null;
+  const price = (p) => (p.price ? `$${Number.isInteger(p.price) ? p.price : p.price.toFixed(2)}/mo` : 'Free');
+  const card = (p, current) => (
+    <Card key={p.id} style={p.recommended ? { borderWidth: 2, borderColor: C.amber } : null}>
+      {p.recommended && <View style={k.rec}><Text style={{ color: C.amberDark, fontWeight: '900', fontSize: 11, letterSpacing: 0.4 }}>RECOMMENDED</Text></View>}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={{ fontWeight: '900', fontSize: 18, color: C.text }}>{p.name}</Text>
-        <Text style={{ fontWeight: '900', fontSize: 18, color: C.navy }}>{p.price ? `$${p.price}/mo` : 'Free'}</Text>
+        <Text style={{ fontWeight: '900', fontSize: 18, color: C.navy }}>{price(p)}</Text>
       </View>
-      {p.perks.map((x) => <Text key={x} style={k.line}>✓ {x}</Text>)}
-      <Button title={active ? 'Current plan' : 'Choose'} variant={active ? 'outline' : 'primary'} disabled={active} style={{ marginTop: 10, paddingVertical: 11 }} onPress={onPress} />
+      {p.perks.map((x) => (
+        <View key={x} style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 6 }}>
+          <Icon name="check" size={16} color={C.green} strokeWidth={3} />
+          <Text style={{ color: C.body, marginLeft: 8, flex: 1, lineHeight: 20 }}>{x}</Text>
+        </View>
+      ))}
+      {current ? <Tag label="Your plan" color={C.green} bg={C.greenBg} /> : p.price ? <Text style={{ color: C.sub, fontSize: 13, marginTop: 10 }}>Coming soon. We’ll let you know when you can switch.</Text> : null}
     </Card>
   );
+  const fees = [['Students & renters', '$10 booking fee per lesson or rental ($5 with a School Pro school)'], ['Instructors', '5% of a new student’s first lesson; $0 on repeat students; $0 on CFI Pro'], ['Plane owners', '8% of rental revenue'], ['Flight schools', 'Monthly plan below; your split with instructors is yours to set']];
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Plans & fees" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
-        <Card style={{ backgroundColor: C.sky }}>
-          <Text style={{ fontWeight: '900', color: C.navy }}>How Positive Rate fees work</Text>
-          <Text style={k.line}>Students and renters: $10 booking fee on every lesson and rental ($5 when it’s with a School Pro school).</Text>
-          <Text style={k.line}>Instructors: 5% host fee on a new student’s first lesson. $0 on repeat students and on CFI Pro.</Text>
-          <Text style={k.line}>Owners: 8% of rental revenue.</Text>
+        <Text style={k.group}>Fees</Text>
+        <Card style={{ paddingVertical: 4 }}>
+          {fees.map(([who, what], i) => (
+            <View key={who} style={[{ paddingVertical: 10 }, i > 0 && { borderTopWidth: 1, borderTopColor: C.line }]}>
+              <Text style={{ fontWeight: '800', color: C.text }}>{who}</Text>
+              <Text style={{ color: C.body, marginTop: 2, lineHeight: 20 }}>{what}</Text>
+            </View>
+          ))}
         </Card>
         <Pressable onPress={() => nav.push('PromoCode')} style={k.promo} accessibilityRole="button">
-          <Text style={{ fontWeight: '900', color: '#065F46', flex: 1 }}>Have a launch promo code?</Text>
-          <Text style={{ color: '#047857', fontWeight: '800' }}>Enter code ›</Text>
+          <Text style={{ fontWeight: '900', color: C.green, flex: 1 }}>Have a launch code?</Text>
+          <Text style={{ color: C.green, fontWeight: '800' }}>Enter code ›</Text>
         </Pressable>
-        <SectionTitle>For instructors {!myCfiId ? '(demo: Marcus)' : ''}</SectionTitle>
-        {PLANS.cfi.map((p) => card(p, (p.id === 'pro') === !!c.pro, () => setCfiPro(id, p.id === 'pro')))}
-        <SectionTitle>For flight schools</SectionTitle>
-        {PLANS.school.map((p) => card(p, plans.school === p.id, () => setSchoolPlan(p.id)))}
+        <Text style={k.group}>Instructors</Text>
+        {PLANS.cfi.map((p) => card(p, c ? (p.id === 'pro') === !!c.pro : false))}
+        <Text style={k.group}>Plane owners</Text>
+        {PLANS.owner.map((p) => card(p, false))}
+        <Text style={k.group}>Flight schools</Text>
+        {PLANS.school.map((p) => card(p, false))}
       </ScrollView>
     </View>
   );
@@ -418,6 +430,8 @@ export function Insights({ nav }) {
 }
 
 const k = StyleSheet.create({
+  rec: { alignSelf: 'flex-start', backgroundColor: C.amberBg, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 8 },
+  group: { fontSize: 13, fontWeight: '800', color: C.sub, letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 16, marginBottom: 8 },
   addBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.amberBg, alignItems: 'center', justifyContent: 'center' },
   kicker: { color: C.sub, fontSize: 12, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 4 },
   setRow: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: 8 },

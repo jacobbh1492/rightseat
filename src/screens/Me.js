@@ -529,7 +529,7 @@ export function PlaneForm({ nav }) {
     try {
       const newId = await savePlaneListing(uid, plane, { publish: true, addToMyCfiProfile: !!me && f.approved.some((c) => c.id === me.id) });
       await refreshListings();
-      nav.replace('Verification', { planeId: newId });
+      nav.replace('GetVerified');
     } catch (e) { setErr(e.message || 'Couldn’t save. Try again.'); }
     setBusy(false);
   };
@@ -687,7 +687,7 @@ export function PlaneForm({ nav }) {
               ? <Button title={stepOk[step] ? `Next: ${PLANE_STEPS[step + 1].toLowerCase()}` : step === 1 ? 'Fill in the missing fields' : 'Add a wet rate'} disabled={!stepOk[step]} style={{ flex: 1.4 }} onPress={() => setStep(step + 1)} />
               : <Button title={busy ? 'Saving…' : 'Publish listing'} disabled={busy || !stepOk[1] || !stepOk[2]} style={{ flex: 1.4 }} onPress={save} />}
           </View>
-          {step === 3 && <Text style={[ms.hint, { textAlign: 'center', marginTop: 6, marginBottom: 0 }]}>Goes live once registration, airworthiness, insurance, the annual and 100-hour are verified.</Text>}
+          {step === 3 && <Text style={[ms.hint, { textAlign: 'center', marginTop: 6, marginBottom: 0 }]}>Goes live once we verify the registration and insurance. Then log the annual and 100-hour in Maintenance.</Text>}
         </View>
       </View>
     </View>

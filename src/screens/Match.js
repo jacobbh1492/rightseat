@@ -193,8 +193,31 @@ export function MyMatches({ nav, params }) {
 }
 
 // Instructor: students who picked you as a top match.
+// How complete an instructor profile is, and the next thing to add.
+function profileStrength(c) {
+  if (!c) return { pct: 0, next: 'Create your instructor profile' };
+  const items = [
+    [!!c.photo, 'Add a profile photo'],
+    [(c.bio || '').length >= 60, 'Write a short bio'],
+    [(c.specialties || []).length >= 2, 'Pick what you teach'],
+    [(c.availability || []).length >= 3, 'Open more days in your hours'],
+    [c.totalHours > 0, 'Add your hours'],
+    [(c.aircraftIds || []).length > 0, 'Add the planes you fly'],
+    [!!c.teachingStyle, 'Choose your teaching style'],
+    [!!c.verified, 'Get verified'],
+  ];
+  const done = items.filter((x) => x[0]).length;
+  return { pct: done / items.length, next: (items.find((x) => !x[0]) || [])[1] };
+}
+const ago = (t) => {
+  const m = Math.max(1, Math.round((Date.now() - new Date(t).getTime()) / 60000));
+  return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} d ago`;
+};
+
 export function StudentRequests({ nav }) {
   const auth = useAuth();
+  const { getCfi, myCfiId } = useStore();
+  const strength = profileStrength(getCfi(myCfiId));
   const uid = auth?.session?.user?.id;
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -219,11 +242,21 @@ export function StudentRequests({ nav }) {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />} keyboardShouldPersistTaps="handled">
         <Text style={ms.sub}>Students who used Get matched and picked you. Answer quickly: they usually pick whoever replies first.</Text>
         {!!err && <Text style={ms.err}>{err}</Text>}
-        {!loading && rows.length === 0 && <Text style={[ms.sub, { marginTop: 12 }]}>No requests yet. A complete profile with your hours, specialties and availability helps you match.</Text>}
+        {!loading && rows.length === 0 && (
+          <Card style={{ marginTop: 12 }}>
+            <Text style={{ fontWeight: '900', color: C.text, fontSize: 16 }}>No requests yet</Text>
+            <Text style={[ms.sub, { marginTop: 4 }]}>Students are matched on goals, days, budget and planes. A fuller profile matches more often.</Text>
+            <Text style={[ms.kicker, { marginTop: 12 }]}>Profile strength · {Math.round(strength.pct * 100)}%</Text>
+            <View style={[ms.bar, { height: 10 }]}><View style={[ms.barFill, { height: 10, width: `${strength.pct * 100}%`, backgroundColor: C.amber }]} /></View>
+            {strength.next && <Text style={[ms.sub, { marginTop: 6 }]}>Next: {strength.next}</Text>}
+            <Button title="Improve my profile" style={{ marginTop: 12 }} onPress={() => nav.push(strength.next === 'Get verified' ? 'GetVerified' : 'CfiForm', { id: myCfiId })} />
+          </Card>
+        )}
         {rows.map((r) => (
           <Card key={r.id}>
             <View style={ms.rowTop}>
               <Text style={{ fontWeight: '900', color: C.text, fontSize: 15, flex: 1 }}>{r.studentName.split(' ')[0]} · {r.goal}</Text>
+              {r.myStatus === 'sent' && r.createdAt && <Text style={{ color: Date.now() - new Date(r.createdAt) < 6 * 3600e3 ? C.amberDark : C.sub, fontWeight: '800', fontSize: 12, marginRight: 6 }}>{ago(r.createdAt)}</Text>}
               {r.myStatus !== 'sent' && <Tag label={ANSWER[r.myStatus][0]} color={ANSWER[r.myStatus][1]} bg={ANSWER[r.myStatus][2]} />}
             </View>
             <Text style={ms.sub}>
@@ -238,7 +271,7 @@ export function StudentRequests({ nav }) {
                 <Field value={reply[r.id] || ''} onChangeText={(t) => setReply((x) => ({ ...x, [r.id]: t }))} multiline placeholder={`Hi ${r.studentName.split(' ')[0]}! I fly ${r.days[0] || 'most days'} out of ${r.airport || 'my home field'}…`} />
                 <View style={{ flexDirection: 'row' }}>
                   <Button title={busy === r.id + false ? '…' : 'Not a fit'} variant="outline" small disabled={!!busy} style={{ flex: 0.6, marginRight: 8 }} onPress={() => answer(r, false)} />
-                  <Button title={busy === r.id + true ? 'Sending…' : 'I’m interested'} small disabled={!!busy} style={{ flex: 1 }} onPress={() => answer(r, true)} />
+                  <Button title={busy === r.id + true ? 'Sending…' : 'Reply & offer a time'} small disabled={!!busy} style={{ flex: 1 }} onPress={() => answer(r, true)} />
                 </View>
               </>
             )}

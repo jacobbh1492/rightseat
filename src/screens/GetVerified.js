@@ -55,8 +55,30 @@ export function GetVerified({ nav }) {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Get verified" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}>
-        <Text style={g.intro}>Students can only book verified instructors and planes. It’s free and most checks finish on their own.</Text>
-        {!!err && <Text style={g.err} accessibilityLiveRegion="polite">{err}</Text>}
+        {(() => {
+          const items = [
+            ...(isCfi ? [idCheck?.status, faa?.status] : []),
+            ...data.planes.flatMap((p) => [check('faa_aircraft', 'plane', p.id)?.status, check('insurance', 'plane', p.id)?.status]),
+          ];
+          if (!items.length) return null;
+          const done = items.filter((x) => x === 'passed').length;
+          const left = items.length - done;
+          return (
+            <Card style={{ backgroundColor: C.navy, borderColor: C.navy }}>
+              <Text style={{ color: '#fff', fontWeight: '900', fontSize: 18 }}>{left ? `${done} of ${items.length} done` : 'You’re verified ✓'}</Text>
+              <View style={g.pbar}><View style={[g.pfill, { width: `${(done / items.length) * 100}%` }]} /></View>
+              <Text style={{ color: '#C9D4E5', marginTop: 8 }}>{left ? 'Most checks finish on their own within a day. Your part takes about 5 minutes.' : isCfi ? 'Students can find and book you.' : 'Renters can book your plane.'}</Text>
+            </Card>
+          );
+        })()}
+        <Text style={g.intro}>Students can only book verified instructors and planes. It’s free. A medical isn’t needed to instruct, so we don’t ask for one.</Text>
+        {!!err && (
+          <Card style={{ backgroundColor: C.redBg, borderColor: C.redBg }}>
+            <Text style={{ fontWeight: '800', color: C.red }}>Something didn’t go through</Text>
+            <Text style={[g.sub, { color: C.text }]}>{/network|fetch|timeout/i.test(err) ? 'Check your connection and try again.' : err}</Text>
+            <Button title="Try again" icon="refresh" variant="outline" small style={{ marginTop: 10 }} onPress={() => { setErr(''); load(); }} />
+          </Card>
+        )}
 
         {isCfi && (
           <>
@@ -107,8 +129,13 @@ export function GetVerified({ nav }) {
           );
         })}
 
-        {!isCfi && data.planes.length === 0 && (
-          <Card><Text style={g.sub}>Create your instructor profile or list a plane first. Its checks will show up here.</Text></Card>
+        {!isCfi && data.planes.length === 0 && !refreshing && (
+          <Card style={{ alignItems: 'center', paddingVertical: 22 }}>
+            <Text style={[g.title, { textAlign: 'center' }]}>Nothing to verify yet</Text>
+            <Text style={[g.sub, { textAlign: 'center' }]}>Verification checks your instructor certificate or your plane’s paperwork. Start with one of these.</Text>
+            <Button title="Create instructor profile" style={{ marginTop: 12, alignSelf: 'stretch' }} onPress={() => nav.push('CfiForm')} />
+            <Button title="List a plane" variant="outline" style={{ marginTop: 8, alignSelf: 'stretch' }} onPress={() => nav.push('PlaneForm')} />
+          </Card>
         )}
         <Text style={[g.sub, { marginTop: 14 }]}>“Verified” means Positive Rate checked these records are real and current. It isn’t a guarantee of skill or airworthiness.</Text>
       </ScrollView>
@@ -179,6 +206,8 @@ export function StaffReview({ nav }) {
 }
 
 const g = StyleSheet.create({
+  pbar: { height: 8, borderRadius: 4, backgroundColor: '#2A4167', overflow: 'hidden', marginTop: 10 },
+  pfill: { height: 8, borderRadius: 4, backgroundColor: C.amber },
   intro: { color: C.sub, marginBottom: 6, lineHeight: 20 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontWeight: '900', color: C.text, fontSize: 16, flex: 1, marginRight: 8 },
