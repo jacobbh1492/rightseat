@@ -42,9 +42,11 @@ export function PilotProfile({ nav }) {
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <Header nav={nav} title="Pilot profile" />
-        <View style={{ padding: 16 }}>
-          <Text style={st.sub}>Sign in to add your pilot profile.</Text>
-          <Button title="Sign in" style={{ marginTop: 12 }} onPress={() => nav.push('SignIn')} />
+        <View style={{ padding: 24, alignItems: 'center' }}>
+          <View style={st.gateIcon}><Icon name="file" size={26} color={C.navy} /></View>
+          <Text style={{ fontSize: 18, fontWeight: '900', color: C.text, marginTop: 12 }}>Sign in to add your pilot profile</Text>
+          <Text style={[st.sub, { textAlign: 'center', marginTop: 6 }]}>Owners check your certificate, medical and flight review before you rent solo.</Text>
+          <Button title="Sign in" style={{ marginTop: 16, alignSelf: 'stretch' }} onPress={() => nav.push('SignIn')} />
         </View>
       </View>
     );
@@ -74,7 +76,13 @@ export function PilotProfile({ nav }) {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Pilot profile" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
-        <Text style={st.sub}>Owners see this when you ask to rent their plane. We check it against every solo rental: medical, flight review and the plane’s insurance minimum.</Text>
+        <Text style={st.sub}>Who sees this: owners whose plane you ask to rent, and instructors you book. We check it before every solo rental: medical, flight review and the plane’s insurance minimum.</Text>
+        {!loading && (value.medicalExpires || reviewThrough) && (
+          <Card style={{ marginTop: 12, backgroundColor: C.sky, borderColor: C.sky }}>
+            {value.medicalExpires && <Text style={{ color: value.medicalExpires < todayYmd ? C.red : C.text, fontWeight: '700' }}>Medical: {value.medicalExpires < todayYmd ? 'expired' : 'good through'} {pretty(value.medicalExpires)}</Text>}
+            {!student && reviewThrough && <Text style={{ color: reviewThrough < todayYmd ? C.red : C.text, fontWeight: '700', marginTop: 4 }}>Flight review: {reviewThrough < todayYmd ? 'due since' : 'due by'} {pretty(reviewThrough)}</Text>}
+          </Card>
+        )}
         {loading ? <Text style={[st.sub, { marginTop: 16 }]}>Loading…</Text> : (
           <>
             <SectionTitle>Certificate</SectionTitle>
@@ -236,6 +244,7 @@ export function Checkouts({ nav }) {
 }
 
 const st = StyleSheet.create({
+  gateIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.amberBg, alignItems: 'center', justifyContent: 'center' },
   seg: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: C.line, padding: 4, marginTop: 12, marginBottom: 12 },
   segBtn: { flex: 1, minHeight: 40, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   sub: { color: C.sub, fontSize: 13, lineHeight: 18 },

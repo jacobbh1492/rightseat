@@ -192,7 +192,13 @@ export function StaffReview({ nav }) {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Verification reviews" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}>
-        {!!err && <Text style={g.err}>{err}</Text>}
+        {!!err && (
+          <Card style={{ backgroundColor: C.redBg, borderColor: C.redBg }}>
+            <Text style={{ fontWeight: '800', color: C.red }}>Couldn’t load the review queue</Text>
+            <Text style={g.sub}>{/edge function|fetch|network/i.test(err) ? 'The server didn’t answer. Check your connection and try again.' : err}</Text>
+            <Button title="Try again" icon="refresh" variant="outline" small style={{ marginTop: 10 }} onPress={() => { setErr(''); load(); }} />
+          </Card>
+        )}
         <SectionTitle>Needs you</SectionTitle>
         {waiting.length === 0 && <Text style={g.sub}>Nothing to review. Pull down to refresh.</Text>}
         {waiting.map(card)}
