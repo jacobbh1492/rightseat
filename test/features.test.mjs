@@ -1,4 +1,4 @@
-// Squawks & airworthiness, pilot currency, preflight, matching and gift math.
+// Squawks & airworthiness, pilot currency, preflight and matching.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -6,7 +6,6 @@ import { aircraftChecks, annualValidThrough, blockingIssues } from '../src/aircr
 import { renterChecks, failing, passengerCurrentThrough } from '../src/renterChecks.js';
 import { flightCategory, ceilingOf, parseMetar, weatherChecks, verdict, IMSAFE } from '../src/preflight.js';
 import { matchCfis, scoreCfi } from '../src/matching.js';
-import { giftUse, parseGift, giftCode, normalizeGiftCode } from '../supabase/functions/_shared/bookings.js';
 
 const keys = (cs) => cs.map((c) => c.key);
 
@@ -119,26 +118,4 @@ test('matching: needs the right certificate, prefers the right airport and budge
   assert.ok(ranked[1].concerns.some((r) => /KLAL/.test(r)));
   // Live instructors who aren't verified can't be booked, so they aren't matched.
   assert.equal(matchCfis({ cfis: [{ ...near, live: true, verified: false }], planes, request: { goal: 'Private Pilot' } }).length, 0);
-});
-
-test('gift covers what it can; the card pays the rest (min $0.50)', () => {
-  assert.deepEqual(giftUse(180, 200), { gift: 180, card: 0 });
-  assert.deepEqual(giftUse(250, 200), { gift: 200, card: 50 });
-  assert.deepEqual(giftUse(200.2, 200), { gift: 199.7, card: 0.5 });
-  assert.deepEqual(giftUse(100, 0), { gift: 0, card: 100 });
-  assert.deepEqual(giftUse(0.3, 0), { gift: 0, card: 0.3 });
-});
-
-test('gift input and codes', () => {
-  assert.throws(() => parseGift({ amount: 10, recipientName: 'A' }), /from \$50/);
-  assert.throws(() => parseGift({ amount: 200 }), /Who/);
-  assert.throws(() => parseGift({ amount: 200, recipientName: 'Sam', recipientEmail: 'nope' }), /email/);
-  const g = parseGift({ amount: '199.999', recipientName: '  Sam  Lee ', recipientEmail: 'SAM@x.com', message: 'Happy birthday!' });
-  assert.equal(g.amount, 200);
-  assert.equal(g.recipientName, 'Sam Lee');
-  assert.equal(g.recipientEmail, 'sam@x.com');
-  const code = giftCode((n) => Uint8Array.from({ length: n }, (_, i) => i * 37));
-  assert.match(code, /^RS-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
-  assert.equal(normalizeGiftCode(code.toLowerCase().replace(/-/g, ' ')), code);
-  assert.equal(normalizeGiftCode('RS-123'), null);
 });

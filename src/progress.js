@@ -5,7 +5,7 @@ import { PPL_MINIMUMS, r2 } from './logic';
 export const ALL_LESSONS = SYLLABUS.flatMap((s) => s.lessons);
 export const HOUR_KEYS = PPL_MINIMUMS.map((m) => m.key);
 
-export const PROGRAMS = ['Private Pilot', 'Sport Pilot', 'Instrument Rating', 'Commercial Pilot'];
+export const PROGRAMS = ['Private Pilot', 'Sport Pilot', 'Instrument Rating', 'Commercial Pilot', 'Multi-Engine Rating'];
 export const WHERE = ['Independent CFI (Part 61)', 'Flight school (Part 141)', 'Flight school (Part 61)', 'University program', 'Military', 'Other'];
 export const LAST_FLIGHT = ['Within 30 days', '1–3 months ago', '3–12 months ago', 'Over a year ago'];
 

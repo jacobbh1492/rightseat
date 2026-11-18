@@ -24,10 +24,11 @@ test('only the instructor writes the debrief, after the lesson', () => {
 
 test('split invite rules', () => {
   assert.equal(parseSplit(null), null);
-  assert.deepEqual(parseSplit({ email: ' Ben@Example.com ', bookerPct: 60 }), { email: 'ben@example.com', bookerPct: 60 });
-  assert.throws(() => parseSplit({ email: 'ben@example.com', bookerPct: 45 }), /50–90%/);
-  assert.throws(() => parseSplit({ email: 'ben@example.com', bookerPct: 95 }), /50–90%/);
-  assert.throws(() => parseSplit({ email: 'ben@example.com', bookerPct: 62 }), /steps of 5/);
+  assert.deepEqual(parseSplit({ email: ' Ben@Example.com ' }), { email: 'ben@example.com', bookerPct: 50 });
+  assert.deepEqual(parseSplit({ email: 'ben@example.com', bookerPct: 50 }), { email: 'ben@example.com', bookerPct: 50 });
+  // FAA 61.113(c): always an even split
+  assert.throws(() => parseSplit({ email: 'ben@example.com', bookerPct: 60 }), /50\/50/);
+  assert.throws(() => parseSplit({ email: 'ben@example.com', bookerPct: 45 }), /50\/50/);
   assert.throws(() => parseSplit({ email: 'nope', bookerPct: 50 }), /email/);
   assert.throws(() => parseSplit({ email: 'ben@example.com', bookerPct: 50 }, { cfiId: 'c' }), /solo rentals/);
 });
@@ -52,14 +53,14 @@ test('shares always add up to the total, to the cent', () => {
 test('close-out settles the partner against their deposit', () => {
   const plane = { id: 'p', wet_rate: 165, details: {} };
   const est = priceBooking({ cfi: null, plane, affiliation: null, flightHours: 2, groundHours: 0, repeat: false, prepaid: false });
-  const deposit = splitShares(est.total, 60).partner;
+  const deposit = splitShares(est.total, 50).partner;
   const longer = finalPrice(est, { flightHours: 2.4, groundHours: 0 });
   const shorter = finalPrice(est, { flightHours: 1.6, groundHours: 0 });
-  assert.ok(partnerSettlement(splitShares(longer.total, 60).partner, deposit) > 0);  // charge the difference
-  assert.ok(partnerSettlement(splitShares(shorter.total, 60).partner, deposit) < 0); // refund the difference
+  assert.ok(partnerSettlement(splitShares(longer.total, 50).partner, deposit) > 0);  // charge the difference
+  assert.ok(partnerSettlement(splitShares(shorter.total, 50).partner, deposit) < 0); // refund the difference
   assert.equal(partnerSettlement(deposit, deposit), 0);
   // What both pay equals what the flight cost.
-  const s = splitShares(longer.total, 60);
+  const s = splitShares(longer.total, 50);
   assert.equal(cents(s.booker) + cents(deposit) + cents(partnerSettlement(s.partner, deposit)), cents(longer.total));
 });
 

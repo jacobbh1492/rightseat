@@ -109,3 +109,12 @@ test('payout plan holds money for anyone without payouts set up', () => {
   assert.deepEqual(p.held.map((h) => h.party), ['owner']);
   assert.equal(payoutPlan({ cfi: 10, owner: 0, school: 0 }, {}).held.length, 1);
 });
+
+test('plane co-owners and managers act as the owner on rentals', () => {
+  const b = { student_id: 's', cfi_id: null, plane_id: 'p' };
+  assert.equal(roleIn(b, 'm', { planeOwnerId: 'o', planeManagerIds: ['m'] }), 'owner');
+  assert.equal(roleIn(b, 'v', { planeOwnerId: 'o', planeManagerIds: ['m'] }), null);
+  assert.equal(roleIn(b, 'o', { planeOwnerId: 'o' }), 'owner');
+  // the renter is still the student even if they also manage the plane
+  assert.equal(roleIn(b, 's', { planeOwnerId: 'o', planeManagerIds: ['s'] }), 'student');
+});

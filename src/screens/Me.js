@@ -7,6 +7,7 @@ import { AIRPORTS, CERTS, SPECIALTIES, AVIONICS, OWNER_TYPES } from '../data';
 import { useAuth } from '../backend/auth';
 import { saveCfiProfile, savePlaneListing } from '../backend/profiles';
 import { fetchMyMechanicAccess } from '../backend/maintenance';
+import { fetchMyPlaneAccess } from '../backend/planePeople';
 import { C, Card, Field, MultiSelect, Toggle, Button, SectionTitle, Avatar, pickImages, ListRow, Icon, Chip } from '../ui';
 import { Header } from './Details';
 import { CfiCard, PlaneCard, SchoolCard } from './Explore';
@@ -31,9 +32,11 @@ export function Me({ nav }) {
   const auth = useAuth();
   // Mechanics an owner invited: show their maintenance section (any mode).
   const [hasMech, setHasMech] = useState(false);
+  const [access, setAccess] = useState({ invites: 0, planes: 0 });
   useEffect(() => {
-    if (!auth?.session) { setHasMech(false); return; }
+    if (!auth?.session) { setHasMech(false); setAccess({ invites: 0, planes: 0 }); return; }
     fetchMyMechanicAccess().then((r) => setHasMech(r.length > 0)).catch(() => {});
+    fetchMyPlaneAccess().then((r) => setAccess({ invites: r.filter((x) => x.status === 'invited' && !x.expired).length, planes: r.filter((x) => x.status === 'active').length })).catch(() => {});
   }, [auth?.session?.user?.id]);
   const displayName = auth?.account?.full_name || pilot.name;
 
@@ -51,7 +54,6 @@ export function Me({ nav }) {
         { icon: 'book', title: 'Previous experience', subtitle: training.prior ? 'Update your hours and lessons' : 'Trained before? Add it here', go: 'PriorExperience' },
         { icon: 'users', title: 'Get matched with an instructor', subtitle: 'Tell us your goals, we rank instructors by fit', go: 'GetMatched' },
         ...(auth?.session ? [{ icon: 'chat', title: 'Your matches', subtitle: 'Requests you sent and who answered', go: 'MyMatches' }] : []),
-        { icon: 'star', title: 'Gifts', subtitle: 'Redeem a gift code or gift someone a flight', go: 'Gifts' },
       ],
     },
     {
@@ -75,6 +77,11 @@ export function Me({ nav }) {
       ],
     },
     {
+      // Co-owners, managers and viewers an owner added (they may have no other role).
+      key: 'shared', mode: 'any', show: access.invites + access.planes > 0, title: 'Shared planes',
+      rows: [{ icon: 'users', title: 'Planes I help run', subtitle: access.invites ? `${access.invites} invite${access.invites === 1 ? '' : 's'} waiting for you` : `${access.planes} plane${access.planes === 1 ? '' : 's'} shared with you`, go: 'PlaneAccess' }],
+    },
+    {
       // Mechanics an owner invited (they may have no other role on Positive Rate).
       key: 'mech', mode: 'any', show: hasMech, title: 'Maintenance',
       rows: [{ icon: 'tool', title: 'Mechanic access', subtitle: 'Planes you maintain and invites from owners', go: 'MechanicHome' }],
@@ -87,7 +94,7 @@ export function Me({ nav }) {
       ],
     },
   ];
-  const others = sections.filter((x) => !x.show && x.key !== 'mech');
+  const others = sections.filter((x) => !x.show && x.key !== 'mech' && x.key !== 'shared');
   const mode = nav.mode || 'learn';
   const teachingMode = mode === 'teach';
   const pendingTeach = teaching.filter((r) => r.status === 'Pending').length;

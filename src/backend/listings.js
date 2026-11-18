@@ -57,6 +57,15 @@ export async function fetchLiveListings(uid) {
     supabase.from('planes').select('*').or(mine('owner_id')),
     supabase.from('cfi_planes').select('*'),
   ]);
+  // Planes the user helps run (co-owner, manager, view only) show up even while unlisted.
+  if (uid && !planesRes.error) {
+    const { data: mem } = await supabase.from('plane_members').select('plane_id').eq('user_id', uid).eq('status', 'active');
+    const extra = [...new Set((mem || []).map((m) => m.plane_id))].filter((id) => !planesRes.data.some((p) => p.id === id));
+    if (extra.length) {
+      const { data: more } = await supabase.from('planes').select('*').in('id', extra);
+      planesRes.data.push(...(more || []));
+    }
+  }
   if (cfisRes.error || planesRes.error) throw cfisRes.error || planesRes.error;
   const ids = cfisRes.data.map((c) => c.id);
   const planeIds = planesRes.data.map((p) => p.id);

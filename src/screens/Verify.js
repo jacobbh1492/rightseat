@@ -49,8 +49,10 @@ export function DocPreview({ type, fields, uri }) {
 }
 
 function targetsFor(store) {
-  const { myPlaneIds, getPlane } = store;
-  const ids = myPlaneIds.length ? myPlaneIds : ['p2'];
+  // Insurance and airworthiness documents belong to the plane's owner, not its managers.
+  const { myPlaneIds, ownedPlaneIds = [], getPlane } = store;
+  const owned = myPlaneIds.filter((id) => ownedPlaneIds.includes(id) || !/^[0-9a-f-]{36}$/.test(id));
+  const ids = owned.length ? owned : myPlaneIds.length ? [] : ['p2'];
   return ids.map(getPlane).filter(Boolean);
 }
 

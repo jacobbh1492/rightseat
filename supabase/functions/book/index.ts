@@ -6,7 +6,7 @@
 // the request only goes to the owner once that pilot accepts and pays a deposit (split function).
 import { feeContext } from '../_shared/feeContext.ts';
 import { serve, json, admin, stripe, requireUser, customerFor, audit } from '../_shared/server.ts';
-import { parseBookingRequest, priceBooking, parseSplit, splitHoldUntil, splitShares, giftUse, HttpError } from '../_shared/bookings.js';
+import { parseBookingRequest, priceBooking, parseSplit, splitHoldUntil, splitShares, HttpError } from '../_shared/bookings.js';
 import { normalizeSchedule, checkBooking } from '../_shared/schedule.js';
 import { assertRenterReady } from '../_shared/renter.ts';
 import { assertAirworthy } from '../_shared/aircraft.ts';
@@ -37,15 +37,6 @@ serve(async (req, body) => {
 
   // Grounding squawks, the 100-hour and the annual (any booking in the plane).
   if (plane) await assertAirworthy(plane, r.startsAt, r.flightHours);
-
-  // A gift (gift function): pays for a lesson with an instructor, applied at close-out.
-  let gift: any = null;
-  if (body.giftId) {
-    if (!cfi) throw new HttpError(400, 'Gifts pay for flights with an instructor.');
-    const { data: g } = await admin.from('gifts').select('id, remaining, status, recipient_id').eq('id', String(body.giftId)).maybeSingle();
-    if (!g || g.recipient_id !== user.id || !['claimed', 'active'].includes(g.status) || !(Number(g.remaining) > 0)) throw new HttpError(409, 'That gift isn’t available. Check Account → Gifts.');
-    gift = g;
-  }
 
   // Renting without an instructor: the pilot's profile (medical, flight review, hours) and
   // the owner's checkout in this plane.
@@ -122,7 +113,7 @@ serve(async (req, body) => {
     starts_at: r.startsAt.toISOString(), ends_at: r.endsAt.toISOString(), goal: r.goal,
     flight_hours: r.flightHours, ground_hours: r.groundHours, status: 'requested', quote: q,
     split_pending: !!share, hold_until: holdUntil?.toISOString() || null,
-    purpose: checkoutFlight ? 'checkout' : null, gift_id: gift?.id || null,
+    purpose: checkoutFlight ? 'checkout' : null,
   }).select().single();
   if (error) throw error;
   // A checkout flight also puts the renter on the owner's checkout list.
@@ -147,8 +138,7 @@ serve(async (req, body) => {
   return json({
     booking: { id: booking.id, status: booking.status, startsAt: booking.starts_at },
     split: share ? { bookerPct: share.bookerPct, holdUntil, ...splitShares(q.total, share.bookerPct) } : null,
-    quote: { total: q.total, bookingFee: q.bookingFee, waivedFee: q.waivedFee, protection: q.protection, deposit: q.deposit, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft,
-      giftEstimate: gift ? giftUse(q.total, Number(gift.remaining)).gift : 0 },
+    quote: { total: q.total, bookingFee: q.bookingFee, waivedFee: q.waivedFee, protection: q.protection, deposit: q.deposit, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft },
     payment: { setupIntentClientSecret: si.client_secret, customer, ephemeralKey: ek.secret },
   }, 201);
 });
