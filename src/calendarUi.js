@@ -15,7 +15,7 @@ export const longDate = (dt) => new Date(Date.UTC(dt.y, dt.m - 1, dt.d)).toLocal
 
 // Month grid. `enabled(date)` decides which days can be tapped; `dot(date)` marks days
 // (e.g. lessons booked); `inRange(date)` shades a selected span (time off).
-export function MonthCalendar({ month, onMonth, selected, onSelect, enabled = () => true, dot, inRange, minMonth, maxMonth }) {
+export function MonthCalendar({ month, onMonth, selected, onSelect, enabled = () => true, dot, inRange, edge, minMonth, maxMonth }) {
   const first = { y: month.y, m: month.m, d: 1 };
   const lead = dayOfWeek(first);
   const daysIn = new Date(Date.UTC(month.y, month.m, 0)).getUTCDate();
@@ -45,7 +45,7 @@ export function MonthCalendar({ month, onMonth, selected, onSelect, enabled = ()
           {cells.slice(w * 7, w * 7 + 7).map((dt, i) => {
             if (!dt) return <View key={i} style={cs.cell} />;
             const on = enabled(dt);
-            const sel = sameDate(dt, selected);
+            const sel = sameDate(dt, selected) || !!(edge && edge(dt));
             const span = inRange && inRange(dt);
             const isToday = dt.y === now.getFullYear() && dt.m === now.getMonth() + 1 && dt.d === now.getDate();
             return (
