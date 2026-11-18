@@ -86,7 +86,7 @@ export default function LiveTraining({ nav }) {
           <Card key={d.id} style={!d.acknowledged ? { borderLeftWidth: 4, borderLeftColor: C.blue } : null}>
             <View style={l.row}>
               <Text style={{ fontWeight: '900', color: C.text }}>{new Date(d.flown_on + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
-              {d.acknowledged ? <Tag label="Read" color={C.green} bg="#E3F7EF" /> : <Tag label="New" />}
+              {d.acknowledged ? <Tag label="Read" color={C.green} bg="#DDF3E8" /> : <Tag label="New" />}
             </View>
             <Text style={l.sub}>{nameOf(d.cfi_id)}</Text>
             {!!d.went_well && <><Text style={l.label}>What went well</Text><Text style={l.body}>{d.went_well}</Text></>}

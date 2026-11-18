@@ -216,7 +216,7 @@ export function OwnerDashboard({ nav, params }) {
             </View>
             {q.status === 'open' ? (
               <Pressable onPress={() => resolveSquawk(p.id, q.id)}><Text style={{ color: C.blue, fontWeight: '800' }}>Resolve</Text></Pressable>
-            ) : <Tag label="Resolved" color={C.green} bg="#E3F7EF" />}
+            ) : <Tag label="Resolved" color={C.green} bg="#DDF3E8" />}
           </Card>
         ))}
         <Field value={sq} onChangeText={setSq} placeholder="Add a squawk…" />

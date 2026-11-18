@@ -85,7 +85,7 @@ export function scoreCfi(cfi, planes, request) {
   }
 
   // Track record (Positive Rate reviews count more than self-reported numbers).
-  if (cfi.reviewCount >= 3 && cfi.rating >= 4.7) { score += 8; reasons.push(`${Number(cfi.rating).toFixed(1)}★ from ${cfi.reviewCount} students`); }
+  if (cfi.reviewCount >= 3 && cfi.rating >= 4.7) { score += 8; reasons.push(`${Number(cfi.rating).toFixed(1)}★ · ${cfi.reviewCount} reviews`); }
   else if (cfi.reviewCount > 0) score += Math.max(0, (Number(cfi.rating) - 4) * 4);
   if (request.goal !== 'Discovery flight' && Number(cfi.passRate) >= 90 && Number(cfi.checkridesSent) >= 5) { score += 5; reasons.push(`${cfi.passRate}% first-time pass rate`); }
   if (Number(cfi.totalHours) >= 1500) score += 3;

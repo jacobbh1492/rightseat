@@ -184,7 +184,7 @@ export function PriorExperience({ nav, params }) {
             {!signedIn && <SectionTitle>Medical & student certificate</SectionTitle>}
             {!signedIn && <Card style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => nav.push('Verification')}>
               <Text style={{ flex: 1, color: C.text }}>Verified in your Verification center</Text>
-              <Tag label={`${pilot.medical} ✓`} color={C.green} bg="#E3F7EF" />
+              <Tag label={`${pilot.medical} ✓`} color={C.green} bg="#DDF3E8" />
             </Card>}
           </>
         )}

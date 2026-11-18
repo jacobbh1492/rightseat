@@ -194,7 +194,7 @@ export function Teaching({ nav, asTab }) {
           <Card key={r.id}>
             <View style={ts.rowTop}>
               <Text style={ts.title}>{r.goal}</Text>
-              <Tag label="Confirmed" color={C.green} bg="#E3F7EF" />
+              <Tag label="Confirmed" color={C.green} bg="#DDF3E8" />
             </View>
             <Text style={ts.sub}>{r.date} · {r.time}</Text>
             <Text style={ts.sub}>{who(r)} · {hours(r)} booked</Text>

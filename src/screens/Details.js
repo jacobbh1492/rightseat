@@ -2,10 +2,11 @@ import React from 'react';
 import { aircraftChecks, blockingIssues } from '../aircraftStatus';
 import { ymdIn } from '../renterChecks';
 import { useAuth } from '../backend/auth';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Image } from 'react-native';
 import { useStore, money } from '../store';
 import { AIRPORTS } from '../data';
-import { C, Card, Avatar, Tag, Stars, Stat, Row, SectionTitle, Button, ReviewCard, OwnerBadge, Icon, IconButton } from '../ui';
+import { C, Card, Avatar, Tag, Stars, Stat, Row, SectionTitle, Button, ReviewCard, OwnerBadge, Icon, IconButton, Banner } from '../ui';
+import { nextOpening, weekStrip } from '../listingInfo';
 import { PlaneGallery, PlaneImage } from '../art';
 import { VerifiedCard } from './Verify';
 
@@ -30,6 +31,7 @@ export function CfiDetail({ nav, params }) {
   const school = c.schoolId ? getSchool(c.schoolId) : null;
   const fav = favorites.includes(c.id);
   const planes = c.aircraftIds.map(getPlane).filter(Boolean);
+  const next = nextOpening(c);
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -37,19 +39,23 @@ export function CfiDetail({ nav, params }) {
         nav={nav}
         title="Instructor"
         right={
-          <IconButton name="heart" label={fav ? 'Remove from saved' : 'Save instructor'} onPress={() => toggleFavorite(c.id)} color={fav ? '#E11D48' : C.sub} bg="transparent" />
+          <IconButton name="heart" label={fav ? 'Remove from saved' : 'Save instructor'} onPress={() => toggleFavorite(c.id)} color={fav ? '#BE123C' : C.navy} bg="transparent" />
         }
       />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
-        <View style={{ alignItems: 'center', marginBottom: 12 }}>
-          <Avatar initials={c.initials} color={c.color} size={88} photo={c.photo} />
-          <Text style={ds.name}>
-            {c.name} {c.verified ? <Text style={{ color: C.blue }}>✓</Text> : null}
-          </Text>
-          <Text style={ds.sub}>
-            {c.homeAirport} · {airportName(c.homeAirport)}
-          </Text>
-          {c.alsoTeachesAt.length > 0 && <Text style={ds.sub}>Also teaches at {c.alsoTeachesAt.join(', ')}</Text>}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <Avatar initials={c.initials} color={c.color} size={84} photo={c.photo} />
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={ds.name} accessibilityRole="header">{c.name}</Text>
+              {c.verified ? <View style={{ marginLeft: 6 }} accessible accessibilityLabel="Verified"><Icon name="shieldCheck" size={18} color={C.green} strokeWidth={2.2} /></View> : null}
+            </View>
+            <Text style={ds.sub}>{c.homeAirport}{c.alsoTeachesAt.length ? ` · also ${c.alsoTeachesAt.join(', ')}` : ` · ${airportName(c.homeAirport)}`}</Text>
+            <Stars rating={c.rating} count={c.reviewCount} />
+            {c.responseTime ? <Text style={[ds.sub, { color: C.green, fontWeight: '700' }]}>{c.responseTime}</Text> : null}
+          </View>
+        </View>
+        <View style={{ marginBottom: 12 }}>
           {school ? (
             <Pressable onPress={() => nav.push('School', { id: school.id })} style={ds.schoolPill}>
               <Text style={{ color: C.blue, fontWeight: '700' }}>Instructor at {school.name} ›</Text>
@@ -57,23 +63,23 @@ export function CfiDetail({ nav, params }) {
           ) : (
             <Text style={[ds.sub, { fontWeight: '600' }]}>Independent CFI</Text>
           )}
-          <View style={{ flexDirection: 'row', marginTop: 8 }}>
-            {c.certs.map((x) => <Tag key={x} label={x} />)}
-            {c.trainingTypes.map((x) => <Tag key={x} label={x} color={C.sub} bg="#EEF1F5" />)}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
+            {[...c.certs, ...c.trainingTypes].map((x) => <Tag key={x} label={x} color={C.text} bg={C.sky} />)}
           </View>
-          <Stars rating={c.rating} count={c.reviewCount} />
-          <Text style={[ds.sub, { marginTop: 4 }]}>{c.responseTime}</Text>
         </View>
 
-        <Card style={{ flexDirection: 'row', paddingVertical: 4 }}>
-          <Stat value={c.totalHours ? c.totalHours.toLocaleString() : '—'} label="Total hours" />
-          <Stat value={c.dualGiven ? c.dualGiven.toLocaleString() : '—'} label="Dual given" />
-          <Stat value={c.checkridesSent ? `${c.passRate}%` : 'New'} label="1st-time pass" />
-        </Card>
-        <Card style={{ flexDirection: 'row', paddingVertical: 4 }}>
-          <Stat value={c.yearsInstructing || '<1'} label="Yrs teaching" />
-          <Stat value={c.checkridesSent} label="Checkrides sent" />
-          <Stat value={c.studentsSoloed} label="Students soloed" />
+        <Card style={{ paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row' }}>
+            <Stat value={c.totalHours ? `${c.totalHours.toLocaleString()}*` : '—'} label="Total hrs" />
+            <Stat value={c.checkridesSent ? `${c.passRate}%*` : 'New'} label="1st-time pass" />
+            <Stat value={c.checkridesSent ? `${c.checkridesSent}*` : '—'} label="Checkrides" />
+          </View>
+          <View style={{ flexDirection: 'row' }}>
+            <Stat value={c.dualGiven ? `${c.dualGiven.toLocaleString()}*` : '—'} label="Dual given" />
+            <Stat value={`${c.yearsInstructing || '<1'}*`} label="Yrs teaching" />
+            <Stat value={c.studentsSoloed != null ? `${c.studentsSoloed}*` : '—'} label="Students soloed" />
+          </View>
+          <Text style={[ds.note, { marginTop: 4 }]}>*Self-reported by {c.name.split(' ')[0]}</Text>
         </Card>
 
         <SectionTitle>Verified by Positive Rate</SectionTitle>
@@ -121,19 +127,17 @@ export function CfiDetail({ nav, params }) {
         </View>
 
         <SectionTitle>Availability</SectionTitle>
-        <Card>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => {
-              const on = c.availability.includes(d);
-              return (
-                <View key={d} style={[ds.day, on && { backgroundColor: C.blue }]}>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: on ? '#fff' : C.sub }}>{d}</Text>
-                </View>
-              );
-            })}
-          </View>
-          <Text style={[ds.sub, { marginTop: 10 }]}>Preferred: {c.timeOfDay.join(', ')}</Text>
-        </Card>
+        <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+          {weekStrip(c).map((d, i) => (
+            <View key={d.key} style={[ds.day, { marginRight: i < 6 ? 6 : 0 }, !d.open && ds.dayOff]} accessible accessibilityLabel={`${d.day} ${d.date}, ${d.open ? 'teaching' : 'not teaching'}`}>
+              <Text style={{ fontSize: 11, color: C.sub }}>{d.day}</Text>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: d.open ? C.text : C.chevron, textDecorationLine: d.open ? 'none' : 'line-through' }}>{d.date}</Text>
+            </View>
+          ))}
+        </View>
+        {next ? (
+          <Banner tone="green" icon="clock" title={`Next opening: ${next.label}`}>{c.timeOfDay?.length ? `Prefers ${c.timeOfDay.join(', ').toLowerCase()}` : undefined}</Banner>
+        ) : <Text style={ds.sub}>No open times in the next two weeks. Message {c.name.split(' ')[0]} to ask.</Text>}
 
         <SectionTitle>About</SectionTitle>
         <Card>
@@ -153,13 +157,13 @@ export function CfiDetail({ nav, params }) {
       </ScrollView>
       <View style={ds.cta}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: '900', fontSize: 18, color: C.navy }}>{money(c.flightRate)}/hr</Text>
-          {c.discoveryFlight > 0 && <Text style={ds.sub}>Discovery flight {money(c.discoveryFlight)}</Text>}
+          <Text style={{ fontWeight: '800', fontSize: 18, color: C.text }}>{money(c.flightRate)}/hr</Text>
+          {next ? <Text style={{ fontSize: 12, fontWeight: '700', color: C.green }}>Next: {next.label}</Text> : null}
         </View>
-        <Pressable onPress={() => nav.push('Chat', { key: c.id })} style={ds.msgBtn} accessibilityRole="button" accessibilityLabel={`Message ${c.name}`}><Icon name="chat" size={20} color={C.blue} /></Pressable>
+        <Pressable onPress={() => nav.push('Chat', { key: c.id })} style={ds.msgBtn} accessibilityRole="button" accessibilityLabel={`Message ${c.name}`}><Icon name="chat" size={22} color={C.navy} /></Pressable>
         {c.live && !c.verified
           ? <Button title="Verification pending" disabled style={{ paddingHorizontal: 20 }} />
-          : <Button title="Request a lesson" style={{ paddingHorizontal: 20 }} onPress={() => nav.push('Request', { cfiId: c.id, planeId: c.aircraftIds[0] || null })} />}
+          : <Button title="Book a lesson" style={{ paddingHorizontal: 20 }} onPress={() => nav.push('Request', { cfiId: c.id, planeId: c.aircraftIds[0] || null })} />}
       </View>
     </View>
   );
@@ -201,11 +205,17 @@ export function PlaneDetail({ nav, params }) {
             {school && <Text style={{ color: C.sub, fontSize: 20 }}>›</Text>}
           </Card>
 
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
-            {grounded && <Tag label="Grounded · not bookable" color="#DC2626" bg="#FEE2E2" />}
-            {p.next100At > 0 && <Tag label={`100-hr in ${Math.max(0, Math.round((p.next100At - p.hobbsTotal) * 10) / 10)} hrs`} color={p.next100At - p.hobbsTotal < 10 ? '#B45309' : C.green} bg={p.next100At - p.hobbsTotal < 10 ? '#FEF3C7' : '#DDF3E8'} />}
-            <Tag label={`${(p.squawks || []).filter((q) => q.status === 'open').length} open squawks`} color={C.sub} bg="#EEF1F5" />
-          </View>
+          {(() => {
+            const left = p.next100At > 0 ? Math.max(0, Math.round((p.next100At - p.hobbsTotal) * 10) / 10) : null;
+            const open = (p.squawks || []).filter((q) => q.status === 'open').length;
+            const good = !grounded && (left == null || left > 5) && !open;
+            return (
+              <Banner tone={grounded ? 'red' : good ? 'green' : 'amber'} icon={grounded ? 'alert' : good ? 'shieldCheck' : 'wrench'}
+                title={grounded ? 'Grounded · not bookable right now' : good ? 'Maintenance up to date' : 'Maintenance coming up'}>
+                {[p.annualDate ? `Annual ${p.annualDate}` : p.last100hr ? `Last inspection ${p.last100hr}` : null, left != null ? `100-hr in ${left} hrs` : null, `${open || 'No'} open squawk${open === 1 ? '' : 's'}`].filter(Boolean).join(' · ')}
+              </Banner>
+            );
+          })()}
           {p.live && auth?.session && (
             <Pressable onPress={() => nav.push('ReportSquawk', { planeId: p.id })} style={{ paddingVertical: 6 }} accessibilityRole="button">
               <Text style={{ color: C.blue, fontWeight: '700' }}>Flew it and found a problem? Report a squawk ›</Text>
@@ -225,8 +235,9 @@ export function PlaneDetail({ nav, params }) {
 
           <SectionTitle>Avionics & equipment</SectionTitle>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-            {p.ifr && <Tag label="IFR certified" />}
-            {p.avionics.map((a) => <Tag key={a} label={a} color={C.text} bg="#fff" />)}
+            {p.panel && <Tag label={p.panel === 'glass' ? 'Glass panel' : 'Six-pack (steam gauges)'} color={C.text} bg={C.sky} />}
+            {p.ifr && <Tag label="IFR certified" color={C.text} bg={C.sky} />}
+            {p.avionics.map((a) => <Tag key={a} label={a} color={C.text} bg={C.sky} />)}
           </View>
 
           <SectionTitle>Specs</SectionTitle>
@@ -245,7 +256,7 @@ export function PlaneDetail({ nav, params }) {
           <SectionTitle>Renter requirements</SectionTitle>
           <Card>
             <Row label="Solo rental allowed" value={p.soloRental ? 'Yes, after checkout' : 'No — fly with a CFI'} />
-            <Row label="Insurance minimum" value={p.insuranceMinHours ? `${p.insuranceMinHours} hrs TT` : 'Student pilots OK'} />
+            <Row label="Minimum hours" value={p.insuranceMinHours ? `${p.insuranceMinHours} hrs total time` : 'None (students OK)'} />
             {p.soloRental && <Row label="Checkout by" value={p.checkoutBy === 'owner' ? 'The owner' : p.checkoutBy === 'either' ? 'The owner or a CFI' : 'A CFI'} />}
             <Text style={[ds.body, { marginTop: 6 }]}>{p.checkoutRequired}</Text>
             {p.soloRental && ['owner', 'either'].includes(p.checkoutBy) && (
@@ -269,8 +280,8 @@ export function PlaneDetail({ nav, params }) {
           {(p.reviews || []).length === 0 && <Text style={ds.sub}>No written reviews yet.</Text>}
           {(p.reviews || []).map((r, i) => <ReviewCard key={i} r={r} />)}
 
-          <SectionTitle>CFIs who fly this plane</SectionTitle>
-          {cfis.length === 0 && <Text style={ds.sub}>No CFIs linked yet. Any qualified CFI can be requested.</Text>}
+          <SectionTitle>Instructors who fly this plane</SectionTitle>
+          {cfis.length === 0 && <Text style={ds.sub}>No instructors linked yet. Any qualified instructor can be requested.</Text>}
           {cfis.map((c) => (
             <Card key={c.id} onPress={() => nav.push('Cfi', { id: c.id })} style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Avatar initials={c.initials} color={c.color} size={46} photo={c.photo} />
@@ -288,9 +299,9 @@ export function PlaneDetail({ nav, params }) {
       </ScrollView>
       <View style={ds.cta}>
         {p.soloRental && (
-          <Button title="Rent solo" variant="outline" style={{ flex: 1, marginRight: 10 }} onPress={() => nav.push('Request', { cfiId: null, planeId: p.id })} />
+          <Button title="Rent solo" variant="outline" style={{ flex: 0.8, marginRight: 10, paddingHorizontal: 8 }} onPress={() => nav.push('Request', { cfiId: null, planeId: p.id })} />
         )}
-        <Button title="Book with a CFI" style={{ flex: 1.4 }} onPress={() => nav.push('Request', { cfiId: cfis[0]?.id || null, planeId: p.id })} />
+        <Button title="Book with an instructor" style={{ flex: 1.6 }} onPress={() => nav.push('Request', { cfiId: cfis[0]?.id || null, planeId: p.id })} />
       </View>
     </View>
   );
@@ -303,15 +314,16 @@ const hs = StyleSheet.create({
 });
 
 const ds = StyleSheet.create({
-  name: { fontSize: 24, fontWeight: '900', color: C.text, marginTop: 10 },
+  name: { fontSize: 22, fontWeight: '800', color: C.text, flexShrink: 1 },
   sub: { color: C.sub, fontSize: 13, marginTop: 2 },
   label: { fontSize: 12, fontWeight: '800', color: C.sub, marginTop: 12, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
   body: { color: C.text, fontSize: 14, lineHeight: 20 },
   note: { color: C.sub, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
   pkg: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.sky, borderRadius: 12, padding: 12, marginTop: 8 },
-  day: { width: 38, height: 38, borderRadius: 10, backgroundColor: '#EEF1F5', alignItems: 'center', justifyContent: 'center' },
+  day: { flex: 1, paddingVertical: 8, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center' },
+  dayOff: { backgroundColor: C.sky, borderColor: C.sky },
   cta: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 14, paddingBottom: 24, borderTopWidth: 1, borderTopColor: C.line },
-  msgBtn: { width: 48, height: 48, borderRadius: 14, borderWidth: 1.5, borderColor: C.blue, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  msgBtn: { width: 48, height: 48, borderRadius: 14, borderWidth: 1.5, borderColor: C.chevron, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   schoolPill: { backgroundColor: C.sky, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, marginTop: 8, marginBottom: 4 },
   ownerLogo: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   verifiedNote: { color: C.green, fontSize: 12, fontWeight: '600', marginBottom: 10 },
@@ -337,27 +349,28 @@ export function SchoolDetail({ nav, params }) {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Flight school" />
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-        <View style={[ds.schoolHero, { backgroundColor: x.color }]}>
-          <View style={ds.schoolLogo}><Text style={{ color: x.color, fontWeight: '900', fontSize: 26 }}>{x.initials}</Text></View>
+        <View style={[ds.schoolHero, { backgroundColor: C.navy }]}>
+          <View style={ds.schoolLogo}>{x.logo ? <Image source={{ uri: x.logo }} style={{ width: 72, height: 72, borderRadius: 18 }} accessibilityLabel={`${x.name} logo`} /> : <Text style={{ color: C.navy, fontWeight: '900', fontSize: 26 }}>{x.initials}</Text>}</View>
           <Text style={{ color: '#fff', fontWeight: '900', fontSize: 22, marginTop: 10, textAlign: 'center' }}>{x.name}</Text>
           <Text style={{ color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{x.homeAirport} · {airportName(x.homeAirport)}</Text>
           <View style={{ flexDirection: 'row', marginTop: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {x.trainingTypes.map((t) => <Tag key={t} label={t} color="#fff" bg="rgba(255,255,255,0.18)" />)}
-            {x.vaApproved && <Tag label="VA approved" color="#fff" bg="rgba(255,255,255,0.18)" />}
-            {x.financing && <Tag label="Financing" color="#fff" bg="rgba(255,255,255,0.18)" />}
+            {x.trainingTypes.map((t) => <Tag key={t} label={t} color={C.navy} bg={C.amber} />)}
+            {x.vaApproved && <Tag label="VA approved" color={C.navy} bg={C.amber} />}
+            {x.financing && <Tag label="Financing" color={C.navy} bg={C.amber} />}
           </View>
         </View>
         <View style={{ padding: 16 }}>
           <Card style={{ flexDirection: 'row', paddingVertical: 4 }}>
             <Stat value={cfis.length} label="Instructors" />
             <Stat value={planes.length} label="Aircraft" />
-            <Stat value={avgPass != null ? `${avgPass}%` : '—'} label="Avg 1st-time pass" />
+            <Stat value={avgPass != null ? `${avgPass}%*` : '—'} label="Avg 1st-time pass" />
           </Card>
           <Card style={{ flexDirection: 'row', paddingVertical: 4 }}>
-            <Stat value={lowCfi != null ? money(lowCfi) : '—'} label="CFI rates from /hr" />
-            <Stat value={lowPlane != null ? money(lowPlane) : '—'} label="Rentals from /hr" />
+            <Stat value={lowCfi != null ? `From ${money(lowCfi)}/hr` : '—'} label="Instruction" />
+            <Stat value={lowPlane != null ? `From ${money(lowPlane)}/hr` : '—'} label="Rentals (wet)" />
             <Stat value={x.reviewCount ? x.rating.toFixed(1) + '★' : 'New'} label={`${x.reviewCount} reviews`} />
           </Card>
+          {avgPass != null && <Text style={[ds.note, { marginTop: -4, marginBottom: 8 }]}>*Reported by the school’s instructors</Text>}
 
           <SectionTitle>About</SectionTitle>
           <Card>
@@ -417,7 +430,7 @@ export function SchoolDetail({ nav, params }) {
           <Text style={{ fontWeight: '900', fontSize: 16, color: C.navy }}>
             {lowCfi != null && lowPlane != null ? `From ${money(lowCfi + lowPlane)}/hr` : x.name}
           </Text>
-          <Text style={ds.sub}>CFI + plane, dual instruction</Text>
+          <Text style={ds.sub}>Instructor + plane, all-in</Text>
         </View>
         <Button title="Book a lesson" style={{ paddingHorizontal: 22 }} onPress={() => nav.push('Request', { cfiId: cfis[0]?.id || null, planeId: cfis[0]?.aircraftIds[0] || planes[0]?.id || null })} />
       </View>

@@ -146,7 +146,7 @@ export function Me({ nav }) {
 
       {(
         <Card style={{ paddingVertical: 2 }}>
-          <ListRow first icon="tag" iconColor="#047857" iconBg="#E3F7EF" title="Promo code" subtitle={promos.some((p) => new Date(p.endsAt) > new Date()) ? promos.filter((p) => new Date(p.endsAt) > new Date()).map((p) => p.code).join(' · ') + ' active' : 'Have a launch code? Enter it here'} onPress={() => nav.push('PromoCode')} />
+          <ListRow first icon="tag" iconColor="#047857" iconBg="#DDF3E8" title="Promo code" subtitle={promos.some((p) => new Date(p.endsAt) > new Date()) ? promos.filter((p) => new Date(p.endsAt) > new Date()).map((p) => p.code).join(' · ') + ' active' : 'Have a launch code? Enter it here'} onPress={() => nav.push('PromoCode')} />
         </Card>
       )}
 

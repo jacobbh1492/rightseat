@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, Switch, Image, Modal, ScrollView } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet, Switch, Image, Modal, ScrollView, PanResponder } from 'react-native';
 import { Icon } from './icons';
 export { Icon };
 import * as ImagePicker from 'expo-image-picker';
@@ -73,6 +73,34 @@ export function Steps({ labels, current }) {
 export function Pill({ label, kind = 'info' }) {
   const m = { ok: ['✓ ', C.green, C.greenBg], pending: ['', C.amberDark, C.amberBg], warn: ['! ', C.amberDark, C.amberBg], bad: ['✕ ', C.red, C.redBg], info: ['', C.navy, C.sky] }[kind] || ['', C.navy, C.sky];
   return <Tag label={m[0] + label} color={m[1]} bg={m[2]} />;
+}
+
+// Single-thumb slider (no native module). value in [min, max], snapped to step.
+export function Slider({ value, min, max, step = 1, onChange, label, format = (v) => String(v) }) {
+  const [w, setW] = React.useState(0);
+  const ref = React.useRef({ w: 0, x0: 0 });
+  ref.current.w = w;
+  const clamp = (v) => Math.min(max, Math.max(min, Math.round(v / step) * step));
+  const fromX = (x) => clamp(min + (x / Math.max(1, ref.current.w)) * (max - min));
+  const pan = React.useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: (e) => { ref.current.x0 = e.nativeEvent.locationX; onChange(fromX(e.nativeEvent.locationX)); },
+    onPanResponderMove: (e, g) => onChange(fromX(ref.current.x0 + g.dx)),
+  }), [min, max, step, onChange]);
+  const pct = max > min ? (value - min) / (max - min) : 0;
+  return (
+    <View accessible accessibilityRole="adjustable" accessibilityLabel={label} accessibilityValue={{ text: format(value) }}
+      onAccessibilityAction={(e) => onChange(clamp(value + (e.nativeEvent.actionName === 'increment' ? step : -step)))}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      style={{ height: 44, justifyContent: 'center' }} onLayout={(e) => setW(e.nativeEvent.layout.width)} {...pan.panHandlers}>
+      <View style={{ height: 6, borderRadius: 3, backgroundColor: C.line }}>
+        <View style={{ width: `${pct * 100}%`, height: 6, borderRadius: 3, backgroundColor: C.navy }} />
+      </View>
+      <View pointerEvents="none" style={{ position: 'absolute', left: Math.max(0, pct * w - 14), width: 28, height: 28, borderRadius: 14, backgroundColor: '#fff', borderWidth: 2, borderColor: C.navy }} />
+    </View>
+  );
 }
 
 export function Avatar({ initials, color, size = 52, photo }) {
@@ -348,8 +376,8 @@ const OWNER_COLORS = {
   Leaseback: ['#0891B2', '#E0F7FA'],
 };
 export function OwnerBadge({ type }) {
-  const [fg, bg] = OWNER_COLORS[type] || [C.sub, '#EEF1F5'];
-  return <Tag label={type} color={fg} bg={bg} />;
+  // One neutral tag style: color is reserved for status (green good, amber attention, red blocked).
+  return <Tag label={type} color={C.text} bg={C.sky} />;
 }
 
 export function VerifiedBadge({ role }) {

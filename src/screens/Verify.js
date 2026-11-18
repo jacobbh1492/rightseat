@@ -456,7 +456,7 @@ export function AutomationMonitor({ nav }) {
           <Card key={j.k}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={{ fontWeight: '800', color: C.text, flex: 1 }}>{j.name}</Text>
-              <Tag label="Healthy" color={C.green} bg="#E3F7EF" />
+              <Tag label="Healthy" color={C.green} bg="#DDF3E8" />
             </View>
             <Text style={{ color: C.sub, fontSize: 12, marginTop: 2 }}>{j.when} · last run {runs[j.k] || j.last}</Text>
             <Text style={{ color: C.text, marginTop: 6, fontSize: 13 }}>{j.result}</Text>
