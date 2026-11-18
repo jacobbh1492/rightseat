@@ -5,7 +5,7 @@ import { useAuth } from '../backend/auth';
 import { SYLLABUS } from '../data';
 import { PPL_MINIMUMS, r2 } from '../logic';
 import { PROGRAMS, WHERE, LAST_FLIGHT, PRIOR_ENDORSEMENTS, DEMO_IMPORT, emptyPrior, HOUR_KEYS, lessonState } from '../progress';
-import { C, Card, SectionTitle, Button, Tag, Chip, Toggle, Field, MultiSelect, Avatar, pickImages } from '../ui';
+import { C, Card, SectionTitle, Button, Tag, Chip, Toggle, Field, MultiSelect, Avatar, pickImages , Icon } from '../ui';
 import { Header } from './Details';
 
 const STEPS = ['Background', 'Hours', 'Lessons', 'Endorsements', 'Review'];
@@ -238,7 +238,19 @@ export function PriorReview({ nav, params }) {
   Object.entries(p?.lessons || {}).forEach(([l, v]) => (init[l] = v === 'rusty' ? 'needs' : 'confirmed'));
   const [notes, setNotes] = useState(init);
   const [logbookSeen, setLogbookSeen] = useState(false);
-  if (!p) return null;
+  if (!p) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Header nav={nav} title="Review previous experience" />
+        <View style={{ alignItems: 'center', padding: 28 }}>
+          <View style={{ width: 60, height: 60, borderRadius: 18, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center' }}><Icon name="book" size={28} color={C.navy} /></View>
+          <Text style={{ fontWeight: '800', color: C.text, fontSize: 17, marginTop: 12 }}>Nothing to review yet</Text>
+          <Text style={{ color: C.sub, textAlign: 'center', marginTop: 4, lineHeight: 20 }}>When {pilot?.name?.split(' ')[0] || 'your student'} adds hours, lessons and endorsements from earlier training, they’ll appear here for you to confirm or mark rusty.</Text>
+          <Button title={`Message ${pilot?.name?.split(' ')[0] || 'student'}`} variant="outline" style={{ marginTop: 14, alignSelf: 'stretch' }} onPress={() => nav.push('Chat', { key: params?.studentId || 'student', draft: 'Hi! Before our first lesson, could you add your previous training in Positive Rate (Training → Trained somewhere before)?' })} />
+        </View>
+      </View>
+    );
+  }
   const H = p.hours;
 
   return (
