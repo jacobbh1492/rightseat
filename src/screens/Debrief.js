@@ -8,9 +8,43 @@ import { C, Card, SectionTitle, Button, Tag, Chip, Avatar, Row } from '../ui';
 import { PlaneImage } from '../art';
 import { Header } from './Details';
 
+// A grade on the ordered 4-step scale: four segments, filled up to the grade, plus its name.
 export function GradePill({ grade }) {
   const g = gradeOf(grade);
-  return <Tag label={g.label} color={g.color} bg={g.bg} />;
+  const n = GRADES.findIndex((x) => x.key === g.key) + 1;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }} accessible accessibilityLabel={`${g.label}, ${n} of 4`}>
+      <View style={{ flexDirection: 'row', marginRight: 6 }}>
+        {GRADES.map((x, i) => <View key={x.key} style={{ width: 12, height: 6, borderRadius: 3, marginRight: 2, backgroundColor: i < n ? g.color : '#D7DEE8' }} />)}
+      </View>
+      <Text style={{ fontSize: 12, fontWeight: '700', color: g.color }}>{g.label}</Text>
+    </View>
+  );
+}
+
+export function GradeLegend() {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }} accessible accessibilityLabel="Grade scale from 1 to 4: Introduced, Needs practice, Solid, Checkride standard">
+      {GRADES.map((g, i) => <Text key={g.key} style={{ fontSize: 12, color: C.sub, marginRight: 10 }}>{i + 1} · {g.label}</Text>)}
+    </View>
+  );
+}
+
+// 4-step segmented control; the scale always reads left to right on one line.
+export function GradePicker({ value, onChange }) {
+  return (
+    <View style={{ flexDirection: 'row', marginTop: 6, borderRadius: 10, borderWidth: 1, borderColor: C.border, overflow: 'hidden' }} accessibilityRole="radiogroup">
+      {GRADES.map((gr, i) => {
+        const on = value === gr.key;
+        return (
+          <Pressable key={gr.key} onPress={() => onChange(gr.key)} style={{ flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? C.navy : '#fff', borderLeftWidth: i ? 1 : 0, borderLeftColor: C.border }}
+            accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${gr.label}, ${i + 1} of 4`}>
+            <Text style={{ fontSize: 12, fontWeight: '800', color: on ? '#fff' : C.text }}>{gr.short}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }
 
 // ---------- CFI editor (used inside close-out and for finishing a pending debrief) ----------
@@ -41,13 +75,7 @@ export function DebriefEditor({ value, onChange, suggested = [], carryOver = [] 
             <Text style={{ fontWeight: '700', color: C.text, flex: 1 }}>{g.item}</Text>
             <Pressable onPress={() => remove(g.item)} hitSlop={8}><Text style={{ color: C.sub, fontSize: 18 }}>×</Text></Pressable>
           </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 }}>
-            {GRADES.map((gr) => (
-              <Pressable key={gr.key} onPress={() => setGrade(g.item, gr.key)} style={[s.gradeChip, g.grade === gr.key && { backgroundColor: gr.bg, borderColor: gr.color }]}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: g.grade === gr.key ? gr.color : C.sub }}>{gr.label}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <GradePicker value={g.grade} onChange={(k) => setGrade(g.item, k)} />
         </View>
       ))}
       <Pressable onPress={() => setAdding(!adding)}><Text style={{ color: C.blue, fontWeight: '700', marginVertical: 6 }}>{adding ? 'Done adding' : '+ Add maneuver'}</Text></Pressable>
@@ -169,12 +197,13 @@ export function DebriefView({ nav, params }) {
             {grades.length > 0 && (
               <>
                 <SectionTitle>Maneuvers</SectionTitle>
+                <GradeLegend />
                 <Card>
                   {grades.map((g) => (
                     <View key={g.item} style={s.viewGrade}>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: C.text, fontWeight: '600' }}>{g.item}</Text>
-                        {g.amended && <Text style={{ color: '#7C3AED', fontSize: 11 }}>Amended · originally “{gradeOf(g.original).label}”</Text>}
+                        {g.amended && <Text style={{ color: C.sub, fontSize: 12 }}>Amended · originally “{gradeOf(g.original).label}”</Text>}
                       </View>
                       <GradePill grade={g.grade} />
                     </View>
@@ -182,9 +211,9 @@ export function DebriefView({ nav, params }) {
                 </Card>
               </>
             )}
-            {db.wentWell ? (<><SectionTitle>What went well</SectionTitle><Card style={{ borderLeftWidth: 4, borderLeftColor: C.green }}><Text style={s.body}>{db.wentWell}</Text></Card></>) : null}
-            {db.needsWork ? (<><SectionTitle>What needs work</SectionTitle><Card style={{ borderLeftWidth: 4, borderLeftColor: '#F59E0B' }}><Text style={s.body}>{db.needsWork}</Text></Card></>) : null}
-            {db.nextPlan ? (<><SectionTitle>Next lesson</SectionTitle><Card style={{ borderLeftWidth: 4, borderLeftColor: C.blue }}><Text style={s.body}>{db.nextPlan}</Text></Card></>) : null}
+            {db.wentWell ? (<><SectionTitle>What went well</SectionTitle><Card style={{ backgroundColor: C.greenBg, borderColor: C.greenBg }}><Text style={s.body}>{db.wentWell}</Text></Card></>) : null}
+            {db.needsWork ? (<><SectionTitle>What needs work</SectionTitle><Card style={{ backgroundColor: C.amberBg, borderColor: C.amberBg }}><Text style={s.body}>{db.needsWork}</Text></Card></>) : null}
+            {db.nextPlan ? (<><SectionTitle>Next lesson</SectionTitle><Card style={{ backgroundColor: C.sky, borderColor: C.sky }}><Text style={s.body}>{db.nextPlan}</Text></Card></>) : null}
             {db.homework.length > 0 && (
               <>
                 <SectionTitle>Homework</SectionTitle>
@@ -203,7 +232,7 @@ export function DebriefView({ nav, params }) {
               <>
                 <SectionTitle>Amendments</SectionTitle>
                 {db.amendments.map((a) => (
-                  <Card key={a.id} style={{ borderLeftWidth: 4, borderLeftColor: '#7C3AED' }}>
+                  <Card key={a.id} style={{ backgroundColor: C.sky, borderColor: C.sky }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Text style={{ fontWeight: '800', color: '#6D28D9' }}>{a.type}</Text>
                       {!a.read && !readOnly ? <Tag label="New" color="#6D28D9" bg="#F3E8FF" /> : null}
@@ -261,16 +290,15 @@ export function DebriefCard({ db, nav, as, viewerId }) {
     <Card onPress={() => nav.push('Debrief', { id: db.id, as, viewerId })}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={{ fontWeight: '800', color: C.text, flex: 1 }}>{db.goal}</Text>
-        {db.pending ? <Tag label="Pending" color="#B45309" bg="#FEF3C7" /> : amendNew ? <Tag label="Amended · new" color="#6D28D9" bg="#F3E8FF" /> : !db.acknowledged && as !== 'cfi' ? <Tag label="New" /> : (db.amendments || []).length ? <Tag label="Amended" color="#7C3AED" bg="#F3E8FF" /> : null}
+        {db.pending ? <Tag label="Pending" color={C.amberDark} bg={C.amberBg} /> : amendNew ? <Tag label="Amended · new" color={C.amberDark} bg={C.amberBg} /> : !db.acknowledged && as !== 'cfi' ? <Tag label="New" color={C.amberDark} bg={C.amberBg} /> : (db.amendments || []).length ? <Tag label="Amended" color={C.text} bg={C.sky} /> : null}
       </View>
       <Text style={{ color: C.sub, fontSize: 12, marginTop: 1 }}>{db.date} · {cfi ? cfi.name : 'Solo'} · {db.flightHours} hr</Text>
       {!db.pending && db.nextPlan ? <Text style={{ color: C.text, marginTop: 6 }} numberOfLines={2}><Text style={{ fontWeight: '800' }}>Next: </Text>{db.nextPlan}</Text> : null}
       {!db.pending && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
-          {grades.slice(0, 3).map((g) => <GradePill key={g.item} grade={g.grade} />)}
-          {grades.length > 3 && <Tag label={`+${grades.length - 3}`} color={C.sub} bg="#EEF1F5" />}
-          {weak > 0 && <Text style={{ color: '#B45309', fontSize: 12, fontWeight: '700', marginLeft: 2, alignSelf: 'center' }}>{weak} to practice</Text>}
-          {hwLeft > 0 && as !== 'cfi' && <Text style={{ color: C.blue, fontSize: 12, fontWeight: '700', marginLeft: 8, alignSelf: 'center' }}>{hwLeft} homework</Text>}
+          <Tag label={`${grades.length} maneuver${grades.length === 1 ? '' : 's'}`} color={C.text} bg={C.sky} />
+          {weak > 0 && <Tag label={`${weak} to practice`} color={C.amberDark} bg={C.amberBg} />}
+          {hwLeft > 0 && as !== 'cfi' && <Tag label={`${hwLeft} homework`} color={C.text} bg={C.sky} />}
         </View>
       )}
     </Card>
@@ -421,13 +449,7 @@ export function AmendDebrief({ nav, params }) {
               return (
                 <View key={g.item} style={s.gradeRow}>
                   <Text style={{ fontWeight: '700', color: C.text }}>{g.item}</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 }}>
-                    {GRADES.map((gr) => (
-                      <Pressable key={gr.key} onPress={() => setChanges({ ...changes, [g.item]: gr.key })} style={[s.gradeChip, cur === gr.key && { backgroundColor: gr.bg, borderColor: gr.color }]}>
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: cur === gr.key ? gr.color : C.sub }}>{gr.label}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
+                  <GradePicker value={cur} onChange={(k) => setChanges({ ...changes, [g.item]: k })} />
                 </View>
               );
             })}
