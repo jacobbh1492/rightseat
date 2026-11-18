@@ -25,7 +25,6 @@ import { useOpenTimes } from '../useOpenTimes';
 import { usePilot, requestCheckout } from '../backend/pilot';
 import { renterChecks, ownerChecksOut, ymdIn } from '../renterChecks';
 import { aircraftChecks } from '../aircraftStatus';
-import { useMyGifts, spendable } from '../backend/gifts';
 import { MonthCalendar, cmpDate, shortDate, longDate } from '../calendarUi';
 import { DEFAULT_TZ, todayIn, addDays, dateKey, timeIn, tzAbbrev } from '../schedule';
 
@@ -102,10 +101,10 @@ export function RequestLesson({ nav, params }) {
   const [showCost, setShowCost] = useState(false);
   // A checkout flight with the plane's owner on board (for planes whose owner does checkouts).
   const [checkoutFlight, setCheckoutFlight] = useState(!!params.checkout);
-  // Shared solo rental: invite another pilot and pick your share (50–90%).
+  // Shared solo rental: invite another pilot; the cost is split 50/50 (FAA 61.113(c)).
   const [shareOn, setShareOn] = useState(false);
   const [shareEmail, setShareEmail] = useState('');
-  const [sharePct, setSharePct] = useState(50);
+  const sharePct = 50; // FAA 61.113(c): each pilot pays their pro rata share, so always 50/50
 
   const cfi = getCfi(cfiId);
   const plane = ownPlane ? null : getPlane(planeId);
@@ -187,13 +186,6 @@ export function RequestLesson({ nav, params }) {
   const sharing = canShare && shareOn;
   const shareEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shareEmail.trim());
   const myShare = sharing ? r2(q.total * sharePct / 100) : q.total;
-  // A gift flight the student redeemed: pays for lessons with an instructor, applied at close-out.
-  const gifts = useMyGifts();
-  const myGifts = live && cfi ? spendable(gifts.received) : [];
-  const [giftChoice, setGiftChoice] = useState(undefined); // undefined = first available, null = don't use
-  const gift = giftChoice === null ? null : myGifts.find((g) => g.id === giftChoice) || (giftChoice === undefined ? myGifts[0] : null) || null;
-  const giftCover = gift ? r2(Math.min(gift.remaining, q.total)) : 0;
-
   const submit = async () => {
     const when = start.toISOString();
     if (live) {
@@ -204,7 +196,7 @@ export function RequestLesson({ nav, params }) {
       try {
         const rentalGoal = checkoutFlight ? 'Checkout flight with the owner' : sharing ? 'Shared rental' : 'Solo rental';
         const res = await payForBooking({ cfiId: cfi?.id || null, planeId: plane?.id || null, startsAt: when, goal: cfi ? goal : rentalGoal, flightHours, groundHours: cfi ? groundHours : 0, prepaid,
-          split: sharing ? { email: shareEmail.trim(), bookerPct: sharePct } : undefined, checkout: checkoutFlight && !cfi ? true : undefined, giftId: gift?.id || undefined });
+          split: sharing ? { email: shareEmail.trim(), bookerPct: sharePct } : undefined, checkout: checkoutFlight && !cfi ? true : undefined });
         setBusy(false);
         if (res.cancelled) { setPayErr('Card not saved, so the request wasn’t sent. Tap Send request to try again.'); return; }
         const r = { id: res.booking.id, cfiId: cfi?.id || null, planeId: plane?.id || null, when, date: dateLabel(when), time: timeLabel(when), goal: cfi ? goal : rentalGoal, flightHours, groundHours: cfi ? groundHours : 0, total: res.quote.total, repeat, prepaid, method: 'card', deposit: res.quote.deposit, status: 'Pending', live: true, role: 'student',
@@ -401,14 +393,11 @@ export function RequestLesson({ nav, params }) {
                 <>
                   <Field label="Their Positive Rate email" value={shareEmail} onChangeText={setShareEmail} placeholder="pilot@example.com"
                     keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
-                  <Text style={{ fontWeight: '800', color: C.text, marginTop: 10 }}>Your share</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 }}>
-                    {[50, 55, 60, 65, 70, 75, 80, 85, 90].map((pct) => <Chip key={pct} small label={`${pct}%`} active={sharePct === pct} onPress={() => setSharePct(pct)} />)}
-                  </View>
+                  <Text style={{ fontWeight: '800', color: C.text, marginTop: 10 }}>Split 50/50</Text>
                   <Row label={`You · ${sharePct}%`} value={money2(r2(q.total * sharePct / 100))} />
                   <Row label={`Them · ${100 - sharePct}%`} value={money2(r2(q.total - r2(q.total * sharePct / 100)))} />
                   <Text style={[bs.hint, { marginTop: 6 }]}>
-                    FAA rule 61.113(c): a private pilot can’t pay less than their pro rata share of a flight’s operating expenses. As the pilot in command you pay at least half. Only one of you logs PIC for any part of the flight.
+                    FAA rule 61.113(c): a private pilot can’t pay less than their pro rata share of a flight’s operating expenses, so the two of you split it evenly. Only one of you logs PIC for any part of the flight.
                   </Text>
                 </>
               )}
@@ -441,18 +430,6 @@ export function RequestLesson({ nav, params }) {
           </View>
           <View style={[bs.radio, method === 'card' && { borderColor: C.blue }]}>{method === 'card' && <View style={bs.radioDot} />}</View>
         </Pressable>
-        {myGifts.length > 0 && (
-          <Card style={{ marginTop: 6, borderWidth: 1.5, borderColor: gift ? C.green : C.line }}>
-            <Text style={{ fontWeight: '900', color: C.text }}>🎁 {myGifts.length > 1 ? 'Use a gift' : `Gift from ${myGifts[0].fromName || 'a friend'}`}</Text>
-            {myGifts.map((g) => (
-              <Pressable key={g.id} onPress={() => setGiftChoice(gift?.id === g.id ? null : g.id)} style={[bs.pay, { marginTop: 8 }, gift?.id === g.id && bs.pickOn]} accessibilityRole="radio" accessibilityState={{ checked: gift?.id === g.id }}>
-                <Text style={{ flex: 1, fontWeight: '700', color: C.text }}>{money2(g.remaining)} left{g.fromName && myGifts.length > 1 ? ` · from ${g.fromName}` : ''}</Text>
-                <View style={[bs.radio, gift?.id === g.id && { borderColor: C.blue }]}>{gift?.id === g.id && <View style={bs.radioDot} />}</View>
-              </Pressable>
-            ))}
-            <Text style={[bs.hint, { marginTop: 6 }]}>{gift ? `Covers about ${money2(giftCover)} of this lesson. ${giftCover < q.total ? 'Your card pays the rest after the flight.' : 'Your card is saved but only charged if the flight runs over.'}` : 'Not using a gift for this lesson.'}</Text>
-          </Card>
-        )}
         <Card style={{ marginTop: 18 }}>
           <Pressable onPress={() => setShowCost(!showCost)} style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityRole="button">
             <View style={{ flex: 1 }}>
@@ -647,8 +624,7 @@ export function Lessons({ nav }) {
         </View>
 
         {r.live && r.status === 'Pending' && !r.split?.pending && r.role !== 'partner' && <Text style={[bs.hint, { marginTop: 8 }]}>Waiting for {c ? c.name.split(' ')[0] : 'the owner'} to confirm. Your card is saved and charged only after the flight.</Text>}
-        {r.live && r.status === 'Completed' && <Text style={[bs.hint, { marginTop: 8 }]}>{r.giftApplied ? `Gift covered ${money2(r.giftApplied)}; card charged ${money2(r.myTotal ?? 0)}` : `Charged ${money2(r.myTotal ?? r.total)}`}{r.actualHobbs ? ` for ${r.actualHobbs} hr on the Hobbs` : ''}.</Text>}
-        {r.live && ['Pending', 'Confirmed'].includes(r.status) && r.usesGift && <Text style={[bs.hint, { marginTop: 8, color: C.green }]}>🎁 Your gift pays for this lesson first, after the flight.</Text>}
+        {r.live && r.status === 'Completed' && <Text style={[bs.hint, { marginTop: 8 }]}>{`Charged ${money2(r.myTotal ?? r.total)}`}{r.actualHobbs ? ` for ${r.actualHobbs} hr on the Hobbs` : ''}.</Text>}
         {!r.live && r.status === 'Pending' && (
           <Pressable onPress={() => updateRequest(r.id, { status: 'Confirmed' })} style={bs.demo}>
             <Text style={bs.demoText}>Demo: {c ? 'CFI' : 'owner'} confirms ›</Text>

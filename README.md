@@ -87,11 +87,6 @@ Cross-platform (iPhone + Android) app built with React Native + Expo.
 - Students pick a goal, airport, days, budget and teaching style; `src/matching.js` ranks instructors (certificate required for the goal, airport, availability, combined price with their plane, reviews, pass rate, style) and shows the reasons. They send the request to up to 3 published, verified instructors (5 requests a day max).
 - Instructors answer from Account → Student requests ("I'm interested" with a note, or "Not a fit"). Students see answers under Your matches and can message or book.
 
-## Gift flights
-- Explore → Gift a flight (or from an instructor's profile). The buyer pays now ($50–$1,500) through Stripe and gets a code (RS-XXXX-XXXX) to send. Gifts don't expire.
-- The recipient redeems it under Account → Gifts. On a lesson with an instructor the booking screen offers the gift; at close-out the gift pays first and the saved card pays any rest (Stripe's $0.50 minimum respected). Instructors and owners are paid from the gift's original charge.
-- Server: `gift` function (create/paid), `activateGift` (also run by the Stripe webhook on `payment_intent.succeeded`, which is already subscribed), `claim_gift` and `apply_gift` in the database (migration `20261109010000_matching_gifts.sql`). Refunds of unused gifts are manual for now (Stripe dashboard, then mark the gift `refunded`).
-
 ## Admin console (`admin/`)
 Browser-based back office: overview, bookings, payments, disputes, users, listings, verification queue, reviews, trust & safety, automation, settings, team roles and an audit log. Runs on demo data or against the server's `/api/admin` endpoints. See `admin/README.md`.
 

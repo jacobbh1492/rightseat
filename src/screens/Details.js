@@ -85,11 +85,6 @@ export function CfiDetail({ nav, params }) {
           <Row label="Flight instruction" value={`${money(c.flightRate)}/hr`} />
           <Row label="Ground instruction" value={`${money(c.groundRate)}/hr`} />
           {c.discoveryFlight > 0 && <Row label="Discovery flight (incl. plane)" value={money(c.discoveryFlight)} />}
-          {c.discoveryFlight > 0 && (
-            <Pressable onPress={() => nav.push('GiftFlight', { cfiId: c.id })} style={{ paddingVertical: 6 }} accessibilityRole="button">
-              <Text style={{ color: C.blue, fontWeight: '700' }}>🎁 Gift a discovery flight with {c.name.split(' ')[0]} ›</Text>
-            </Pressable>
-          )}
           <Row label="Teaches in your own aircraft" value={c.teachesInYourPlane ? 'Yes' : 'No'} />
           <Row label="Carries CFI insurance" value={c.insured ? 'Yes' : 'No'} />
           {c.packages.length > 0 && <Text style={[ds.label, { marginTop: 10 }]}>Packages</Text>}

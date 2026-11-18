@@ -137,18 +137,11 @@ export default function Explore({ nav }) {
 
           {mode !== 'plane' && (
             <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-              <Pressable onPress={() => nav.push('GetMatched')} style={[st.quick, { marginRight: 8 }]} accessibilityRole="button" accessibilityLabel="Get matched with an instructor">
+              <Pressable onPress={() => nav.push('GetMatched')} style={st.quick} accessibilityRole="button" accessibilityLabel="Get matched with an instructor">
                 <Icon name="users" size={18} color={C.blue} />
                 <View style={{ flex: 1, marginLeft: 8 }}>
                   <Text style={st.quickTitle}>Get matched</Text>
                   <Text style={st.quickSub}>We pick instructors for you</Text>
-                </View>
-              </Pressable>
-              <Pressable onPress={() => nav.push('GiftFlight')} style={st.quick} accessibilityRole="button" accessibilityLabel="Gift a flight">
-                <Icon name="star" size={18} color="#F59E0B" />
-                <View style={{ flex: 1, marginLeft: 8 }}>
-                  <Text style={st.quickTitle}>Gift a flight</Text>
-                  <Text style={st.quickSub}>A first lesson for someone</Text>
                 </View>
               </Pressable>
             </View>

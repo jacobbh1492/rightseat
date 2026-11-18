@@ -5,5 +5,4 @@ export const PaymentsProvider = ({ children }) => children;
 export const useBookingPayment = () => async () => { throw new Error('Book from the Positive Rate iPhone or Android app.'); };
 export const useSplitDeposit = () => async () => { throw new Error('Pay your deposit from the Positive Rate iPhone or Android app.'); };
 export const useAcceptProposal = () => async () => { throw new Error('Accept lessons from the Positive Rate iPhone or Android app.'); };
-export const useGiftPurchase = () => async () => { throw new Error('Buy gifts from the Positive Rate iPhone or Android app.'); };
 export const useAddCard = () => async () => { throw new Error('Add cards from the Positive Rate iPhone or Android app.'); };

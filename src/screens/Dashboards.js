@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { fetchPlanePeople, canSeeEarnings, canAddPeople } from '../backend/planePeople';
 import { MaintenancePanel } from './Maintenance';
 import { aircraftChecks } from '../aircraftStatus';
 import { ymdIn } from '../renterChecks';
@@ -145,10 +146,18 @@ export function CfiDashboard({ nav }) {
   );
 }
 
-export function OwnerDashboard({ nav }) {
-  const { myPlaneIds, getPlane, addSquawk, resolveSquawk, complete100hr } = useStore();
+export function OwnerDashboard({ nav, params }) {
+  const { myPlaneIds, getPlane, addSquawk, resolveSquawk, complete100hr, planeRole } = useStore();
   const ids = myPlaneIds.length ? myPlaneIds : ['p2'];
-  const [sel, setSel] = useState(ids[0]);
+  const [sel, setSel] = useState(params?.planeId && ids.includes(params.planeId) ? params.planeId : ids[0]);
+  const role = planeRole(sel) || 'owner';
+  const [people, setPeople] = useState(null);
+  useEffect(() => {
+    let live = true;
+    setPeople(null);
+    if (getPlane(sel)?.live) fetchPlanePeople(sel).then((d) => live && setPeople(d)).catch(() => {});
+    return () => { live = false; };
+  }, [sel]);
   const [sq, setSq] = useState('');
   const [grounding, setGrounding] = useState(false);
   const p = getPlane(sel);
@@ -160,7 +169,7 @@ export function OwnerDashboard({ nav }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Header nav={nav} title="Aircraft owner" />
+      <Header nav={nav} title={role === 'owner' ? 'Aircraft owner' : role === 'co_owner' ? 'Co-owner' : 'Plane manager'} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
         {!myPlaneIds.length && <Text style={k.demo}>Demo: viewing as Bay Area Flyers Club (N7340P)</Text>}
         {ids.length > 1 && (
@@ -178,8 +187,11 @@ export function OwnerDashboard({ nav }) {
             </View>
           </View>
         </Card>
+        {role !== 'owner' && (
+          <Text style={k.roleNote}>You’re {role === 'co_owner' ? 'a co-owner' : 'a manager'} of {p.tail}. {canSeeEarnings(role) ? 'Payouts go to the owner.' : 'Earnings and payouts stay with the owner.'}</Text>
+        )}
         <Card style={{ flexDirection: 'row', paddingVertical: 4 }}>
-          <Stat value={money2(p.monthEarnings || 0).replace(/\.\d\d$/, '')} label="Earned this month" />
+          {canSeeEarnings(role) && <Stat value={money2(p.monthEarnings || 0).replace(/\.\d\d$/, '')} label="Earned this month" />}
           <Stat value={p.rating.toFixed(1) + '★'} label={`${p.reviewCount} reviews`} />
           <Stat value={open.length} label="Open squawks" />
         </Card>
@@ -214,6 +226,23 @@ export function OwnerDashboard({ nav }) {
             <Button title="Add squawk" variant="outline" style={{ paddingVertical: 10 }} onPress={() => { addSquawk(p.id, sq, grounding); setSq(''); setGrounding(false); }} />
           </>
         ) : null}
+        </>}
+
+        {p.live && <>
+          <SectionTitle>People</SectionTitle>
+          <Card onPress={() => nav.push('PlanePeople', { planeId: p.id })} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontWeight: '800', color: C.text, fontSize: 15 }}>
+                {!people ? 'Who helps run ' + p.tail : people.active.length === 0 ? 'Just you' : `${people.active.length + 1} people manage ${p.tail}`}
+              </Text>
+              <Text style={{ color: C.sub, fontSize: 13, marginTop: 2 }}>
+                {people && people.pending.length > 0
+                  ? `${people.pending.length} invite${people.pending.length === 1 ? '' : 's'} waiting`
+                  : canAddPeople(role) ? 'Add a co-owner or a manager to share the work' : 'See who manages this plane'}
+              </Text>
+            </View>
+            <Text style={{ color: C.blue, fontWeight: '800' }}>{canAddPeople(role) ? 'Manage' : 'View'} ›</Text>
+          </Card>
         </>}
 
         <SectionTitle>Renter checks</SectionTitle>
@@ -349,6 +378,7 @@ export function Insights({ nav }) {
 const k = StyleSheet.create({
   promo: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E3F7EF', borderWidth: 1, borderColor: '#A7F3D0', borderRadius: 12, padding: 14, marginTop: 4 },
   demo: { color: C.sub, fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  roleNote: { color: '#475569', fontSize: 13, lineHeight: 18, marginBottom: 10 },
   hero: { backgroundColor: C.navy, borderRadius: 18, padding: 18 },
   line: { color: C.text, fontSize: 13, lineHeight: 19, marginTop: 6 },
   bar: { height: 8, borderRadius: 4, backgroundColor: '#E3E7EE', overflow: 'hidden', marginTop: 8 },

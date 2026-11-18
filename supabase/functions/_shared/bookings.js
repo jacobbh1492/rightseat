@@ -69,11 +69,13 @@ export function validateActuals(body, booked) {
 }
 
 // Who may do what to a booking.
-export function roleIn(booking, userId, { planeOwnerId, schoolAdmin, partnerId } = {}) {
+// Co-owners and managers act for the plane owner (approve, cancel, close out); payouts
+// still go to planeOwnerId.
+export function roleIn(booking, userId, { planeOwnerId, planeManagerIds = [], schoolAdmin, partnerId } = {}) {
   if (booking.student_id === userId) return 'student';
   if (partnerId && partnerId === userId) return 'partner'; // the other pilot on a shared rental
   if (booking.cfi_id && booking.cfi_id === userId) return 'cfi';
-  if (booking.plane_id && planeOwnerId === userId) return 'owner';
+  if (booking.plane_id && (planeOwnerId === userId || planeManagerIds.includes(userId))) return 'owner';
   if (schoolAdmin) return 'school';
   return null;
 }
@@ -139,17 +141,18 @@ export function parseDebrief(d) {
 export const DEBRIEF_PARTIES = ['cfi', 'school'];
 
 // ---- Shared solo rentals: two pilots split the cost of one rental.
-export const SPLIT_MIN_PCT = 50;  // the booker pays at least half (FAR 61.113(c) pro rata)
-export const SPLIT_MAX_PCT = 90;
+// Shared flights are always split evenly: two pilots, each pays their pro rata share
+// (14 CFR 61.113(c)), so the booker's share is fixed at 50%.
+export const SPLIT_PCT = 50;
 export const SPLIT_HOLD_HOURS = 24; // how long an invite holds the plane
 export function parseSplit(split, { cfiId } = {}) {
   if (!split) return null;
   if (cfiId) bad('Cost sharing is for solo rentals (no instructor).');
   const email = String(split.email || '').trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad('Enter the other pilot’s email.');
-  const bookerPct = Number(split.bookerPct);
-  if (!(bookerPct >= SPLIT_MIN_PCT && bookerPct <= SPLIT_MAX_PCT && bookerPct % 5 === 0)) bad(`Your share must be ${SPLIT_MIN_PCT}–${SPLIT_MAX_PCT}%, in steps of 5.`);
-  return { email, bookerPct };
+  // Older app versions send bookerPct; anything but an even split is refused.
+  if (split.bookerPct != null && Number(split.bookerPct) !== SPLIT_PCT) bad('Shared flights are split 50/50: each pilot pays their pro rata share (FAA 61.113(c)).');
+  return { email, bookerPct: SPLIT_PCT };
 }
 // The invite holds the plane for up to 24 hours, but never past 2 hours before the flight.
 export function splitHoldUntil(startsAt, now = new Date()) {
@@ -201,42 +204,3 @@ export function parseProposal(body, now = new Date()) {
   if (!/^[0-9a-f-]{36}$/i.test(studentId)) bad('Pick a student.');
   return { studentId, ...parseBookingRequest({ ...body, cfiId: 'self' }, now) };
 }
-
-// ---- gift discovery flights
-// A gift is money a buyer paid up front (gifts table). At close-out it pays for as much of
-// the lesson as it covers; the student's saved card pays the rest. Stripe won't charge a
-// card less than $0.50, so a tiny remainder is taken from the card and the gift covers
-// a little less.
-export const GIFT_MIN = 50;
-export const GIFT_MAX = 1500;
-export const STRIPE_MIN_CHARGE = 0.5;
-export function giftUse(total, remaining) {
-  const t = r2(Math.max(0, Number(total) || 0)), g = r2(Math.max(0, Number(remaining) || 0));
-  if (!g) return { gift: 0, card: t };
-  if (g >= t) return { gift: t, card: 0 };
-  let card = r2(t - g);
-  if (card < STRIPE_MIN_CHARGE) card = Math.min(t, STRIPE_MIN_CHARGE);
-  return { gift: r2(t - card), card };
-}
-export function parseGift(body) {
-  const amount = r2(Number(body?.amount));
-  if (!(amount >= GIFT_MIN && amount <= GIFT_MAX)) throw new HttpError(400, `Pick an amount from $${GIFT_MIN} to $${GIFT_MAX}.`);
-  const clean = (s, n) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
-  const recipientName = clean(body?.recipientName, 80);
-  if (!recipientName) throw new HttpError(400, 'Who’s the gift for?');
-  const recipientEmail = clean(body?.recipientEmail, 200).toLowerCase();
-  if (recipientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) throw new HttpError(400, 'That email doesn’t look right.');
-  return { amount, recipientName, recipientEmail: recipientEmail || null, fromName: clean(body?.fromName, 80), message: clean(body?.message, 500), cfiId: typeof body?.cfiId === 'string' && body.cfiId ? body.cfiId : null };
-}
-// RS-XXXX-XXXX from an alphabet without look-alikes (0/O, 1/I/L).
-const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-export function giftCode(randomBytes) {
-  const b = randomBytes(8);
-  const ch = Array.from(b, (x) => CODE_ALPHABET[x % CODE_ALPHABET.length]).join('');
-  return `RS-${ch.slice(0, 4)}-${ch.slice(4, 8)}`;
-}
-export const normalizeGiftCode = (s) => {
-  const x = String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const core = x.startsWith('RS') ? x.slice(2) : x;
-  return core.length === 8 ? `RS-${core.slice(0, 4)}-${core.slice(4)}` : null;
-};

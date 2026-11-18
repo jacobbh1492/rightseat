@@ -25,6 +25,13 @@ async function load(id: string) {
   return { b, plane, split, schoolId: aff?.school_id || null, schoolPct: Number(aff?.school_pct || 0) };
 }
 
+// Active co-owners and managers of the plane: they can approve and run its bookings.
+async function planeManagerIds(planeId: string | null) {
+  if (!planeId) return [];
+  const { data } = await admin.from('plane_members').select('user_id').eq('plane_id', planeId).eq('status', 'active').in('role', ['co_owner', 'manager']);
+  return (data || []).map((r: any) => r.user_id).filter(Boolean);
+}
+
 async function isSchoolAdmin(userId: string, schoolId: string | null) {
   if (!schoolId) return false;
   const { count } = await admin.from('school_admins').select('user_id', { count: 'exact', head: true }).eq('school_id', schoolId).eq('user_id', userId);
@@ -85,7 +92,7 @@ serve(async (req, body) => {
   const user = sandbox ? { id: SANDBOX_CFI } : await requireUser(req);
   const { b, plane, split, schoolId, schoolPct } = await load(String(body.bookingId || ''));
   if (sandbox && b.cfi_id !== SANDBOX_CFI) throw new HttpError(403, 'Sandbox mode only works on the test listing.');
-  const role = roleIn(b, user.id, { planeOwnerId: plane?.owner_id, schoolAdmin: await isSchoolAdmin(user.id, schoolId), partnerId: split?.status === 'accepted' ? split.partner_id : null });
+  const role = roleIn(b, user.id, { planeOwnerId: plane?.owner_id, planeManagerIds: await planeManagerIds(b.plane_id), schoolAdmin: await isSchoolAdmin(user.id, schoolId), partnerId: split?.status === 'accepted' ? split.partner_id : null });
   const action = String(body.action || '');
 
   // The student's app asks this right after Stripe's card sheet closes: we check with
@@ -184,23 +191,7 @@ serve(async (req, body) => {
   let bookerAmount = q.total, partnerShare = 0, settle = 0, coveredByBooker = 0;
   if (shared) ({ booker: bookerAmount, partner: partnerShare } = splitShares(q.total, shared.booker_pct));
 
-  // A gift pays first (once, even if close-out is retried); the saved card pays the rest.
-  let giftUsed = 0, giftCharge: string | null = null;
-  if (b.gift_id && !shared) {
-    const { data: g } = await admin.from('gifts').select('charge_id').eq('id', b.gift_id).single();
-    if (g?.charge_id) {
-      const { data: used, error: ge } = await admin.rpc('apply_gift', { p_booking: b.id, p_total: bookerAmount });
-      if (ge) throw ge;
-      giftUsed = Number(used || 0);
-      if (giftUsed > 0) {
-        giftCharge = g.charge_id;
-        charges.push({ id: giftCharge!, amount: giftUsed });
-        const { count } = await admin.from('ledger').select('id', { count: 'exact', head: true }).eq('booking_id', b.id).eq('kind', 'gift_applied');
-        if (!count) await admin.from('ledger').insert({ booking_id: b.id, party_id: b.student_id, kind: 'gift_applied', amount: giftUsed, stripe_ref: giftCharge });
-      }
-    }
-  }
-  const cardAmount = Math.round((bookerAmount - giftUsed) * 100) / 100;
+  const cardAmount = Math.round(bookerAmount * 100) / 100;
   let pi: any = null, chargeId: string | null = null;
   if (cardAmount > 0) {
     pi = await charge(b, cardAmount, (shared ? 'Shared flight ' : 'Lesson ') + when, 'final-' + b.id);
@@ -241,9 +232,8 @@ serve(async (req, body) => {
   }
 
   const finalLine: any = { total: q.total, instruction: q.instruction, ground: q.ground, aircraft: q.aircraft, bookingFee: q.bookingFee, protection: q.protection, flightHours: actual.flightHours, groundHours: actual.groundHours };
-  if (giftUsed) Object.assign(finalLine, { giftApplied: giftUsed, charged: cardAmount });
   if (shared) Object.assign(finalLine, { charged: Math.round((bookerAmount + coveredByBooker) * 100) / 100, bookerPct: shared.booker_pct, partnerShare, partnerDiff: coveredByBooker ? 0 : settle, coveredByBooker });
-  await admin.from('bookings').update({ status: 'completed', actual_hobbs: actual.flightHours, conditions, final_split: { ...q.split, final: finalLine }, payment_intent_id: pi?.id || null, charge_id: chargeId || giftCharge }).eq('id', b.id);
+  await admin.from('bookings').update({ status: 'completed', actual_hobbs: actual.flightHours, conditions, final_split: { ...q.split, final: finalLine }, payment_intent_id: pi?.id || null, charge_id: chargeId }).eq('id', b.id);
   if (q.split.platform) await admin.from('ledger').insert({ booking_id: b.id, kind: 'fee', amount: q.split.platform });
 
   // Everyone who flew it has a recent flight now (owners' recency rules, src/renterChecks.js).
@@ -274,7 +264,7 @@ serve(async (req, body) => {
   if (b.cfi_id && body.debrief && await saveDebrief(b, body.debrief)) released = await releaseDebrief(b, schoolId);
   await audit(user.id, 'booking.completed', b.id, { total: q.total, actual, shared: !!shared, checkoutResult });
   return json({
-    status: 'completed', total: q.total, split: q.split, held: paid.held, giftApplied: giftUsed, charged: cardAmount,
+    status: 'completed', total: q.total, split: q.split, held: paid.held, charged: cardAmount,
     awaitingDebrief: b.cfi_id && !released ? (q.split.cfi || 0) : 0,
     debriefReleased: released,
     shared: shared ? { bookerAmount, partnerShare, settle, coveredByBooker } : null,

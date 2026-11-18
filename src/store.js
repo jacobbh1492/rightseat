@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { fetchMyBookings } from './backend/bookings';
 import { fetchLiveListings } from './backend/listings';
+import { fetchMyPlaneRoles } from './backend/planePeople';
 import { onMaintenanceChange } from './backend/maintenance';
 import { useAuth } from './backend/auth';
 import { fetchMyPromos, redeemPromoCode } from './backend/promos';
@@ -85,6 +86,9 @@ export function StoreProvider({ children }) {
   const [requests, setRequests] = useState(seedRequests);
   const [myCfiId, setMyCfiId] = useState(null);
   const [myPlaneIds, setMyPlaneIds] = useState([]);
+  // Planes the user owns, and their role on planes someone else owns ({ [planeId]: role }).
+  const [ownedPlaneIds, setOwnedPlaneIds] = useState([]);
+  const [planeRoles, setPlaneRoles] = useState({});
   const [mySchoolId, setMySchoolId] = useState(null);
   const [favorites, setFavorites] = useState([]);
   const [pilot] = useState(PILOT);
@@ -111,7 +115,17 @@ export function StoreProvider({ children }) {
     if (uid) {
       if (lc.some((c) => c.id === uid)) setMyCfiId(uid);
       const own = lp.filter((p) => p.ownerId === uid).map((p) => p.id);
-      if (own.length) setMyPlaneIds((prev) => [...new Set([...own, ...prev])]);
+      const roles = await fetchMyPlaneRoles(uid).catch(() => ({}));
+      // Co-owners and managers run the plane day to day, so it's "theirs" on the dashboards.
+      const managed = Object.keys(roles).filter((id) => roles[id] !== 'viewer');
+      setOwnedPlaneIds(own);
+      setPlaneRoles(roles);
+      // Drop live planes the user no longer owns or runs (removed from a plane, plane deleted).
+      const live = new Set(lp.map((p) => p.id));
+      setMyPlaneIds((prev) => [...new Set([...own, ...managed, ...prev.filter((id) => !live.has(id) && !/^[0-9a-f-]{36}$/.test(id))])]);
+    } else {
+      setOwnedPlaneIds([]);
+      setPlaneRoles({});
     }
   };
   useEffect(() => { refreshListings().catch(() => {}); }, [auth?.session?.user?.id]);
@@ -167,7 +181,9 @@ export function StoreProvider({ children }) {
 
   const value = {
     teaching, refreshLive, refreshListings,
-    cfis, planes, schools, requests, myCfiId, myPlaneIds, mySchoolId, favorites, pilot: { ...pilot, totalHours: allHours(training).total },
+    cfis, planes, schools, requests, myCfiId, myPlaneIds, ownedPlaneIds, planeRoles, mySchoolId,
+    // The signed-in user's role on a plane: owner, co_owner, manager, viewer or null.
+    planeRole: (id) => (ownedPlaneIds.includes(id) ? 'owner' : planeRoles[id] || (myPlaneIds.includes(id) || !/^[0-9a-f-]{36}$/.test(id || '') ? 'owner' : null)), favorites, pilot: { ...pilot, totalHours: allHours(training).total },
     training, wallet, held, available: r2(wallet.balance - held), threads, plans, payouts,
     getCfi, getPlane, getSchool, hasBookingWith,
     affiliations,

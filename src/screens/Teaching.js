@@ -310,7 +310,6 @@ export function LiveCloseOut({ nav, params }) {
               <Row label={sh ? 'Pilots paid' : r.role === 'owner' ? 'Renter paid' : 'Student paid'} value={money2(result.total)} />
               {sh && <Row label={`  ${r.studentName.split(' ')[0]} · ${r.split?.bookerPct}%`} value={money2(sh.bookerAmount + (sh.coveredByBooker || 0))} />}
               {sh && <Row label={`  ${r.split?.partnerName?.split(' ')[0] || 'Other pilot'} · ${r.split?.partnerPct}%`} value={money2(sh.coveredByBooker ? sh.partnerShare - sh.coveredByBooker : sh.partnerShare)} />}
-              {result.giftApplied > 0 && <Row label="  Paid by gift" value={money2(result.giftApplied)} />}
               <Row bold label="Your share" value={money2(mine)} />
             </View>
             <Text style={[ts.sub, { marginTop: 8, color: held || waiting ? '#B45309' : C.green, fontWeight: '700' }]}>
