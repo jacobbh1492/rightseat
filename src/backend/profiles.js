@@ -113,3 +113,24 @@ export async function savePlaneListing(uid, plane, { publish, addToMyCfiProfile 
   await addRole(uid, 'owner');
   return id;
 }
+
+// Edit profile: name, photo, phone, home airport. Returns the updated profile row.
+export async function updateMyProfile(uid, { name, photo, phone, airport }) {
+  const patch = {};
+  if (name != null) patch.full_name = name.trim();
+  if (phone != null) patch.phone = phone.trim() || null;
+  if (airport) patch.home_airport = airport;
+  if (photo && !isRemote(photo)) {
+    const path = await upload('avatars', `${uid}/avatar-${Date.now()}.${ext(photo)}`, photo);
+    patch.avatar_url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+  }
+  const { data, error } = await supabase.from('profiles').update(patch).eq('id', uid).select().single();
+  if (error) throw error;
+  return data;
+}
+
+// Push categories the person turned off (safety alerts can't be turned off).
+export async function saveNotifyOff(uid, off) {
+  const { error } = await supabase.from('profiles').update({ notify_off: off }).eq('id', uid);
+  if (error) throw error;
+}

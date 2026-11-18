@@ -289,11 +289,11 @@ export function Stars({ rating, count }) {
   );
 }
 
-export function Field({ label, value, onChangeText, placeholder, keyboardType, multiline, prefix, autoCapitalize, autoCorrect }) {
+export function Field({ label, value, onChangeText, placeholder, keyboardType, multiline, prefix, autoCapitalize, autoCorrect, editable = true }) {
   return (
     <View style={{ marginBottom: 14 }}>
       {label ? <Text style={s.label}>{label}</Text> : null}
-      <View style={[s.inputWrap, multiline && { alignItems: 'flex-start' }]}>
+      <View style={[s.inputWrap, multiline && { alignItems: 'flex-start' }, !editable && { backgroundColor: '#EEF1F5' }]}>
         {prefix ? <Text style={s.prefix}>{prefix}</Text> : null}
         <TextInput
           value={value}
@@ -304,6 +304,7 @@ export function Field({ label, value, onChangeText, placeholder, keyboardType, m
           autoCapitalize={autoCapitalize}
           autoCorrect={autoCorrect}
           multiline={multiline}
+          editable={editable}
           accessibilityLabel={label || placeholder}
           style={[s.input, multiline && { minHeight: 80, textAlignVertical: 'top' }]}
         />

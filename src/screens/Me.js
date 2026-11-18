@@ -39,6 +39,7 @@ export function Me({ nav }) {
     fetchMyPlaneAccess().then((r) => setAccess({ invites: r.filter((x) => x.status === 'invited' && !x.expired).length, planes: r.filter((x) => x.status === 'active').length })).catch(() => {});
   }, [auth?.session?.user?.id]);
   const displayName = auth?.account?.full_name || pilot.name;
+  const roleLine = !auth?.session ? 'Browsing' : roles.includes('teach') ? 'Instructor' : roles.includes('school') ? 'Flight school' : roles.includes('own') && !roles.includes('learn') ? 'Aircraft owner' : 'Pilot';
 
   const sections = [
     {
@@ -46,11 +47,11 @@ export function Me({ nav }) {
       rows: [
         // Sample verification screens for guests only; signed-in users have real checks.
         ...(auth?.session ? [] : [
-          { icon: 'shieldCheck', title: 'Verification', subtitle: `${verified} documents verified · ID, certificate, medical`, go: 'Verification' },
+          { icon: 'shieldCheck', title: 'Verification (sample)', subtitle: 'How ID, certificate and medical checks work', go: 'Verification' },
           { icon: 'file', title: 'Pilot credentials', subtitle: 'What CFIs and owners see before you fly', go: 'Credentials' },
         ]),
         ...(auth?.session ? [{ icon: 'wallet', title: 'Payment methods', subtitle: 'Your saved cards · add, remove or change the default', go: 'PaymentMethods' }] : []),
-        ...(auth?.session ? [{ icon: 'file', title: 'Pilot profile', subtitle: 'Certificate, medical, flight review, hours · needed to rent solo', go: 'PilotProfile' }] : []),
+        ...(auth?.session ? [{ icon: 'file', title: 'Pilot profile & verification', subtitle: 'Certificate, medical, flight review, hours · needed to rent solo', go: 'PilotProfile' }] : []),
         { icon: 'book', title: 'Previous experience', subtitle: training.prior ? 'Update your hours and lessons' : 'Trained before? Add it here', go: 'PriorExperience' },
         { icon: 'users', title: 'Get matched with an instructor', subtitle: 'Tell us your goals, we rank instructors by fit', go: 'GetMatched' },
         ...(auth?.session ? [{ icon: 'chat', title: 'Your matches', subtitle: 'Requests you sent and who answered', go: 'MyMatches' }] : []),
@@ -108,15 +109,15 @@ export function Me({ nav }) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
       <View style={ms.profile}>
-        <Avatar initials={displayName.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2)} color="#0891B2" size={60} photo={me?.photo} />
+        <Avatar initials={auth?.session ? displayName.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2) : '?'} color={C.navy} size={60} photo={auth?.account?.avatar_url || me?.photo} />
         <View style={{ flex: 1, marginLeft: 14 }}>
-          <Text style={{ fontSize: 22, fontWeight: '900', color: C.text }}>{displayName}</Text>
-          {auth?.user && <Text style={{ color: C.sub, marginTop: 2 }}>{auth.user.email}</Text>}
-          <Text style={{ color: C.sub, marginTop: 2 }}>{auth?.session ? profile.airport : `${pilot.certificate} pilot · ${profile.airport}`}</Text>
-          {(!auth?.session || (me?.live && me.verified)) && <Pressable onPress={() => nav.push(auth?.session ? 'GetVerified' : 'Verification')} style={ms.verifiedPill} accessibilityRole="button">
+          <Text style={{ fontSize: 22, fontWeight: '900', color: C.text }}>{auth?.session ? displayName : 'Guest'}</Text>
+          <Text style={{ color: C.sub, marginTop: 2 }}>{roleLine} · {auth?.account?.home_airport || profile.airport}</Text>
+          {auth?.session && me?.live && me.verified && <Pressable onPress={() => nav.push('GetVerified')} style={ms.verifiedPill} accessibilityRole="button">
             <Icon name="shieldCheck" size={14} color={C.green} />
-            <Text style={{ color: C.green, fontWeight: '800', fontSize: 12, marginLeft: 4 }}>{auth?.session ? 'Verified instructor' : 'ID & medical verified'}</Text>
+            <Text style={{ color: C.green, fontWeight: '800', fontSize: 12, marginLeft: 4 }}>Verified instructor</Text>
           </Pressable>}
+          {auth?.session && <Pressable onPress={() => nav.push('EditProfile')} style={{ minHeight: 36, justifyContent: 'center' }} accessibilityRole="button"><Text style={{ color: C.blue, fontWeight: '800' }}>Edit profile</Text></Pressable>}
         </View>
       </View>
 
@@ -132,7 +133,7 @@ export function Me({ nav }) {
         <Pressable onPress={() => nav.switchMode(teachingMode ? 'learn' : 'teach')} style={ms.switch} accessibilityRole="button" accessibilityLabel={teachingMode ? 'Switch to flying' : nav.ownerOnly ? 'Switch to my aircraft' : 'Switch to teaching'}>
           <View style={ms.switchIcon}><Icon name={teachingMode ? 'plane' : 'users'} size={20} color={C.blue} /></View>
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={{ fontWeight: '900', color: C.text, fontSize: 15 }}>{teachingMode ? 'Switch to flying' : nav.ownerOnly ? 'Switch to my aircraft' : 'Switch to teaching'}</Text>
+            <Text style={{ fontWeight: '900', color: C.text, fontSize: 15 }}>{teachingMode ? 'Switch to flying' : !auth?.session ? 'Preview teaching mode' : nav.ownerOnly ? 'Switch to my aircraft' : 'Switch to teaching'}</Text>
             <Text style={{ color: C.sub, fontSize: 12, marginTop: 1 }}>
               {teachingMode ? 'Find instructors and planes, your lessons and training record' : pendingTeach ? `${pendingTeach} lesson request${pendingTeach > 1 ? 's' : ''} waiting for you` : nav.ownerOnly ? 'Bookings, maintenance and rental earnings' : 'Your schedule, students and earnings'}
             </Text>
@@ -140,14 +141,6 @@ export function Me({ nav }) {
           {!teachingMode && pendingTeach > 0 && <View style={ms.count}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>{pendingTeach}</Text></View>}
           <Icon name="chevron" size={18} color="#7A889C" />
         </Pressable>
-      )}
-
-      {/* Wallet (prepaid balance) is on the V2 list; cards are under Payment methods. */}
-
-      {(
-        <Card style={{ paddingVertical: 2 }}>
-          <ListRow first icon="tag" iconColor="#047857" iconBg="#DDF3E8" title="Promo code" subtitle={promos.some((p) => new Date(p.endsAt) > new Date()) ? promos.filter((p) => new Date(p.endsAt) > new Date()).map((p) => p.code).join(' · ') + ' active' : 'Have a launch code? Enter it here'} onPress={() => nav.push('PromoCode')} />
-        </Card>
       )}
 
       {sections.filter((x) => x.show && (x.mode === mode || x.mode === 'any')).map((sec) => (
@@ -186,27 +179,24 @@ export function Me({ nav }) {
         </>
       )}
 
-      {!auth?.session && <Text style={ms.groupTitle}>Positive Rate team (demo)</Text>}
-      {!auth?.session && <Card style={{ paddingVertical: 2 }}>
-        <ListRow first icon="file" iconColor="#7C3AED" iconBg="#F3E8FF" title="Document review queue" subtitle="Only what automation couldn’t approve" right={<View style={{ flexDirection: 'row', alignItems: 'center' }}>{pendingQueue ? <View style={ms.count}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>{pendingQueue}</Text></View> : null}<Icon name="chevron" size={18} color="#7A889C" /></View>} onPress={() => nav.push('ReviewQueue')} />
-        <ListRow icon="zap" iconColor="#7C3AED" iconBg="#F3E8FF" title="Automation monitor" subtitle="FAA syncs, expirations, auto-pauses" onPress={() => nav.push('Automation')} />
-        <ListRow icon="chart" iconColor="#7C3AED" iconBg="#F3E8FF" title="Founder metrics" subtitle="Rebooking rate & leakage watchlist" onPress={() => nav.push('Insights')} />
-      </Card>}
+      <Text style={ms.groupTitle}>Settings</Text>
+      <Card style={{ paddingVertical: 2 }}>
+        {auth?.session && <ListRow first icon="user" title="Edit profile" subtitle="Name, photo, phone, home airport" onPress={() => nav.push('EditProfile')} />}
+        {auth?.session && <ListRow icon="bell" title="Notifications" subtitle={(auth?.account?.notify_off || []).length ? `${auth.account.notify_off.length} type${auth.account.notify_off.length === 1 ? '' : 's'} muted` : 'All on'} onPress={() => nav.push('NotificationSettings')} />}
+        <ListRow first={!auth?.session} icon="tag" title="Have a launch code?" subtitle={promos.some((p) => new Date(p.endsAt) > new Date()) ? promos.filter((p) => new Date(p.endsAt) > new Date()).map((p) => p.code).join(' · ') + ' active' : 'Enter it here'} onPress={() => nav.push('PromoCode')} />
+        <ListRow icon="help" title="Help & support" subtitle="Common questions, email us, terms and privacy" onPress={() => nav.push('Help')} />
+      </Card>
 
       {auth?.session ? (
-        <Pressable onPress={() => auth.signOut()} style={{ alignItems: 'center', marginTop: 18 }} accessibilityRole="button">
-          <Text style={{ color: '#B91C1C', fontWeight: '800' }}>Sign out</Text>
-        </Pressable>
+        <>
+          <Pressable onPress={() => auth.signOut()} style={ms.footBtn} accessibilityRole="button">
+            <Text style={{ color: C.red, fontWeight: '800' }}>Sign out</Text>
+          </Pressable>
+          <Pressable onPress={() => nav.push('DeleteAccount')} style={ms.footBtn} accessibilityRole="button">
+            <Text style={{ color: C.sub, fontWeight: '700', fontSize: 13 }}>Delete account</Text>
+          </Pressable>
+        </>
       ) : null}
-      {auth?.session ? (
-        <Pressable onPress={() => nav.push('DeleteAccount')} style={{ alignItems: 'center', marginTop: 14 }} accessibilityRole="button">
-          <Text style={{ color: C.sub, fontWeight: '700', fontSize: 13 }}>Delete account</Text>
-        </Pressable>
-      ) : (
-        <Pressable onPress={() => setProfile({ onboarded: false })} style={{ alignItems: 'center', marginTop: 18 }} accessibilityRole="button">
-          <Text style={{ color: C.sub, fontWeight: '700' }}>Replay welcome & setup</Text>
-        </Pressable>
-      )}
     </ScrollView>
   );
 }
@@ -828,6 +818,7 @@ export function SchoolForm({ nav, params }) {
 }
 
 const ms = StyleSheet.create({
+  footBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 44, marginTop: 8 },
   photoSlot: { width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderStyle: 'dashed', borderColor: C.navy, backgroundColor: C.amberBg, alignItems: 'center', justifyContent: 'center' },
   stepLabel: { color: C.sub, fontWeight: '700', marginTop: 8, marginBottom: 12 },
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
