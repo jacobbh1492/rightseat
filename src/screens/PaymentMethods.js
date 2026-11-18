@@ -5,6 +5,7 @@ import { callFn } from '../backend/supabase';
 import { useAddCard, CARD_PAYMENTS_SUPPORTED } from '../backend/payments';
 import { C, Card, Button, Icon } from '../ui';
 import { Header } from './Details';
+import { useStore } from '../store';
 
 const BRANDS = { visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', discover: 'Discover', diners: 'Diners Club', jcb: 'JCB', unionpay: 'UnionPay' };
 const brandName = (b) => BRANDS[b] || 'Card';
@@ -17,6 +18,8 @@ export function PaymentMethods({ nav }) {
   const [cards, setCards] = useState(null);
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
+  const { requests } = useStore();
+  const charges = requests.filter((r) => r.status === 'Completed').sort((a, b) => new Date(b.when) - new Date(a.when)).slice(0, 5);
 
   const run = useCallback(async (key, fn) => {
     setBusy(key); setErr('');
@@ -67,7 +70,7 @@ export function PaymentMethods({ nav }) {
         {(cards || []).map((c) => (
           <Card key={c.id} style={{ marginBottom: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Icon name="wallet" size={22} color={C.navy} />
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center' }}><Icon name="card" size={20} color={C.navy} /></View>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={{ fontWeight: '800', color: C.text }}>{brandName(c.brand)} •• {c.last4}</Text>
                 <Text style={{ color: C.sub, fontSize: 12, marginTop: 2 }}>{exp(c) ? `Expires ${exp(c)}` : ''}{c.isDefault ? `${exp(c) ? ' · ' : ''}Default` : ''}</Text>
@@ -76,12 +79,12 @@ export function PaymentMethods({ nav }) {
             </View>
             <View style={{ flexDirection: 'row', marginTop: 10 }}>
               {!c.isDefault && (
-                <Pressable disabled={!!busy} onPress={() => run('def-' + c.id, () => callFn('payment-methods', { action: 'default', id: c.id }))} style={{ marginRight: 20 }} accessibilityRole="button">
+                <Pressable disabled={!!busy} onPress={() => run('def-' + c.id, () => callFn('payment-methods', { action: 'default', id: c.id }))} style={{ marginRight: 20, minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
                   <Text style={{ color: C.blue, fontWeight: '700' }}>Make default</Text>
                 </Pressable>
               )}
-              <Pressable disabled={!!busy} onPress={() => remove(c)} accessibilityRole="button">
-                <Text style={{ color: '#B91C1C', fontWeight: '700' }}>Remove</Text>
+              <Pressable disabled={!!busy} onPress={() => remove(c)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}>
+                <Text style={{ color: C.red, fontWeight: '700' }}>Remove</Text>
               </Pressable>
             </View>
           </Card>
@@ -97,7 +100,26 @@ export function PaymentMethods({ nav }) {
         )}
         {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', marginTop: 10 }} accessibilityLiveRegion="polite">{err}</Text>}
 
+        {charges.length > 0 && (
+          <>
+            <Text style={{ fontSize: 12, fontWeight: '800', color: C.sub, letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 22, marginBottom: 8 }}>Recent charges</Text>
+            <Card style={{ paddingVertical: 4 }}>
+              {charges.map((r, i) => (
+                <Pressable key={r.id} onPress={() => r.receipt && nav.push('Receipt', { id: r.id })} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 52, borderTopWidth: i ? 1 : 0, borderTopColor: C.line }} accessibilityRole="button">
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: '700', color: C.text }}>{r.goal}</Text>
+                    <Text style={{ color: C.sub, fontSize: 12 }}>{r.date}</Text>
+                  </View>
+                  <Text style={{ fontWeight: '800', color: C.text }}>${Number(r.myTotal ?? r.total ?? 0).toFixed(2)}</Text>
+                </Pressable>
+              ))}
+            </Card>
+          </>
+        )}
         <Text style={{ color: C.sub, marginTop: 16, lineHeight: 20, fontSize: 13 }}>
+          Prepaid training accounts with block rates are coming in a future update.
+        </Text>
+        <Text style={{ color: C.sub, marginTop: 8, lineHeight: 20, fontSize: 13 }}>
           Cards are stored by Stripe, not on Positive Rate. Each lesson is charged after the flight to the card you saved when booking it. If you remove that card, we charge your default card instead.
         </Text>
       </ScrollView>
