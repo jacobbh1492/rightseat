@@ -33,6 +33,9 @@ export function SchoolDashboard({ nav }) {
   const [who, setWho] = useState('all');
   const [invite, setInvite] = useState(false);
   const [edit, setEdit] = useState(null);
+  const [view, setView] = useState('time');
+  const [q, setQ] = useState('');
+  const [sample, setSample] = useState(false);
   const affs = affiliations.filter((a) => a.schoolId === sid);
   const active = affs.filter((a) => a.status === 'active');
   const pending = affs.filter((a) => a.status === 'pending');
@@ -53,12 +56,48 @@ export function SchoolDashboard({ nav }) {
   const weekShare = withMoney.filter((b) => ['Pending', 'Confirmed'].includes(b.status)).reduce((a, b) => a + b.schoolShare, 0);
   const independent = cfis.filter((c) => !affiliations.some((a) => a.cfiId === c.id && ['active', 'pending'].includes(a.status)));
 
+  if (!mySchoolId && !sample) {
+    const steps = [
+      ['Create your school page', 'Name, logo, programs and prices', () => nav.push('SchoolForm')],
+      ['Add your instructors', 'Invite them by email; they accept your terms', null],
+      ['Import from Flight Schedule Pro', 'Coming soon. Email support and we’ll import for you.', () => nav.push('Help')],
+      ['Add your fleet', 'List planes or link ones already listed', () => nav.push('PlaneForm')],
+      ['Set up payouts', 'So your share reaches the school’s bank', null],
+      ['Set your revenue split', 'Easier once instructors are in', null],
+    ];
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Header nav={nav} title="Flight school" />
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
+          <Text style={{ fontSize: 24, fontWeight: '900', color: C.text }}>Set up your school</Text>
+          <Text style={[sc.lead, { marginTop: 4 }]}>Six steps. Start with your page; the rest unlocks once it exists.</Text>
+          <Card style={{ paddingVertical: 4 }}>
+            {steps.map(([t, d, go], i) => (
+              <Pressable key={t} onPress={go || undefined} disabled={!go} style={[sc.setRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.line }]} accessibilityRole="button" accessibilityState={{ disabled: !go }}>
+                <View style={[sc.setDot, i === 0 && { borderColor: C.navy }]}><Text style={{ fontWeight: '800', color: i === 0 ? C.navy : C.sub, fontSize: 12 }}>{i + 1}</Text></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '800', color: go ? C.text : C.sub }}>{t}</Text>
+                  <Text style={{ color: C.sub, fontSize: 13 }}>{d}</Text>
+                </View>
+                {go && <Icon name="chevron" size={18} color={C.chevron} />}
+              </Pressable>
+            ))}
+          </Card>
+          <Button title="Create school page" onPress={() => nav.push('SchoolForm')} />
+          <Pressable onPress={() => setSample(true)} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'center', marginTop: 6 }} accessibilityRole="button">
+            <Text style={{ color: C.blue, fontWeight: '800' }}>See a sample dashboard</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="School dashboard" />
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }} stickyHeaderIndices={[1]}>
         <View style={sc.hero}>
-          {!mySchoolId && <Text style={{ color: '#9FB3D1', fontSize: 12, fontWeight: '700', marginBottom: 6 }}>Demo: viewing as {x.name}</Text>}
+          {!mySchoolId && <Text style={{ color: '#C9D4E5', fontSize: 12, fontWeight: '700', marginBottom: 6 }}>Sample school</Text>}
           <Text style={{ color: '#fff', fontSize: 22, fontWeight: '900' }}>{x.name}</Text>
           <View style={{ flexDirection: 'row', marginTop: 14 }}>
             <View style={{ flex: 1 }}><Text style={sc.big}>{money(x.monthEarnings || 0)}</Text><Text style={sc.small}>earned this month</Text></View>
@@ -67,7 +106,7 @@ export function SchoolDashboard({ nav }) {
           </View>
         </View>
         <View style={{ backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.line }}>
-          <Tabs value={tab} onChange={setTab} tabs={[{ key: 'schedule', label: 'Schedule' }, { key: 'team', label: 'Instructors' }, { key: 'requests', label: `Requests${pending.length ? ` (${pending.length})` : ''}` }, { key: 'terms', label: 'Terms' }]} />
+          <Tabs value={tab} onChange={setTab} tabs={[{ key: 'schedule', label: 'Schedule' }, { key: 'team', label: 'Team' }, { key: 'fleet', label: 'Fleet' }, { key: 'requests', label: pending.length ? `Joins (${pending.length})` : 'Joins' }, { key: 'terms', label: 'Terms' }]} />
         </View>
 
         <View style={{ padding: 16 }}>
@@ -77,24 +116,34 @@ export function SchoolDashboard({ nav }) {
                 <Chip small label="Everyone" active={who === 'all'} onPress={() => setWho('all')} />
                 {cfiIds.map((id) => <Chip key={id} small label={getCfi(id)?.name.split(' ')[0]} active={who === id} onPress={() => setWho(id)} />)}
               </ScrollView>
-              <Text style={sc.note}>Every lesson booked with your instructors or in your aircraft. Your share includes instruction (per each instructor’s terms) and aircraft rental for planes you own.</Text>
+              <View style={sc.seg}>
+                {[['time', 'By time'], ['plane', 'By aircraft'], ['cfi', 'By instructor']].map(([k, l]) => (
+                  <Pressable key={k} onPress={() => setView(k)} style={[sc.segBtn, view === k && { backgroundColor: C.navy }]} accessibilityRole="tab" accessibilityState={{ selected: view === k }}>
+                    <Text style={{ fontWeight: '800', fontSize: 13, color: view === k ? '#fff' : C.text }}>{l}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={sc.note}>Every lesson with your instructors or in your aircraft. Your share includes instruction (per each instructor’s terms) and rental for planes you own.</Text>
               {days.length === 0 && <Text style={{ color: C.sub, textAlign: 'center', marginTop: 20 }}>Nothing scheduled.</Text>}
-              {days.map((d) => (
+              {(view === 'time' ? days.map((d) => [d, upcoming.filter((b) => b.date === d)])
+                : view === 'plane' ? [...new Set(upcoming.map((b) => b.planeId))].map((id) => [getPlane(id) ? `${getPlane(id).tail} · ${getPlane(id).make} ${getPlane(id).model}` : 'Student’s plane', upcoming.filter((b) => b.planeId === id)])
+                : [...new Set(upcoming.map((b) => b.cfiId))].map((id) => [getCfi(id)?.name || 'Solo rentals', upcoming.filter((b) => b.cfiId === id)])
+              ).map(([d, list]) => (
                 <View key={d}>
                   <Text style={sc.day}>{d}</Text>
-                  {upcoming.filter((b) => b.date === d).map((b) => {
+                  {list.map((b) => {
                     const cfi = getCfi(b.cfiId);
                     const p = getPlane(b.planeId);
                     return (
                       <Card key={b.id} style={{ padding: 12, flexDirection: 'row', alignItems: 'center' }}>
                         <View style={{ width: 62 }}>
+                          {view !== 'time' && <Text style={{ color: C.sub, fontSize: 11 }}>{b.date}</Text>}
                           <Text style={{ fontWeight: '900', color: C.text }}>{b.time.replace(':00', '')}</Text>
-                          <Text style={{ color: C.sub, fontSize: 11 }}>{b.flightHours} hr</Text>
                         </View>
                         {cfi ? <Avatar initials={cfi.initials} color={cfi.color} size={34} photo={cfi.photo} /> : <PlaneImage plane={p} size={34} />}
                         <View style={{ flex: 1, marginLeft: 10 }}>
-                          <Text style={{ fontWeight: '800', color: C.text }} numberOfLines={1}>{b.student} · {b.goal}</Text>
-                          <Text style={{ color: C.sub, fontSize: 12 }} numberOfLines={1}>{cfi ? cfi.name : 'Solo rental'} · {p?.tail}{b.status === 'Pending' ? ' · awaiting confirmation' : ''}</Text>
+                          <Text style={{ fontWeight: '800', color: C.text }}>{b.student} · {b.goal}</Text>
+                          <Text style={{ color: C.sub, fontSize: 12 }}>{cfi ? cfi.name : 'Solo rental'}{p ? ` · ${p.tail}` : ''} · {b.flightHours} hr{b.status === 'Pending' ? ' · awaiting confirmation' : ''}</Text>
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>
                           <Text style={{ fontWeight: '900', color: C.green }}>{money2(b.schoolShare)}</Text>
@@ -138,13 +187,38 @@ export function SchoolDashboard({ nav }) {
                     )}
                     <View style={{ flexDirection: 'row', marginTop: 8 }}>
                       <Button title="Change terms" variant="ghost" small style={{ flex: 1, marginRight: 8 }} onPress={() => setEdit({ ...a })} />
-                      <Button title="Remove" variant="outline" small style={{ flex: 0.7, borderColor: '#FCA5A5' }} onPress={() => endAffiliation(a.id)} />
+                      <Button title="Remove" variant="danger" small style={{ flex: 0.7 }} onPress={() => endAffiliation(a.id)} />
                     </View>
                   </Card>
                 );
               })}
               <Button title="Invite an instructor" icon="plus" style={{ marginTop: 4 }} onPress={() => setInvite(true)} />
               <Text style={sc.note}>Removing an instructor ends the link after {x.terms.noticeDays} days’ notice. Lessons already booked keep the terms they were booked under.</Text>
+            </>
+          )}
+
+          {tab === 'fleet' && (
+            <>
+              {fleet.length === 0 && <Text style={{ color: C.sub, textAlign: 'center', marginTop: 20 }}>No aircraft linked to your school yet.</Text>}
+              {fleet.map((id) => {
+                const p = getPlane(id);
+                const left = r2((p.next100At || 0) - (p.hobbsTotal || 0));
+                const grounded = (p.squawks || []).some((q2) => q2.status === 'open' && q2.grounding) || (p.next100At && left <= 0);
+                const booked = upcoming.filter((b) => b.planeId === id);
+                return (
+                  <Card key={id} onPress={() => nav.push('OwnerDashboard', { planeId: id })} style={grounded ? { borderColor: C.red, borderWidth: 1.5 } : null}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <PlaneImage plane={p} size={44} />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={{ fontWeight: '900', color: C.text }}>{p.tail} · {p.make} {p.model}</Text>
+                        <Text style={{ color: C.sub, fontSize: 12 }}>{p.next100At ? `100-hr in ${Math.max(0, left)} hrs` : 'Inspections not logged'} · {booked.length} upcoming</Text>
+                      </View>
+                      <Tag label={grounded ? 'Grounded' : 'Airworthy'} color={grounded ? C.red : C.green} bg={grounded ? C.redBg : C.greenBg} />
+                    </View>
+                    {grounded && booked.length > 0 && <Text style={{ color: C.red, fontWeight: '700', marginTop: 8 }}>{booked.length} lesson{booked.length === 1 ? '' : 's'} booked in this plane need another aircraft.</Text>}
+                  </Card>
+                );
+              })}
             </>
           )}
 
@@ -164,7 +238,8 @@ export function SchoolDashboard({ nav }) {
                       <Tag label={a.initiatedBy === 'cfi' ? 'Review' : 'Waiting'} color={a.initiatedBy === 'cfi' ? C.blue : '#B45309'} bg={a.initiatedBy === 'cfi' ? C.sky : '#FEF3C7'} />
                     </View>
                     {a.message ? <Text style={{ color: C.text, marginTop: 8, fontStyle: 'italic' }}>“{a.message}”</Text> : null}
-                    {a.initiatedBy === 'school' && (
+                    {a.initiatedBy === 'cfi' && <Button title="Review terms" small variant="outline" style={{ marginTop: 10 }} onPress={() => nav.push('AffiliationReview', { id: a.id })} />}
+                    {a.initiatedBy === 'school' && !mySchoolId && (
                       <Pressable onPress={() => respondAffiliation(a.id, true)} style={sc.demo}><Text style={sc.demoText}>Demo: {c.name.split(' ')[0]} accepts the invite ›</Text></Pressable>
                     )}
                   </Card>
@@ -205,8 +280,10 @@ export function SchoolDashboard({ nav }) {
 
       <Sheet visible={invite} onClose={() => setInvite(false)} title="Invite an instructor">
         <Text style={[sc.note, { marginTop: 0 }]}>Independent instructors on Positive Rate. They’ll get your invite with your standard terms ({x.terms.model === 'employee' ? 'employee' : 'revenue share'}, school {Math.round(x.terms.schoolPct * 100)}%).</Text>
-        {independent.length === 0 && <Text style={{ color: C.sub }}>Everyone is already with a school.</Text>}
-        {independent.map((c, i) => (
+        <TextInput value={q} onChangeText={setQ} placeholder="Search name or airport" placeholderTextColor={C.placeholder} style={sc.search} accessibilityLabel="Search instructors" autoCorrect={false} />
+        {q.trim().length < 2 && <Text style={{ color: C.sub, marginBottom: 8 }}>Type at least 2 letters. Instructors not on Positive Rate yet? Share your school page link with them.</Text>}
+        {q.trim().length >= 2 && independent.filter((c) => `${c.name} ${c.homeAirport}`.toLowerCase().includes(q.trim().toLowerCase())).length === 0 && <Text style={{ color: C.sub }}>No independent instructor matches.</Text>}
+        {(q.trim().length >= 2 ? independent.filter((c) => `${c.name} ${c.homeAirport}`.toLowerCase().includes(q.trim().toLowerCase())) : []).map((c, i) => (
           <ListRow key={c.id} first={i === 0} title={c.name} subtitle={`${c.certs.join(' · ')} · ${c.homeAirport} · ${money(c.flightRate)}/hr`}
             right={<Button title="Invite" small style={{ paddingHorizontal: 14 }} onPress={() => { requestAffiliation({ cfiId: c.id, schoolId: sid, initiatedBy: 'school' }); setInvite(false); setTab('requests'); }} />} />
         ))}
@@ -295,7 +372,7 @@ export function JoinSchool({ nav, params }) {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Flight school" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 }}>
-        {!myCfiId && <Text style={sc.demoLabel}>Demo: viewing as {c.name}</Text>}
+        {!myCfiId && <Text style={sc.demoLabel}>Sample instructor view</Text>}
         {active ? (
           <Card style={{ borderLeftWidth: 4, borderLeftColor: C.green }}>
             <Text style={{ color: C.sub, fontSize: 12, fontWeight: '700' }}>YOU TEACH FOR</Text>
@@ -303,7 +380,7 @@ export function JoinSchool({ nav, params }) {
             <View style={{ flexDirection: 'row', marginTop: 6 }}><Tag label={pctLabel(active)} /></View>
             <SplitExample cfi={c} model={active.model} schoolPct={active.schoolPct} />
             <Text style={sc.note}>Students book you as usual. The school sees your schedule, and the split happens automatically on every payout.</Text>
-            <Button title="Leave this school" variant="outline" small style={{ borderColor: '#FCA5A5', marginTop: 4 }} onPress={() => endAffiliation(active.id)} />
+            <Button title="Leave this school" variant="danger" small style={{ marginTop: 4 }} onPress={() => endAffiliation(active.id)} />
             <Text style={sc.note}>Leaving takes effect after {getSchool(active.schoolId)?.terms.noticeDays} days’ notice. Lessons already booked keep their current split.</Text>
           </Card>
         ) : (
@@ -360,6 +437,11 @@ export function JoinSchool({ nav, params }) {
 }
 
 const sc = StyleSheet.create({
+  seg: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: C.line, padding: 4, marginTop: 4 },
+  segBtn: { flex: 1, minHeight: 40, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  setRow: { flexDirection: 'row', alignItems: 'center', minHeight: 60, paddingVertical: 8 },
+  setDot: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  search: { borderWidth: 1, borderColor: C.border, borderRadius: 12, minHeight: 48, paddingHorizontal: 14, fontSize: 16, color: C.text, marginBottom: 10, backgroundColor: '#fff' },
   hero: { backgroundColor: C.navy, padding: 16 },
   big: { color: '#fff', fontSize: 22, fontWeight: '900' },
   small: { color: '#9FB3D1', fontSize: 12 },
