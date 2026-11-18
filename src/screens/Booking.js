@@ -3,13 +3,13 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useStore, money } from '../store';
 import { SYLLABUS } from '../data';
 import { quote, isRepeat, bookingChecks, money2, dateLabel, timeLabel, hoursUntil, FEES, r2 } from '../logic';
-import { C, Card, Avatar, Chip, Row, SectionTitle, Button, Stepper, Tag, StarPicker, Field, VerifiedBadge, Toggle, Icon } from '../ui';
+import { C, Card, Avatar, Chip, Row, SectionTitle, Button, Stepper, Tag, StarPicker, Field, VerifiedBadge, Toggle, Icon, Banner } from '../ui';
 
 function Step({ n, title, done }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 22, marginBottom: 10 }}>
-      <View style={[bs.stepNum, done && { backgroundColor: C.green }]}>{done ? <Icon name="check" size={14} color="#fff" strokeWidth={3} /> : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 13 }}>{n}</Text>}</View>
-      <Text style={{ fontSize: 18, fontWeight: '800', color: C.text }}>{title}</Text>
+      <View style={[bs.stepNum, done && { backgroundColor: C.green }]}>{done ? <Icon name="check" size={14} color="#fff" strokeWidth={3} /> : <Text style={{ color: C.navy, fontWeight: '900', fontSize: 13 }}>{n}</Text>}</View>
+      <Text style={{ fontSize: 18, fontWeight: '800', color: C.text }} accessibilityRole="header">{title}</Text>
     </View>
   );
 }
@@ -235,30 +235,38 @@ export function RequestLesson({ nav, params }) {
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <Header nav={nav} title="Request sent" />
-        <ScrollView contentContainerStyle={{ padding: 24, alignItems: 'center' }}>
-          <View style={bs.check}><Text style={{ color: '#fff', fontSize: 40, fontWeight: '900' }}>✓</Text></View>
-          <Text style={{ fontSize: 22, fontWeight: '900', color: C.text, marginTop: 16 }}>Request sent!</Text>
-          <Text style={{ color: C.sub, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
-            {sent.split
-              ? `We sent the invite to ${sent.split.partnerName}. ${plane.tail} is held until ${new Date(sent.split.holdUntil).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}. Once they accept and pay their deposit, the owner gets your request.`
-              : <>{cfi ? `${cfi.name.split(' ')[0]} will confirm ${sent.date} at ${sent.time}` : checkoutFlight ? `The owner will confirm your checkout flight on ${sent.date} at ${sent.time}` : `The owner will confirm ${sent.date} at ${sent.time}`}{plane ? ` and ${plane.tail} is held for you.` : '.'}</>}
-          </Text>
-          {sent.split && (
-            <Card style={{ alignSelf: 'stretch', marginTop: 18 }}>
-              <Row label={`Your share · ${sent.split.bookerPct}%`} value={money2(sent.split.bookerEst)} />
-              <Row label={`Their share · ${sent.split.partnerPct}% (deposit when they accept)`} value={money2(sent.split.partnerEst)} />
-              <Text style={{ color: C.sub, fontSize: 12, marginTop: 6 }}>Estimates. After the flight you each pay your % of the actual Hobbs time. If they don’t accept in time, the hold is released and nothing is charged.</Text>
-            </Card>
-          )}
-          <Card style={{ alignSelf: 'stretch', marginTop: 18 }}>
-            <Row label={sent.method === 'wallet' ? 'Held in your wallet' : sent.live ? 'Card saved (charged after the flight)' : 'Card hold'} value={money2(sent.myTotal ?? sent.total)} />
-            {sent.deposit > 0 && <Row label="Damage deposit hold" value={money2(sent.deposit)} />}
-            <Text style={{ color: C.sub, fontSize: 12, marginTop: 6 }}>
-              You’re only charged for actual Hobbs time after the flight. Weather cancellations are always free.
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+          <View style={{ alignItems: 'center' }}>
+            <View style={bs.check}><Icon name="check" size={40} color="#fff" strokeWidth={3} /></View>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: C.text, marginTop: 16 }} accessibilityRole="header">{sent.split ? 'Invite sent' : 'Request sent'}</Text>
+            <Text style={{ color: C.sub, textAlign: 'center', marginTop: 6, lineHeight: 21, fontSize: 15 }}>
+              {sent.split
+                ? `${plane.tail} is held until ${new Date(sent.split.holdUntil).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })} while ${sent.split.partnerName} accepts.`
+                : `${sent.date} at ${sent.time}${plane ? ` · ${plane.tail}` : ''}. It isn’t booked until ${cfi ? cfi.name.split(' ')[0] : 'the owner'} confirms.`}
             </Text>
+          </View>
+          <Text style={[bs.kicker, { marginTop: 22 }]}>What happens next</Text>
+          {[
+            sent.split
+              ? ['Your co-pilot accepts', `They pay their half (${money2(sent.split.partnerEst)}) to lock the plane. If they don’t in time, the hold is released and nothing is charged.`]
+              : [`${cfi ? cfi.name.split(' ')[0] : 'The owner'} confirms`, 'Most requests are answered within a few hours. We’ll notify you.'],
+            ['Nothing is charged yet', `Your card is saved now and charged after the flight for actual Hobbs time${sent.deposit > 0 ? `, plus a ${money2(sent.deposit)} refundable deposit hold` : ''}. Weather cancellations are free.`],
+            ['Do your preflight', 'The day before, run the go/no-go check: weather, NOTAMs and I’M SAFE.'],
+          ].map(([t, d], i) => (
+            <View key={t} style={bs.nextRow} accessible>
+              <View style={bs.nextNum}><Text style={{ color: C.navy, fontWeight: '800' }}>{i + 1}</Text></View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontWeight: '800', color: C.text, fontSize: 15 }}>{t}</Text>
+                <Text style={{ color: C.sub, fontSize: 13, lineHeight: 18, marginTop: 2 }}>{d}</Text>
+              </View>
+            </View>
+          ))}
+          <Card style={{ marginTop: 10 }}>
+            <Row label={sent.split ? `Your half (estimate)` : 'Estimated total'} value={money2(sent.myTotal ?? sent.total)} bold />
           </Card>
-          <Button title="View my lessons" style={{ alignSelf: 'stretch', marginTop: 16 }} onPress={() => nav.goTab('Lessons')} />
-          <Button title="Keep browsing" variant="outline" style={{ alignSelf: 'stretch', marginTop: 10 }} onPress={() => nav.goTab('Explore')} />
+          <Button title="View my lessons" style={{ marginTop: 16 }} onPress={() => nav.goTab('Lessons')} />
+          {cfi && <Button title={`Message ${cfi.name.split(' ')[0]}`} variant="outline" style={{ marginTop: 10 }} onPress={() => nav.push('Chat', { key: cfi.id })} />}
+          <Button title="Keep browsing" variant="ghost" style={{ marginTop: 4 }} onPress={() => nav.goTab('Explore')} />
         </ScrollView>
       </View>
     );
@@ -266,19 +274,19 @@ export function RequestLesson({ nav, params }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Header nav={nav} title="Book a flight" />
+      <Header nav={nav} title={cfi ? 'Book a lesson' : 'Rent solo'} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 150 }}>
-        <Step n={1} title="Instructor & aircraft" done={!!(cfi || plane)} />
+        <Step n={1} title="Instructor" done={!!cfi || (!!plane && plane.soloRental)} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {plane && plane.soloRental && (
-            <Pressable onPress={() => setCfiId(null)} style={[bs.pick, !cfi && bs.pickOn]}>
-              <View style={bs.soloIcon}><Text style={{ fontSize: 20 }}>🧑‍✈️</Text></View>
-              <Text style={bs.pickName}>No CFI</Text>
-              <Text style={bs.pickSub}>Solo rental</Text>
+            <Pressable onPress={() => setCfiId(null)} style={[bs.pick, !cfi && bs.pickOn]} accessibilityRole="radio" accessibilityState={{ checked: !cfi }}>
+              <View style={bs.soloIcon}><Icon name="user" size={22} color={C.navy} /></View>
+              <Text style={bs.pickName}>No instructor</Text>
+              <Text style={bs.pickSub}>Rent solo</Text>
             </Pressable>
           )}
           {cfiOptions.map((c) => (
-            <Pressable key={c.id} onPress={() => { setCfiId(c.id); setStart(null); }} style={[bs.pick, cfiId === c.id && bs.pickOn]}>
+            <Pressable key={c.id} onPress={() => { setCfiId(c.id); setStart(null); }} style={[bs.pick, cfiId === c.id && bs.pickOn]} accessibilityRole="radio" accessibilityState={{ checked: cfiId === c.id }}>
               <Avatar initials={c.initials} color={c.color} size={44} photo={c.photo} />
               <Text style={bs.pickName} numberOfLines={1}>{c.name.split(' ')[0]}</Text>
               <Text style={bs.pickSub}>{money(c.flightRate)}/hr</Text>
@@ -287,17 +295,17 @@ export function RequestLesson({ nav, params }) {
           ))}
         </ScrollView>
 
-        <View style={{ height: 12 }} />
+        <Step n={2} title="Aircraft" done={ownPlane || !!plane} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {cfi?.teachesInYourPlane && (
-            <Pressable onPress={() => setOwnPlane(true)} style={[bs.pick, ownPlane && bs.pickOn]}>
-              <View style={bs.soloIcon}><Text style={{ fontSize: 20 }}>🛩️</Text></View>
-              <Text style={bs.pickName}>My plane</Text>
+            <Pressable onPress={() => setOwnPlane(true)} style={[bs.pick, ownPlane && bs.pickOn]} accessibilityRole="radio" accessibilityState={{ checked: ownPlane }}>
+              <View style={bs.soloIcon}><Icon name="key" size={22} color={C.navy} /></View>
+              <Text style={bs.pickName}>My own plane</Text>
               <Text style={bs.pickSub}>$0 rental</Text>
             </Pressable>
           )}
           {planeOptions.map((p) => (
-            <Pressable key={p.id} onPress={() => { setPlaneId(p.id); setOwnPlane(false); setStart(null); }} style={[bs.pick, !ownPlane && planeId === p.id && bs.pickOn]}>
+            <Pressable key={p.id} onPress={() => { setPlaneId(p.id); setOwnPlane(false); setStart(null); }} style={[bs.pick, !ownPlane && planeId === p.id && bs.pickOn]} accessibilityRole="radio" accessibilityState={{ checked: !ownPlane && planeId === p.id }}>
               <PlaneImage plane={p} size={44} />
               <Text style={bs.pickName} numberOfLines={1}>{p.make} {p.model.split(' ')[0]}</Text>
               <Text style={bs.pickSub}>{money(p.wetRate)}/hr · {p.homeAirport}</Text>
@@ -328,7 +336,7 @@ export function RequestLesson({ nav, params }) {
 
         {cfi && (
           <>
-            <Step n={2} title="What are we working on?" done={!!goal} />
+            <Step n={3} title="What are we working on?" done={!!goal} />
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
               {(moreGoals ? GOALS : [...new Set([goal, ...GOALS.slice(0, 5)])]).map((g) => <Chip key={g} small label={g} active={goal === g} onPress={() => setGoal(g)} />)}
               {!moreGoals && <Chip small label="More…" onPress={() => setMoreGoals(true)} />}
@@ -336,12 +344,12 @@ export function RequestLesson({ nav, params }) {
           </>
         )}
 
-        <Step n={cfi ? 3 : 2} title="How long" done />
+        <Step n={cfi ? 4 : 3} title="How long" done />
         <Card>
           <Stepper label="Flight (Hobbs)" value={flightHours} onChange={setFlightHours} min={0.5} />
           {cfi && <Stepper label="Ground / briefing" value={groundHours} onChange={setGroundHours} />}
         </Card>
-        <Step n={cfi ? 4 : 3} title="Date & time" done={!!start} />
+        <Step n={cfi ? 5 : 4} title="Date & time" done={!!start} />
         <MonthCalendar month={month} onMonth={(mo) => { setMonth(mo); }} selected={date}
           onSelect={(dt) => { setDate(dt); setStart(null); }}
           enabled={(dt) => (monthSlots[dateKey(dt)] || []).length > 0}
@@ -359,7 +367,7 @@ export function RequestLesson({ nav, params }) {
               {slots.map((t) => {
                 const on = start && +start === +t;
                 return (
-                  <Pressable key={+t} onPress={() => setStart(t)} style={[bs.slot, on && { backgroundColor: C.blue, borderColor: C.blue }]}
+                  <Pressable key={+t} onPress={() => setStart(t)} style={[bs.slot, on && { backgroundColor: C.navy, borderColor: C.navy }]}
                     accessibilityRole="button" accessibilityState={{ selected: !!on }} accessibilityLabel={`${timeIn(t, tz)}`}>
                     <Text style={{ fontWeight: '800', color: on ? '#fff' : C.text, fontSize: 14 }}>{timeIn(t, tz)}</Text>
                   </Pressable>
@@ -385,7 +393,7 @@ export function RequestLesson({ nav, params }) {
 
         {canShare && (
           <>
-            <Step n={4} title="Share the cost?" done={!shareOn || shareEmailOk} />
+            <Step n={5} title="Share the cost?" done={!shareOn || shareEmailOk} />
             <Card>
               <Toggle label="Fly with another pilot and split the cost" value={shareOn} onValueChange={setShareOn}
                 hint="They pay a deposit to accept. Your request goes to the owner once they do." />
@@ -405,6 +413,35 @@ export function RequestLesson({ nav, params }) {
           </>
         )}
 
+        <Step n={cfi ? 6 : canShare ? 6 : 5} title="Payment" done />
+        <Pressable onPress={() => nav.push('PaymentMethods')} style={bs.pay} accessibilityRole="button" accessibilityLabel="Payment card. Change">
+          <View style={bs.cardIcon}><Icon name="card" size={20} color={C.navy} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontWeight: '800', color: C.text }}>Card on file</Text>
+            <Text style={{ color: C.sub, fontSize: 13, marginTop: 2 }}>Saved when you send the request. Charged after the flight for actual Hobbs time.</Text>
+          </View>
+          <Text style={{ color: C.blue, fontWeight: '700' }}>Change</Text>
+        </Pressable>
+        <Pressable onPress={() => setShowCost(!showCost)} style={bs.detailsRow} accessibilityRole="button" accessibilityState={{ expanded: showCost }}>
+          <Text style={{ flex: 1, fontWeight: '700', color: C.text }}>Price details</Text>
+          {fees.feeFree ? <Text style={{ color: C.green, fontWeight: '700', fontSize: 12, marginRight: 8 }}>No booking fee</Text> : null}
+          <Icon name={showCost ? 'down' : 'chevron'} size={18} color={C.chevron} />
+        </Pressable>
+        {showCost && (
+          <Card>
+            {cfi && <Row label={`Flight instruction · ${flightHours} hr × ${money(cfi.flightRate)}`} value={money2(q.instruction)} />}
+            {cfi && groundHours > 0 && <Row label={`Ground · ${groundHours} hr × ${money(cfi.groundRate)}`} value={money2(q.ground)} />}
+            {plane && <Row label={`${plane.tail} ${prepaid ? 'prepaid block' : 'wet'} · ${flightHours} hr × ${money(q.rate)}`} value={money2(q.aircraft)} />}
+            {ownPlane && <Row label="Your aircraft" value="$0.00" />}
+            {plane && FEES.protectionPerHr > 0 && <Row label={`Rental protection · ${money(FEES.protectionPerHr)}/hr`} value={money2(q.protection)} />}
+            {fees.feeFree
+              ? <Row label="Booking fee · waived (Short Final)" value="$0.00" />
+              : <Row label={fees.schoolPro ? 'Booking fee · School Pro rate' : 'Booking fee'} value={money2(q.bookingFee)} />}
+            {q.deposit > 0 && <Row label="Refundable damage deposit (hold only)" value={money2(q.deposit)} />}
+            <Text style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>Estimate. The final charge uses actual Hobbs time.</Text>
+          </Card>
+        )}
+
         <Pressable onPress={() => setShowChecks(!showChecks)} style={[bs.summary, blocked && { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' }]} accessibilityRole="button" accessibilityLabel="Safety and insurance checks">
           <Icon name={blocked ? 'info' : 'shieldCheck'} size={20} color={blocked ? '#B91C1C' : C.green} />
           <Text style={{ flex: 1, marginLeft: 10, fontWeight: '700', color: blocked ? '#B91C1C' : C.text }}>
@@ -422,51 +459,12 @@ export function RequestLesson({ nav, params }) {
           </Pressable>
         )}
 
-        <Step n={cfi ? 5 : canShare ? 5 : 4} title="Pay with" done />
-        <Pressable onPress={() => setMethod('card')} style={[bs.pay, method === 'card' && bs.pickOn]}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '800', color: C.text }}>Card</Text>
-            <Text style={{ color: C.sub, fontSize: 12, marginTop: 2 }}>Choose or add a card at the next step. Charged after the flight.</Text>
-          </View>
-          <View style={[bs.radio, method === 'card' && { borderColor: C.blue }]}>{method === 'card' && <View style={bs.radioDot} />}</View>
-        </Pressable>
-        <Card style={{ marginTop: 18 }}>
-          <Pressable onPress={() => setShowCost(!showCost)} style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityRole="button">
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: C.sub, fontWeight: '700', fontSize: 13 }}>Estimated total</Text>
-              <Text style={{ fontSize: 26, fontWeight: '900', color: C.navy }}>{money2(q.total)}</Text>
-              {fees.feeFree ? <Text style={{ color: C.green, fontWeight: '700', fontSize: 12 }}>Short Final: no booking fee</Text> : null}
-            </View>
-            <Text style={{ color: C.blue, fontWeight: '800', marginRight: 4 }}>{showCost ? 'Hide' : 'Details'}</Text>
-            <Icon name={showCost ? 'down' : 'chevron'} size={16} color={C.blue} />
-          </Pressable>
-          {showCost && <View style={{ marginTop: 10 }}>
-          {cfi && <Row label={`Flight instruction · ${flightHours} hr × ${money(cfi.flightRate)}`} value={money2(q.instruction)} />}
-          {cfi && groundHours > 0 && <Row label={`Ground · ${groundHours} hr × ${money(cfi.groundRate)}`} value={money2(q.ground)} />}
-          {plane && <Row label={`${plane.tail} ${prepaid ? 'prepaid block' : 'wet'} · ${flightHours} hr × ${money(q.rate)}`} value={money2(q.aircraft)} />}
-          {ownPlane && <Row label="Your aircraft" value="$0.00" />}
-          {plane && FEES.protectionPerHr > 0 && <Row label={`Rental protection · ${money(FEES.protectionPerHr)}/hr`} value={money2(q.protection)} />}
-          {fees.feeFree ? (
-            <View style={bs.repeat}>
-              <Text style={{ color: C.green, fontWeight: '800', flex: 1 }}>Booking fee · waived with Short Final</Text>
-              <Text style={{ color: C.green, fontWeight: '800', textDecorationLine: 'line-through' }}>{money2(q.waivedFee)}</Text>
-            </View>
-          ) : (
-            <Row label={fees.schoolPro ? 'Booking fee · School Pro rate' : 'Booking fee'} value={money2(q.bookingFee)} />
-          )}
-          </View>}
-          {q.deposit > 0 && <Row label="Refundable damage deposit (hold only)" value={money2(q.deposit)} />}
-          <Text style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>
-            {fees.feeFree ? 'Your Short Final promo covers the booking fee until it ends.' : 'Every lesson and rental has a flat booking fee.'} Final charge uses actual Hobbs time.
-          </Text>
-        </Card>
-
         <View style={[bs.covered, { flexDirection: 'row' }]}>
-          <Icon name="shield" size={20} color={C.navy} />
+          <Icon name="cloud" size={20} color={C.navy} />
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={{ fontWeight: '800', color: C.navy }}>Protected booking</Text>
-            <Text style={{ color: C.navy, fontSize: 13, marginTop: 2, lineHeight: 18 }}>
-              Payment protection, free weather cancellations{cfi ? ', and it’s logged to your training record' : ''}. You’re only charged after the flight.
+            <Text style={{ fontWeight: '800', color: C.navy }}>Free weather cancellation</Text>
+            <Text style={{ color: C.body, fontSize: 13, marginTop: 2, lineHeight: 18 }}>
+              {cfi ? `${cfi.name.split(' ')[0]} confirms every request. ` : 'The owner confirms every request. '}Nothing is charged until after the flight{cfi ? ', and it’s logged to your training record' : ''}.
             </Text>
           </View>
         </View>
@@ -474,11 +472,13 @@ export function RequestLesson({ nav, params }) {
       {!!payErr && <Text style={{ color: '#B91C1C', fontWeight: '600', paddingHorizontal: 16, paddingBottom: 6, backgroundColor: '#fff' }} accessibilityLiveRegion="polite">{payErr}</Text>}
       <View style={bs.cta}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: '900', fontSize: 20, color: C.navy }}>{money2(myShare)}</Text>
-          <Text style={{ color: C.sub, fontSize: 12 }}>{sharing ? `Your ${sharePct}% · ` : ''}{start && date ? `${shortDate(date)} · ${timeIn(start, tz)}` : 'Pick a time'}</Text>
+          <Text style={{ fontWeight: '800', fontSize: 20, color: C.text }}>{money2(myShare)}</Text>
+          <Pressable onPress={() => setShowCost(!showCost)} accessibilityRole="button" hitSlop={8}>
+            <Text style={{ color: C.blue, fontSize: 12, fontWeight: '700' }}>{sharing ? 'Your half · ' : 'Est. · '}Price details</Text>
+          </Pressable>
         </View>
         <Button
-          title={busy ? 'Sending…' : blocked ? 'Checks not met' : !start ? 'Pick a time' : sharing && !shareEmailOk ? 'Add their email' : sharing ? 'Send invite' : 'Send request'}
+          title={busy ? 'Sending…' : blocked ? 'Checks not met' : !start ? 'Pick a time' : sharing && !shareEmailOk ? 'Add their email' : sharing ? `Invite · ${shortDate(date).split(',')[0]} ${timeIn(start, tz)}` : `Request ${shortDate(date).split(',')[0]} ${timeIn(start, tz)}`}
           style={{ paddingHorizontal: 22 }}
           disabled={busy || blocked || !start || (!cfi && !plane) || (!live && walletShort) || (sharing && !shareEmailOk)}
           onPress={submit}
@@ -563,96 +563,80 @@ function ProposalBox({ r, cfiName, onChanged }) {
   );
 }
 
+const STATUS_TAG = {
+  Proposed: ['Needs you', C.amberDark, C.amberBg], Pending: ['Waiting to confirm', C.amberDark, C.amberBg], Confirmed: ['✓ Confirmed', C.green, C.greenBg],
+  Completed: ['✓ Completed', C.green, C.greenBg], Cancelled: ['Cancelled', C.sub, C.sky],
+};
+const statusTag = (r) => { const [l, fg, bg] = STATUS_TAG[r.status] || [r.status, C.sub, C.sky]; return <Tag label={l} color={fg} bg={bg} />; };
+
 export function Lessons({ nav }) {
-  const { requests, getCfi, getPlane, updateRequest, debriefForRequest, refreshLive } = useStore();
+  const { requests, getCfi, getPlane, debriefForRequest, refreshLive } = useStore();
   const lib = useLibrary();
   React.useEffect(() => { lib.refresh(); }, []);
+  const [tab, setTab] = useState('upcoming');
   const reviewFor = (r) => (['Pending', 'Confirmed'].includes(r.status) ? lib.reviews.find((x) => x.bookingId === r.id && x.studentId === lib.uid) : null);
   const upcoming = requests.filter((r) => ['Proposed', 'Pending', 'Confirmed'].includes(r.status)).sort((a, b) => (a.status === 'Proposed' ? 0 : 1) - (b.status === 'Proposed' ? 0 : 1) || new Date(a.when) - new Date(b.when));
   const past = requests.filter((r) => ['Completed', 'Cancelled'].includes(r.status)).sort((a, b) => new Date(b.when) - new Date(a.when));
+  const list = tab === 'upcoming' ? upcoming : past;
 
   const card = (r) => {
     const c = getCfi(r.cfiId);
     const p = getPlane(r.planeId);
-    const colors = { Proposed: ['#7C3AED', '#F1E8FF'], Confirmed: [C.green, '#DDF3E8'], Completed: [C.green, '#DDF3E8'], Pending: ['#B45309', '#FEF3C7'], Cancelled: [C.sub, '#EEF1F5'] }[r.status] || [C.sub, '#EEF1F5'];
+    const d = debriefForRequest(r.id);
+    const who = c ? c.name : r.split && ['invited', 'accepted'].includes(r.split.status) ? `With ${(r.role === 'partner' ? r.split.bookerName : r.split.partnerName).split(' ')[0]}` : 'Solo rental';
     return (
       <Card key={r.id}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ fontWeight: '800', fontSize: 16, color: C.text, flex: 1 }}>{r.goal}</Text>
-          <Tag label={r.status === 'Proposed' ? 'Needs you' : r.status} color={colors[0]} bg={colors[1]} />
-        </View>
-        <Text style={{ color: C.sub, marginTop: 2 }}>{r.date} · {r.time}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
-          {c && <Avatar initials={c.initials} color={c.color} size={36} photo={c.photo} />}
-          {p && <View style={{ marginLeft: c ? 8 : 0 }}><PlaneImage plane={p} size={36} style={{ borderRadius: 10 }} /></View>}
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={{ color: C.text, fontWeight: '600' }}>{c ? c.name : r.split && ['invited', 'accepted'].includes(r.split.status) ? `With ${(r.role === 'partner' ? r.split.bookerName : r.split.partnerName).split(' ')[0]}` : 'Solo'}{p ? ` · ${p.tail}` : r.ownPlane ? ' · Own aircraft' : ''}</Text>
-            <Text style={{ color: C.sub, fontSize: 12 }}>
-              {r.flightHours} hr flight{r.groundHours ? ` + ${r.groundHours} hr ground` : ''} · {r.method === 'wallet' ? 'Wallet' : 'Card'}
-            </Text>
+        <Pressable onPress={() => nav.push('LessonDetail', { id: r.id })} accessibilityRole="button" accessibilityLabel={`${r.goal}, ${r.date} ${r.time}, ${STATUS_TAG[r.status]?.[0] || r.status}. Details`}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={{ fontWeight: '800', fontSize: 16, color: C.text }}>{r.goal}</Text>
+              <Text style={{ color: C.sub, marginTop: 2 }}>{r.date} · {r.time}</Text>
+            </View>
+            {statusTag(r)}
           </View>
-          <Text style={{ fontWeight: '900', color: C.navy, fontSize: 16 }}>{money2(r.status === 'Cancelled' ? r.cancel?.fee || 0 : r.myTotal ?? r.total)}</Text>
-        </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+            {c && <Avatar initials={c.initials} color={c.color} size={36} photo={c.photo} />}
+            {p && <View style={{ marginLeft: c ? 8 : 0 }}><PlaneImage plane={p} size={36} style={{ borderRadius: 10 }} /></View>}
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={{ color: C.text, fontWeight: '600' }} numberOfLines={1}>{who}{p ? ` · ${p.tail}` : r.ownPlane ? ' · Own aircraft' : ''}</Text>
+              <Text style={{ color: C.sub, fontSize: 12 }}>{r.flightHours} hr flight{r.groundHours ? ` + ${r.groundHours} hr ground` : ''} · Card</Text>
+            </View>
+            <Text style={{ fontWeight: '800', color: C.text, fontSize: 16 }}>{money2(r.status === 'Cancelled' ? r.cancel?.fee || 0 : r.myTotal ?? r.total)}</Text>
+          </View>
+        </Pressable>
         {r.status === 'Cancelled' && (
-          <Text style={{ color: C.sub, fontSize: 12, marginTop: 8 }}>
-            {r.cancel.reason}{r.cancel.fee ? ` · late-cancel fee ${money2(r.cancel.fee)} paid to CFI` : ' · no charge, hold released'}
-          </Text>
+          <Text style={{ color: C.sub, fontSize: 12, marginTop: 8 }}>{r.cancel?.reason}{r.cancel?.fee ? ` · late-cancel fee ${money2(r.cancel.fee)}` : ' · no charge'}</Text>
         )}
-        {r.dispute && <Text style={[bs.warn, { marginTop: 8 }]}>Dispute: {r.dispute.reason} · {r.dispute.status}</Text>}
+        {r.dispute && <Text style={[bs.warn, { marginTop: 8 }]}>Problem reported: {r.dispute.reason} · {r.dispute.status}</Text>}
         <SplitBox r={r} nav={nav} onChanged={() => refreshLive().catch(() => {})} />
         {r.status === 'Proposed' && r.proposal && <ProposalBox r={r} cfiName={c ? c.name.split(' ')[0] : 'Your instructor'} onChanged={() => refreshLive().catch(() => {})} />}
         {reviewFor(r) && <ReviewChip review={reviewFor(r)} studied={lib.studied} onPress={() => nav.push('PreflightReview', { bookingId: r.id })} />}
+        {r.live && r.status === 'Pending' && !r.split?.pending && r.role !== 'partner' && <Text style={[bs.hint, { marginTop: 8 }]}>Waiting for {c ? c.name.split(' ')[0] : 'the owner'} to confirm. Nothing is charged until after the flight.</Text>}
 
-        <View style={bs.actions}>
-          {(c || p) && r.status !== 'Cancelled' && (
-            <Pressable onPress={() => nav.push('Chat', { key: c ? c.id : p.id })} style={bs.action}><Text style={bs.actionText}>Message</Text></Pressable>
-          )}
-          {r.status === 'Confirmed' && (
-            <Pressable onPress={() => nav.push('Preflight', { bookingId: r.id })} style={bs.action} accessibilityRole="button"><Text style={bs.actionText}>Preflight</Text></Pressable>
-          )}
-          {['Pending', 'Confirmed'].includes(r.status) && r.role !== 'partner' && (
-            <Pressable onPress={() => nav.push('Cancel', { id: r.id })} style={bs.action}><Text style={[bs.actionText, { color: '#B91C1C' }]}>Cancel</Text></Pressable>
-          )}
-          {debriefForRequest(r.id) && (
-            <Pressable onPress={() => nav.push('Debrief', { id: debriefForRequest(r.id).id })} style={[bs.action, !debriefForRequest(r.id).acknowledged && !debriefForRequest(r.id).pending && { backgroundColor: C.sky }]}>
-              <Text style={bs.actionText}>{debriefForRequest(r.id).pending ? 'Debrief pending' : debriefForRequest(r.id).acknowledged ? 'Debrief' : 'Debrief · new'}</Text>
+        {['Pending', 'Confirmed'].includes(r.status) && (
+          <View style={bs.cardActions}>
+            {r.status === 'Confirmed'
+              ? <Button title="Preflight" icon="checkCircle" small style={{ flex: 1, marginRight: 8 }} onPress={() => nav.push('Preflight', { bookingId: r.id })} />
+              : null}
+            {(c || p) && <Button title="Message" variant="outline" small style={{ flex: r.status === 'Confirmed' ? 0.8 : 1, marginRight: 8 }} onPress={() => nav.push('Chat', { key: c ? c.id : p.id })} />}
+            <Pressable onPress={() => nav.push('LessonDetail', { id: r.id })} style={bs.more} accessibilityRole="button" accessibilityLabel="More: details, reschedule or cancel">
+              <Text style={{ color: C.navy, fontWeight: '800', fontSize: 18, marginTop: -6 }}>…</Text>
             </Pressable>
-          )}
-          {r.receipt && (
-            <Pressable onPress={() => nav.push('Receipt', { id: r.id })} style={bs.action}><Text style={bs.actionText}>Receipt</Text></Pressable>
-          )}
-        </View>
-
-        {r.live && r.status === 'Pending' && !r.split?.pending && r.role !== 'partner' && <Text style={[bs.hint, { marginTop: 8 }]}>Waiting for {c ? c.name.split(' ')[0] : 'the owner'} to confirm. Your card is saved and charged only after the flight.</Text>}
-        {r.live && r.status === 'Completed' && <Text style={[bs.hint, { marginTop: 8 }]}>{`Charged ${money2(r.myTotal ?? r.total)}`}{r.actualHobbs ? ` for ${r.actualHobbs} hr on the Hobbs` : ''}.</Text>}
-        {!r.live && r.status === 'Pending' && (
-          <Pressable onPress={() => updateRequest(r.id, { status: 'Confirmed' })} style={bs.demo}>
-            <Text style={bs.demoText}>Demo: {c ? 'CFI' : 'owner'} confirms ›</Text>
-          </Pressable>
+          </View>
         )}
-        {!r.live && r.status === 'Confirmed' && (
-          <Pressable onPress={() => nav.push('CloseOut', { id: r.id })} style={bs.demo}>
-            <Text style={bs.demoText}>Demo: {c ? 'CFI closes out flight (Hobbs, lesson, endorsements)' : 'close out rental (Hobbs, squawks)'} ›</Text>
-          </Pressable>
-        )}
-        {r.status === 'Completed' && r.role !== 'partner' && (
-          <View style={bs.reviewBox}>
-            <Text style={{ color: C.text, fontWeight: '800', marginBottom: 8 }}>How did it go?</Text>
-            <View style={{ flexDirection: 'row' }}>
-              {c && (
-                <Button title={r.reviewedCfi ? '✓ Reviewed' : `Review ${c.name.split(' ')[0]}`} variant="outline" disabled={r.reviewedCfi}
-                  style={{ flex: 1, paddingVertical: 10, marginRight: p ? 8 : 0 }} onPress={() => nav.push('Review', { requestId: r.id, kind: 'cfi' })} />
-              )}
-              {p && (
-                <Button title={r.reviewedPlane ? '✓ Reviewed' : `Review ${p.tail}`} variant="outline" disabled={r.reviewedPlane}
-                  style={{ flex: 1, paddingVertical: 10 }} onPress={() => nav.push('Review', { requestId: r.id, kind: 'plane' })} />
+        {r.status === 'Completed' && (
+          <>
+            {c && r.role !== 'partner' && <Button title={`Book again with ${c.name.split(' ')[0]}`} small style={{ marginTop: 12 }} onPress={() => nav.push('Request', { cfiId: c.id, planeId: p?.id || null })} />}
+            <View style={bs.links}>
+              {d && <Pressable onPress={() => nav.push('Debrief', { id: d.id })} style={bs.linkBtn} accessibilityRole="button"><Text style={bs.link}>{d.pending ? 'Debrief pending' : !d.acknowledged ? 'Debrief · new' : 'Debrief'}</Text></Pressable>}
+              {r.receipt && <Pressable onPress={() => nav.push('Receipt', { id: r.id })} style={bs.linkBtn} accessibilityRole="button"><Text style={bs.link}>Receipt</Text></Pressable>}
+              {r.role !== 'partner' && (c || p) && !(r.reviewedCfi && (r.reviewedPlane || !p)) && (
+                <Pressable onPress={() => nav.push('Review', { requestId: r.id, kind: c && !r.reviewedCfi ? 'cfi' : 'plane' })} style={bs.linkBtn} accessibilityRole="button">
+                  <Text style={bs.link}>{c && !r.reviewedCfi ? `Review ${c.name.split(' ')[0]}` : `Review ${p.tail}`}</Text>
+                </Pressable>
               )}
             </View>
-            {c && (
-              <Button title={`Book again with ${c.name.split(' ')[0]} · $0 fee`} style={{ marginTop: 8, paddingVertical: 11 }}
-                onPress={() => nav.push('Request', { cfiId: c.id, planeId: p?.id || null })} />
-            )}
-          </View>
+          </>
         )}
       </Card>
     );
@@ -660,13 +644,112 @@ export function Lessons({ nav }) {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
-      <Text style={bs.h1}>My lessons</Text>
-      <SectionTitle>Upcoming</SectionTitle>
-      {upcoming.length === 0 && <Text style={{ color: C.sub }}>Nothing scheduled. Book a lesson or a plane to get started.</Text>}
-      {upcoming.map(card)}
-      <SectionTitle>Past</SectionTitle>
-      {past.map(card)}
+      <Text style={bs.h1} accessibilityRole="header">My lessons</Text>
+      <View style={bs.seg} accessibilityRole="tablist">
+        {[['upcoming', `Upcoming${upcoming.length ? ` · ${upcoming.length}` : ''}`], ['past', 'Past']].map(([k, l]) => (
+          <Pressable key={k} onPress={() => setTab(k)} style={[bs.segBtn, tab === k && bs.segOn]} accessibilityRole="tab" accessibilityState={{ selected: tab === k }}>
+            <Text style={{ fontWeight: '800', color: tab === k ? C.navy : C.sub }}>{l}</Text>
+          </Pressable>
+        ))}
+      </View>
+      {list.length === 0 && (
+        <View style={{ alignItems: 'center', paddingVertical: 30 }}>
+          <View style={bs.emptyIcon}><Icon name="calendar" size={28} color={C.navy} /></View>
+          <Text style={{ fontWeight: '800', color: C.text, fontSize: 17, marginTop: 12 }}>{tab === 'upcoming' ? 'Nothing scheduled' : 'No past lessons yet'}</Text>
+          <Text style={{ color: C.sub, marginTop: 4, textAlign: 'center' }}>{tab === 'upcoming' ? 'Book a lesson or a plane to get started.' : 'Finished lessons, receipts and debriefs show up here.'}</Text>
+          {tab === 'upcoming' && <Button title="Find a lesson" style={{ marginTop: 14, alignSelf: 'stretch' }} onPress={() => nav.goTab('Explore')} />}
+        </View>
+      )}
+      {list.map(card)}
     </ScrollView>
+  );
+}
+
+// One upcoming lesson: preflight first, homework, cost, then directions, calendar and cancel.
+export function LessonDetail({ nav, params }) {
+  const { requests, getCfi, getPlane } = useStore();
+  const lib = useLibrary();
+  React.useEffect(() => { lib.refresh(); }, []);
+  const r = requests.find((x) => x.id === params.id);
+  if (!r) return null;
+  const c = getCfi(r.cfiId);
+  const p = getPlane(r.planeId);
+  const review = lib.reviews.find((x) => x.bookingId === r.id && x.studentId === lib.uid);
+  const airport = p?.homeAirport || c?.homeAirport;
+  const start = r.when ? new Date(r.when) : null;
+  const end = start ? new Date(start.getTime() + ((r.flightHours || 1) + (r.groundHours || 0)) * 3600e3) : null;
+  const ics = start ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`${r.goal}${c ? ` with ${c.name}` : ''}`)}&dates=${start.toISOString().replace(/[-:]|\.\d{3}/g, '')}/${end.toISOString().replace(/[-:]|\.\d{3}/g, '')}&location=${encodeURIComponent(airport || '')}` : null;
+  const open = (url) => require('react-native').Linking.openURL(url).catch(() => {});
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <Header nav={nav} title="Lesson" />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: C.text }} accessibilityRole="header">{r.goal}</Text>
+            <Text style={{ color: C.sub, fontSize: 15, marginTop: 2 }}>{r.date} · {r.time}{airport ? ` · ${airport}` : ''}</Text>
+          </View>
+          {statusTag(r)}
+        </View>
+        <Card style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14 }}>
+          {c ? <Avatar initials={c.initials} color={c.color} size={44} photo={c.photo} /> : p ? <PlaneImage plane={p} size={44} /> : null}
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={{ fontWeight: '800', color: C.text }}>{c ? c.name : 'Solo rental'}</Text>
+            <Text style={{ color: C.sub, fontSize: 13 }}>{p ? `${p.year} ${p.make} ${p.model} · ${p.tail}` : r.ownPlane ? 'Your aircraft' : ''}</Text>
+          </View>
+          {(c || p) && <IconBtn icon="chat" label="Message" onPress={() => nav.push('Chat', { key: c ? c.id : p.id })} />}
+        </Card>
+        {r.status === 'Confirmed' && <Button title="Start preflight" icon="checkCircle" onPress={() => nav.push('Preflight', { bookingId: r.id })} />}
+        {r.status === 'Pending' && <Text style={[bs.hint, { marginTop: 0 }]}>Preflight opens once {c ? c.name.split(' ')[0] : 'the owner'} confirms.</Text>}
+
+        {review && (
+          <>
+            <Text style={[bs.kicker, { marginTop: 18 }]}>Homework</Text>
+            <ReviewChip review={review} studied={lib.studied} onPress={() => nav.push('PreflightReview', { bookingId: r.id })} />
+          </>
+        )}
+
+        <Text style={[bs.kicker, { marginTop: 18 }]}>Cost</Text>
+        <Card>
+          <Row label={`${r.flightHours} hr flight${r.groundHours ? ` + ${r.groundHours} hr ground` : ''}`} value={money2(r.myTotal ?? r.total)} bold />
+          <Text style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>Estimate. Your card is charged after the flight for actual Hobbs time. Weather cancellations are free.</Text>
+        </Card>
+
+        <Text style={[bs.kicker, { marginTop: 18 }]}>Getting there</Text>
+        <Card style={{ paddingVertical: 4 }}>
+          {airport && (
+            <Pressable onPress={() => open(`https://maps.apple.com/?q=${encodeURIComponent(airport + ' airport')}`)} style={bs.detailRow} accessibilityRole="link">
+              <Icon name="pin" size={20} color={C.navy} />
+              <Text style={bs.detailText}>Directions to {airport}</Text>
+              <Icon name="chevron" size={18} color={C.chevron} />
+            </Pressable>
+          )}
+          {ics && (
+            <Pressable onPress={() => open(ics)} style={[bs.detailRow, airport && { borderTopWidth: 1, borderTopColor: C.line }]} accessibilityRole="link">
+              <Icon name="calendar" size={20} color={C.navy} />
+              <Text style={bs.detailText}>Add to calendar</Text>
+              <Icon name="chevron" size={18} color={C.chevron} />
+            </Pressable>
+          )}
+        </Card>
+
+        {['Pending', 'Confirmed'].includes(r.status) && r.role !== 'partner' && (
+          <>
+            <Text style={[bs.kicker, { marginTop: 18 }]}>Change of plans</Text>
+            {(c || p) && <Button title="Ask to reschedule" variant="outline" onPress={() => nav.push('Chat', { key: c ? c.id : p.id, draft: `Hi! Could we move ${r.goal.toLowerCase()} on ${r.date} to another time?` })} />}
+            <Button title="Cancel lesson" variant="danger" style={{ marginTop: 10 }} onPress={() => nav.push('Cancel', { id: r.id })} />
+          </>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+function IconBtn({ icon, label, onPress }) {
+  return (
+    <Pressable onPress={onPress} style={bs.iconBtn} accessibilityRole="button" accessibilityLabel={label}>
+      <Icon name={icon} size={20} color={C.navy} />
+    </Pressable>
   );
 }
 
@@ -787,7 +870,7 @@ const CANCEL_REASONS = ['Weather', 'Aircraft maintenance / squawk', 'Instructor 
 export function CancelLesson({ nav, params }) {
   const { getRequest, getCfi, cancelRequest, refreshLive } = useStore();
   const r = getRequest(params.id);
-  const [reason, setReason] = useState('Weather');
+  const [reason, setReason] = useState(null); // nothing preselected
   const [done, setDone] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -828,28 +911,38 @@ export function CancelLesson({ nav, params }) {
               <Text style={{ color: C.sub, marginTop: 2 }}>{r.date} · {r.time} · {late ? 'less than 24 hrs away' : 'more than 24 hrs away'}</Text>
             </Card>
             <SectionTitle>Why are you cancelling?</SectionTitle>
-            {CANCEL_REASONS.map((x) => (
-              <Pressable key={x} onPress={() => setReason(x)} style={[bs.pay, reason === x && bs.pickOn]}>
-                <Text style={{ flex: 1, fontWeight: '700', color: C.text }}>{x}</Text>
-                <Text style={{ color: (r.live ? liveFee > 0 : x === 'Personal / schedule change' && late) ? '#B45309' : C.green, fontWeight: '800', fontSize: 12 }}>
-                  {r.live ? (liveFee > 0 ? 'Late fee' : 'Free') : x === 'Personal / schedule change' ? (late ? 'Late fee' : 'Free') : 'Always free'}
-                </Text>
-              </Pressable>
-            ))}
-            <Card style={{ marginTop: 8 }}>
-              <Row bold label="Cancellation charge" value={money2(fee)} />
-              {r.live && liveFee > 0 && <Text style={[bs.warn, { marginTop: 6 }]}>Cancelling for weather or a plane problem? Message {cfi ? cfi.name.split(' ')[0] : 'your instructor'} and ask them to cancel. When they cancel, it’s free.</Text>}
-              <Text style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>
-                Policy: weather, maintenance and instructor cancellations are always free. Personal cancellations are free until 24 hrs before; after that, 50% of instruction goes to your CFI.
-              </Text>
-            </Card>
+            {CANCEL_REASONS.map((x) => {
+              const confirmed = x === 'Weather' || x.startsWith('Aircraft') || x.startsWith('Instructor');
+              const tag = confirmed ? `Free once ${x.startsWith('Aircraft') ? 'the owner' : cfi ? cfi.name.split(' ')[0] : 'the owner'} confirms` : late ? 'Late fee applies' : 'Free';
+              return (
+                <Pressable key={x} onPress={() => setReason(x)} style={[bs.pay, reason === x && bs.pickOn]} accessibilityRole="radio" accessibilityState={{ checked: reason === x }}>
+                  <View style={[bs.radio, reason === x && { borderColor: C.navy }, { marginRight: 12 }]}>{reason === x && <View style={bs.radioDot} />}</View>
+                  <Text style={{ flex: 1, fontWeight: '700', color: C.text }}>{x}</Text>
+                  <Text style={{ color: !confirmed && late ? C.amberDark : C.green, fontWeight: '700', fontSize: 12, maxWidth: 130, textAlign: 'right' }}>{tag}</Text>
+                </Pressable>
+              );
+            })}
+            {reason && (
+              <Card style={{ marginTop: 8 }}>
+                <Row bold label="Cancellation charge" value={money2(fee)} />
+                {(reason === 'Weather' || reason.startsWith('Aircraft') || reason.startsWith('Instructor')) && (
+                  <Text style={[bs.warn, { marginTop: 6 }]}>We’ll ask {reason.startsWith('Aircraft') ? 'the owner' : cfi ? cfi.name.split(' ')[0] : 'the owner'} to confirm. Once they do, any charge is refunded.</Text>
+                )}
+              </Card>
+            )}
+            <Text style={{ color: C.sub, fontSize: 13, lineHeight: 18, marginTop: 8 }}>
+              Free until 24 hours before. After that, half the instruction goes to your instructor, unless it’s weather, maintenance or they cancel.
+            </Text>
           </>
         )}
       </ScrollView>
       {done === null && (
         <View style={bs.cta}>
           {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', position: 'absolute', top: -24, left: 16 }}>{err}</Text>}
-          <Button title={busy ? 'Cancelling…' : fee ? `Cancel & pay ${money2(fee)}` : 'Cancel lesson — no charge'} style={{ flex: 1, backgroundColor: '#B91C1C' }} disabled={busy} onPress={cancel} />
+          <View style={{ flex: 1 }}>
+            <Button title={busy ? 'Cancelling…' : !reason ? 'Pick a reason' : fee ? `Cancel & pay ${money2(fee)}` : 'Cancel lesson'} variant="danger" disabled={busy || !reason} onPress={cancel} />
+            <Button title="Keep my lesson" variant="ghost" style={{ marginTop: 4 }} onPress={nav.pop} />
+          </View>
         </View>
       )}
     </View>
@@ -961,6 +1054,9 @@ export function Receipt({ nav, params }) {
   const { getRequest, getCfi, getPlane, getSchool, dispute, debriefForRequest } = useStore();
   const r = getRequest(params.id);
   const [showDispute, setShowDispute] = useState(false);
+  const [problem, setProblem] = useState(null);
+  const [details, setDetails] = useState('');
+  const [photos, setPhotos] = useState([]);
   if (!r || !r.receipt) return null;
   const q = r.receipt;
   const cfi = getCfi(r.cfiId);
@@ -990,40 +1086,37 @@ export function Receipt({ nav, params }) {
           <Text style={{ color: C.sub, marginTop: 2 }}>{r.date} · {r.time}</Text>
           {plane && <Row label={`Hobbs ${q.hobbsOut} → ${q.hobbsIn}`} value={`${r2(q.hobbsIn - q.hobbsOut)} hr`} />}
           <View style={{ height: 1, backgroundColor: C.line, marginVertical: 6 }} />
-          {q.instruction > 0 && <Row label={`Flight instruction · ${cfi?.name}`} value={money2(q.instruction)} />}
-          {q.ground > 0 && <Row label="Ground instruction" value={money2(q.ground)} />}
-          {q.aircraft > 0 && <Row label={`${plane.tail} · ${money(q.rate)}/hr${q.prepaidSavings ? ' (prepaid)' : ''}`} value={money2(q.aircraft)} />}
+          {q.instruction > 0 && <Row label={`Flight instruction · ${r2(q.hobbsIn - q.hobbsOut || r.flightHours)} hr × ${money(cfi?.flightRate || 0)}`} value={money2(q.instruction)} />}
+          {q.ground > 0 && <Row label={`Ground · ${r.groundHours} hr × ${money(cfi?.groundRate || 0)}`} value={money2(q.ground)} />}
+          {q.aircraft > 0 && <Row label={`${plane.tail} · ${r2(q.hobbsIn - q.hobbsOut || r.flightHours)} hr × ${money(q.rate)}`} value={money2(q.aircraft)} />}
           {q.protection > 0 && <Row label="Rental protection" value={money2(q.protection)} />}
           <Row label={q.bookingFee ? 'Booking fee' : q.waivedFee ? 'Booking fee (waived — Short Final)' : 'Booking fee'} value={money2(q.bookingFee)} />
           <View style={{ height: 1, backgroundColor: C.line, marginVertical: 6 }} />
-          <Row bold label={`Paid · ${q.paidWith}`} value={money2(q.total)} />
+          <Row bold label={`Paid · ${q.paidWith === 'Wallet' ? 'Card' : q.paidWith || 'Card'}`} value={money2(q.total)} />
           {q.prepaidSavings > 0 && <Text style={{ color: C.green, fontWeight: '700', fontSize: 12 }}>You saved {money2(q.prepaidSavings)} with prepaid block rates.</Text>}
           {q.depositReleased > 0 && <Text style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>Damage deposit hold of {money2(q.depositReleased)} released.</Text>}
         </Card>
 
-        <SectionTitle>Where your money went</SectionTitle>
-        <Card>
-          {cfi && <Row label={`${cfi.name} (instructor)`} value={money2(q.split.cfi)} />}
-          {cfi && q.split.school > 0 && (
-            <Row label={`${getSchool(cfi.schoolId)?.name || 'Flight school'} (school share)`} value={money2(q.split.school)} />
-          )}
-          {plane && <Row label={`${plane.ownerName} (aircraft)`} value={money2(q.split.owner)} />}
-          {q.split.protection > 0 && <Row label="Insurance partner (rental protection)" value={money2(q.split.protection)} />}
-          {q.split.processing > 0 && <Row label="Card processing (Stripe)" value={money2(q.split.processing)} />}
-          <Row label="Positive Rate" value={money2(q.split.platform)} />
-          <Text style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>Paid out automatically through Stripe Connect. No Venmo, no chasing invoices.</Text>
-        </Card>
+        <Button title="Share receipt" variant="outline" icon="share" onPress={() => require('react-native').Share.share({ message: `Positive Rate receipt · ${r.goal} · ${r.date} · ${money2(q.total)}${plane ? ` · ${plane.tail} Hobbs ${q.hobbsOut}–${q.hobbsIn}` : ''}` }).catch(() => {})} />
 
         <SectionTitle>Problem with this flight?</SectionTitle>
         {r.dispute ? (
-          <Text style={bs.warn}>Dispute opened {r.dispute.opened}: {r.dispute.reason} · {r.dispute.status}. We hold the payout until it’s resolved.</Text>
+          <Banner tone="amber" icon="info" title={`Problem reported · ${r.dispute.status}`}>{`${r.dispute.reason}. We reply within 48 hours and resolve most reports within 5 business days. The payout is held until then.`}</Banner>
         ) : showDispute ? (
-          DISPUTES.map((d) => (
-            <Pressable key={d} onPress={() => { dispute(r.id, d); setShowDispute(false); }} style={bs.pay}>
-              <Text style={{ flex: 1, fontWeight: '700', color: C.text }}>{d}</Text>
-              <Text style={{ color: C.blue, fontWeight: '800' }}>›</Text>
-            </Pressable>
-          ))
+          <Card>
+            <Text style={{ fontWeight: '800', color: C.text, marginBottom: 6 }}>What went wrong?</Text>
+            {DISPUTES.map((d) => (
+              <Pressable key={d} onPress={() => setProblem(d)} style={[bs.pay, problem === d && bs.pickOn]} accessibilityRole="radio" accessibilityState={{ checked: problem === d }}>
+                <View style={[bs.radio, problem === d && { borderColor: C.navy }, { marginRight: 12 }]}>{problem === d && <View style={bs.radioDot} />}</View>
+                <Text style={{ flex: 1, fontWeight: '700', color: C.text }}>{d}</Text>
+              </Pressable>
+            ))}
+            <Field label="Details (optional)" value={details} onChangeText={setDetails} multiline placeholder="e.g. Hobbs read 6421.8 when we shut down" />
+            <Button title={photos.length ? `${photos.length} photo${photos.length > 1 ? 's' : ''} added · add more` : 'Add a photo (Hobbs, receipt, damage)'} variant="outline" icon="camera" small
+              onPress={async () => { const { pickImages } = require('../ui'); const u = await pickImages(true); if (u.length) setPhotos((x) => [...x, ...u]); }} />
+            <Text style={[bs.hint, { marginTop: 8 }]}>We reply within 48 hours and resolve most reports within 5 business days.</Text>
+            <Button title="Send report" disabled={!problem} style={{ marginTop: 10 }} onPress={() => { dispute(r.id, details.trim() ? `${problem}: ${details.trim()}` : problem); setShowDispute(false); }} />
+          </Card>
         ) : (
           <Button title="Report a problem" variant="outline" onPress={() => setShowDispute(true)} />
         )}
@@ -1045,8 +1138,10 @@ export function LeaveReview({ nav, params }) {
   const [rating, setRating] = useState(0);
   const [tags, setTags] = useState([]);
   const [text, setText] = useState('');
-  const [name, setName] = useState('');
   if (!r) return null;
+  // Shown as first name + last initial, from the account (never typed in).
+  const full = (auth?.account?.full_name || '').trim().split(/\s+/);
+  const displayName = full[0] ? `${full[0]}${full[1] ? ` ${full[full.length - 1][0]}.` : ''}` : 'Positive Rate pilot';
   const isCfi = params.kind === 'cfi';
   const target = isCfi ? getCfi(r.cfiId) : getPlane(r.planeId);
   const role = isCfi || r.cfiId ? 'Student' : 'Renter';
@@ -1064,7 +1159,7 @@ export function LeaveReview({ nav, params }) {
       return;
     }
     const review = {
-      name: name.trim() || 'Positive Rate pilot', verified: true, role, lesson: r.goal,
+      name: displayName, verified: true, role, lesson: r.goal,
       date: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), bookingId: r.id, tags, rating, text: text.trim(),
     };
     addReview(isCfi ? 'cfi' : 'plane', target.id, review);
@@ -1085,22 +1180,21 @@ export function LeaveReview({ nav, params }) {
             <View style={{ flexDirection: 'row', marginTop: 6 }}><VerifiedBadge role={role} /></View>
           </View>
         </Card>
-        <Text style={{ color: C.sub, fontSize: 12, marginBottom: 6 }}>
-          Your review is tied to booking #{r.id.slice(0, 8).toUpperCase()}, so it shows a verified badge. Only people who completed a booking can review.
+        <Text style={{ color: C.sub, fontSize: 13, marginBottom: 6, lineHeight: 18 }}>
+          Only people who completed a booking can review, so yours shows a verified badge.
         </Text>
         <SectionTitle>Overall rating</SectionTitle>
-        <StarPicker value={rating} onChange={setRating} />
+        <StarPicker value={rating} onChange={setRating} size={44} />
+        <Text style={{ color: C.sub, marginTop: 4 }}>{rating ? ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][rating] : 'Tap a star to rate'}</Text>
         <SectionTitle>What stood out?</SectionTitle>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
           {(isCfi ? CFI_TAGS : PLANE_TAGS).map((t) => (
             <Chip key={t} small label={t} active={tags.includes(t)} onPress={() => setTags(tags.includes(t) ? tags.filter((x) => x !== t) : [...tags, t])} />
           ))}
         </View>
-        <SectionTitle>Tell other pilots</SectionTitle>
+        <SectionTitle>Tell other pilots (optional)</SectionTitle>
         <Field multiline value={text} onChangeText={setText} placeholder={isCfi ? 'How was the lesson, briefing and debrief?' : 'Condition, squawks, scheduling, billing…'} />
-        {r.live
-          ? <Text style={{ color: C.sub, fontSize: 12 }}>Shown with your first name and last initial.</Text>
-          : <Field label="Display name" value={name} onChangeText={setName} placeholder="e.g. Sam C." />}
+        <Text style={{ color: C.sub, fontSize: 12 }}>Shown as “{displayName}”.</Text>
         {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', marginTop: 10 }}>{err}</Text>}
       </ScrollView>
       <View style={bs.cta}>
@@ -1117,28 +1211,45 @@ const bs = StyleSheet.create({
   fixRow: { minHeight: 40, justifyContent: 'center' },
   fixText: { color: C.blue, fontWeight: '800' },
   split: { backgroundColor: '#EEF4FF', borderRadius: 12, padding: 12, marginTop: 10 },
-  stepNum: { width: 24, height: 24, borderRadius: 12, backgroundColor: C.blue, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  summary: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 14, marginTop: 18, marginBottom: 8, borderWidth: 1, borderColor: '#D1FAE5' },
+  stepNum: { width: 24, height: 24, borderRadius: 12, backgroundColor: C.amber, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  summary: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 14, marginTop: 18, marginBottom: 8, borderWidth: 1, borderColor: C.line, minHeight: 52 },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#CBD5E1', alignItems: 'center', justifyContent: 'center' },
-  radioDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: C.blue },
+  radioDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: C.navy },
   h1: { fontSize: 28, fontWeight: '900', color: C.text, marginTop: 6 },
   hint: { color: C.sub, fontSize: 12, marginBottom: 6 },
-  pick: { width: 112, backgroundColor: '#fff', borderRadius: 14, padding: 10, marginRight: 10, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  pickOn: { borderColor: C.blue, backgroundColor: C.sky },
+  pick: { width: 116, backgroundColor: '#fff', borderRadius: 14, padding: 10, marginRight: 10, alignItems: 'center', borderWidth: 1, borderColor: C.line, minHeight: 112 },
+  pickOn: { borderWidth: 2, borderColor: C.navy, backgroundColor: '#fff' },
   pickName: { fontWeight: '800', color: C.text, marginTop: 6, fontSize: 13 },
   pickSub: { color: C.sub, fontSize: 11, marginTop: 1, textAlign: 'center' },
   flies: { color: C.green, fontSize: 10, fontWeight: '800', marginTop: 3, textAlign: 'center' },
-  soloIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EEF1F5', alignItems: 'center', justifyContent: 'center' },
+  soloIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center' },
   date: { width: 64, paddingVertical: 10, backgroundColor: '#fff', borderRadius: 12, alignItems: 'center', marginRight: 8, borderWidth: 2, borderColor: 'transparent' },
   slots: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 10 },
-  slot: { width: '31.5%', backgroundColor: '#fff', borderRadius: 12, paddingVertical: 10, alignItems: 'center', marginBottom: 8, borderWidth: 1.5, borderColor: C.line },
+  slot: { width: '31.5%', backgroundColor: '#fff', borderRadius: 12, paddingVertical: 10, minHeight: 44, justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 1.5, borderColor: C.border },
   slotBusy: { backgroundColor: '#F1F3F7', borderColor: '#F1F3F7' },
-  pay: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 2, borderColor: 'transparent' },
+  pay: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: C.line, minHeight: 64 },
+  cardIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  detailsRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingHorizontal: 4, marginBottom: 6 },
   repeat: { flexDirection: 'row', backgroundColor: '#DDF3E8', borderRadius: 8, padding: 8, marginVertical: 4 },
   covered: { backgroundColor: C.sky, borderRadius: 14, padding: 14, marginTop: 16 },
   coveredLine: { color: C.navy, fontSize: 13, marginTop: 3 },
   warn: { color: '#B45309', backgroundColor: '#FEF3C7', padding: 10, borderRadius: 10, marginBottom: 8, fontSize: 12, fontWeight: '600' },
   cta: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 14, paddingBottom: 24, borderTopWidth: 1, borderTopColor: C.line },
+  kicker: { color: C.sub, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 8 },
+  nextRow: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: C.line, padding: 12, marginBottom: 8 },
+  nextNum: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.amberBg, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  cardActions: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  more: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, borderColor: C.chevron, alignItems: 'center', justifyContent: 'center' },
+  links: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 },
+  linkBtn: { minHeight: 44, justifyContent: 'center', marginRight: 18 },
+  link: { color: C.blue, fontWeight: '700' },
+  seg: { flexDirection: 'row', backgroundColor: C.sky, borderRadius: 12, padding: 4, marginTop: 12, marginBottom: 14 },
+  segBtn: { flex: 1, minHeight: 40, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  segOn: { backgroundColor: '#fff' },
+  emptyIcon: { width: 60, height: 60, borderRadius: 18, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center' },
+  detailRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52 },
+  detailText: { flex: 1, marginLeft: 12, fontWeight: '700', color: C.text },
+  iconBtn: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, borderColor: C.chevron, alignItems: 'center', justifyContent: 'center' },
   check: { width: 84, height: 84, borderRadius: 42, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
   actions: { flexDirection: 'row', marginTop: 12 },
   action: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#F1F5F9', marginRight: 8 },

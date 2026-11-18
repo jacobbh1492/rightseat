@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Linking, RefreshControl, Platform } from 'react-native';
-import { C, Card, Button, Chip, SectionTitle, Tag } from '../ui';
+import { C, Card, Button, SectionTitle, Tag, Banner } from '../ui';
 import { Header } from './Details';
 import { CheckList } from './Booking';
 import { useStore } from '../store';
@@ -11,7 +11,7 @@ import { fetchWeather, weatherChecks, verdict, windText, IMSAFE, CATEGORY_INFO }
 
 const VERDICT = {
   go: ['GO', 'Everything checks out. You’re the pilot in command: make the final call.', C.green, '#DDF3E8', '#A7F3D0'],
-  caution: ['CAUTION', 'Nothing blocks the flight, but review the items marked ! before you go.', '#B45309', '#FEF3C7', '#FCD34D'],
+  caution: ['CAUTION', '', '#92400E', '#FEF3C7', '#FCD34D'],
   'no-go': ['NO-GO', 'Something has to be fixed before this flight.', '#B91C1C', '#FEE2E2', '#FCA5A5'],
 };
 const ago = (d) => {
@@ -34,6 +34,7 @@ export function Preflight({ nav, params }) {
   const [wx, setWx] = useState({ loading: true, metar: null, taf: '', error: '' });
   const [imsafe, setImsafe] = useState({});
   const [showRaw, setShowRaw] = useState(false);
+  const [ready, setReady] = useState(null); // when the pilot confirmed go
 
   const loadWx = async () => {
     setWx((w) => ({ ...w, loading: true, error: '' }));
@@ -63,8 +64,12 @@ export function Preflight({ nav, params }) {
 
         {vi ? (
           <Card style={{ backgroundColor: vi[3], borderWidth: 1.5, borderColor: vi[4], marginTop: 10 }}>
-            <Text style={{ fontSize: 28, fontWeight: '900', color: vi[2], letterSpacing: 1 }}>{vi[0]}</Text>
-            <Text style={{ color: C.text, marginTop: 4, lineHeight: 19 }}>{vi[1]}</Text>
+            <Text style={{ fontSize: 28, fontWeight: '900', color: vi[2], letterSpacing: 1 }} accessibilityRole="header">{vi[0]}</Text>
+            <Text style={{ color: C.text, marginTop: 4, lineHeight: 19 }}>{v === 'caution' ? (() => {
+              const n = all.filter((c) => !c.ok).length + IMSAFE.filter((i) => imsafe[i.key] !== true).length;
+              const unanswered = IMSAFE.filter((i) => imsafe[i.key] == null).length;
+              return `${n} item${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} review before you go${unanswered ? ` (${unanswered} I’M SAFE question${unanswered === 1 ? '' : 's'} unanswered)` : ''}.`;
+            })() : vi[1]}</Text>
           </Card>
         ) : <Card style={{ marginTop: 10 }}><Text style={ps.sub}>Checking weather…</Text></Card>}
 
@@ -83,11 +88,14 @@ export function Preflight({ nav, params }) {
               </Pressable>
               {showRaw && <Text style={ps.raw} selectable>{wx.metar.raw}{wx.taf ? `\n\n${wx.taf}` : ''}</Text>}
             </>
-          ) : <Text style={ps.sub}>{wx.loading ? 'Loading…' : wx.error}</Text>}
+          ) : wx.loading ? <Text style={ps.sub}>Loading…</Text> : (
+            <View>
+              <Text style={{ color: C.red, fontWeight: '700' }} accessibilityRole="alert">{wx.error}</Text>
+              <Button title="Retry" variant="outline" small icon="refresh" style={{ marginTop: 8 }} onPress={loadWx} />
+            </View>
+          )}
           <CheckList checks={weather} />
-          <Pressable onPress={() => Linking.openURL('https://www.1800wxbrief.com').catch(() => {})} accessibilityRole="link" style={{ marginTop: 4 }}>
-            <Text style={{ color: C.blue, fontWeight: '700' }}>Get an official briefing (1800wxbrief) ›</Text>
-          </Pressable>
+          <Button title="Get an official briefing (1-800-WX-BRIEF)" variant="outline" small style={{ marginTop: 8 }} onPress={() => Linking.openURL('https://www.1800wxbrief.com').catch(() => {})} />
           <Text style={[ps.sub, { fontSize: 11, marginTop: 6 }]}>From aviationweather.gov. A planning aid, not a briefing: 14 CFR 91.103 asks you to review weather, fuel, runways and NOTAMs before every flight.</Text>
         </Card>
 
@@ -112,18 +120,30 @@ export function Preflight({ nav, params }) {
 
         <SectionTitle>I’M SAFE</SectionTitle>
         <Card>
-          {IMSAFE.map((i) => (
-            <View key={i.key} style={ps.safeRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '800', color: C.text }}>{i.label}</Text>
-                <Text style={ps.sub}>{i.ask}</Text>
+          {IMSAFE.map((i, n) => {
+            const val = imsafe[i.key];
+            return (
+              <View key={i.key} style={[ps.safeRow, n === 0 && { borderTopWidth: 0 }]} accessibilityRole="radiogroup" accessibilityLabel={`${i.label}: ${i.ask}`}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: C.sub, textTransform: 'uppercase', letterSpacing: 0.5 }}>{i.label}</Text>
+                  <Text style={{ fontWeight: '700', color: C.text, fontSize: 15, marginTop: 1 }}>{i.ask}</Text>
+                </View>
+                <Pressable onPress={() => { setImsafe((x) => ({ ...x, [i.key]: true })); setReady(null); }} style={[ps.ans, val === true && ps.ansOk]} accessibilityRole="radio" accessibilityState={{ checked: val === true }} accessibilityLabel="OK">
+                  <Text style={{ fontWeight: '800', color: val === true ? '#fff' : C.text }}>{val === true ? '✓ OK' : 'OK'}</Text>
+                </Pressable>
+                <Pressable onPress={() => { setImsafe((x) => ({ ...x, [i.key]: false })); setReady(null); }} style={[ps.ans, val === false && ps.ansBad]} accessibilityRole="radio" accessibilityState={{ checked: val === false }} accessibilityLabel="Not OK">
+                  <Text style={{ fontWeight: '800', color: val === false ? '#fff' : C.red }}>{val === false ? '✕ Not OK' : 'Not OK'}</Text>
+                </Pressable>
               </View>
-              <Chip small label="Yes" active={imsafe[i.key] === true} onPress={() => setImsafe((x) => ({ ...x, [i.key]: true }))} />
-              <Chip small label="No" active={imsafe[i.key] === false} onPress={() => setImsafe((x) => ({ ...x, [i.key]: false }))} />
-            </View>
-          ))}
-          {IMSAFE.some((i) => imsafe[i.key] === false) && <Text style={[ps.sub, { color: '#B91C1C', fontWeight: '700', marginTop: 6 }]}>Not today is a good decision. Cancel for free if it’s weather; message your {solo ? 'owner' : 'instructor'} otherwise.</Text>}
+            );
+          })}
+          {IMSAFE.some((i) => imsafe[i.key] === false) && <Text style={[ps.sub, { color: C.red, fontWeight: '700', marginTop: 8 }]} accessibilityRole="alert">Not today is a good decision. Cancel for free if it’s weather; message your {solo ? 'owner' : 'instructor'} otherwise.</Text>}
         </Card>
+        {v === 'go' && (
+          ready
+            ? <Banner tone="green" icon="checkCircle" title="You’re ready to fly">{`Go decision logged at ${ready.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Have a great flight.`}</Banner>
+            : <Button title="I’m ready to fly" icon="check" onPress={() => setReady(new Date())} style={{ marginTop: 4 }} />
+        )}
       </ScrollView>
     </View>
   );
@@ -132,5 +152,8 @@ export function Preflight({ nav, params }) {
 const ps = StyleSheet.create({
   sub: { color: C.sub, fontSize: 13, lineHeight: 18 },
   raw: { fontFamily: Platform.select({ ios: 'Courier', default: 'monospace' }), fontSize: 12, color: C.text, marginTop: 6, backgroundColor: '#F1F5F9', padding: 8, borderRadius: 8 },
-  safeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  safeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.line },
+  ans: { minWidth: 64, minHeight: 44, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginLeft: 6, backgroundColor: '#fff' },
+  ansOk: { backgroundColor: C.green, borderColor: C.green },
+  ansBad: { backgroundColor: C.red, borderColor: C.red },
 });

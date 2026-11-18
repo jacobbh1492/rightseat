@@ -78,13 +78,14 @@ export function weatherChecks(w, { solo = false, now = new Date() } = {}) {
 }
 
 // I'M SAFE: the pilot's own fitness to fly (FAA Risk Management Handbook, PHAK ch. 2).
+// Each item is a positive statement, so "OK" can only mean "I'm fit to fly".
 export const IMSAFE = [
-  { key: 'illness', label: 'Illness', ask: 'Feeling well, no symptoms?' },
-  { key: 'medication', label: 'Medication', ask: 'No medication that affects flying?' },
-  { key: 'stress', label: 'Stress', ask: 'Not under unusual pressure today?' },
-  { key: 'alcohol', label: 'Alcohol', ask: 'Nothing in the last 8 hours (and under .04)?' },
-  { key: 'fatigue', label: 'Fatigue', ask: 'Rested?' },
-  { key: 'emotion', label: 'Emotion / eating', ask: 'Calm, fed and hydrated?' },
+  { key: 'illness', label: 'Illness', ask: 'I feel well, with no symptoms' },
+  { key: 'medication', label: 'Medication', ask: 'I’m not taking anything that affects flying' },
+  { key: 'stress', label: 'Stress', ask: 'I’m not under unusual pressure today' },
+  { key: 'alcohol', label: 'Alcohol', ask: 'Nothing in the last 8 hours, and well under .04' },
+  { key: 'fatigue', label: 'Fatigue', ask: 'I’m rested' },
+  { key: 'emotion', label: 'Eating & emotion', ask: 'I’m calm, fed and hydrated' },
 ];
 
 // go | caution | no-go. Blocking failures (aircraft or pilot) are a no-go; anything else

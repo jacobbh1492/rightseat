@@ -99,7 +99,7 @@ function LiveChat({ nav, params, uid, other, cfi, plane }) {
   const { requests, teaching } = useStore();
   const [thread, setThread] = useState(null);
   const [msgs, setMsgs] = useState([]);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(params?.draft || '');
   const [notice, setNotice] = useState(null);
   const [err, setErr] = useState('');
   const [sending, setSending] = useState(false);
@@ -189,7 +189,7 @@ function LiveChat({ nav, params, uid, other, cfi, plane }) {
 function DemoChat({ nav, params }) {
   const store = useStore();
   const { threads, sendMessage, hasBookingWith, getCfi, getPlane } = store;
-  const [text, setText] = useState('');
+  const [text, setText] = useState(params?.draft || '');
   const [notice, setNotice] = useState(null);
   const ref = useRef(null);
   const key = params.key;

@@ -415,7 +415,7 @@ export function StarPicker({ value, onChange, size = 34 }) {
     <View style={{ flexDirection: 'row' }}>
       {[1, 2, 3, 4, 5].map((n) => (
         <Pressable key={n} onPress={() => onChange(n)} hitSlop={6} style={{ marginRight: 6 }} accessibilityRole="button" accessibilityLabel={`${n} star${n > 1 ? 's' : ''}`} accessibilityState={{ selected: n <= value }}>
-          <Text style={{ fontSize: size, color: n <= value ? C.amber : '#CBD5E1' }}>★</Text>
+          <Icon name="star" size={size} color={n <= value ? C.amberDark : C.chevron} fill={n <= value ? C.amber : '#fff'} strokeWidth={1.5} />
         </Pressable>
       ))}
     </View>
