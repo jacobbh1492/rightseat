@@ -2,10 +2,11 @@
 import { dayAt, dateLabel } from './logic';
 
 export const GRADES = [
-  { key: 'intro', label: 'Introduced', color: '#5B6474', bg: '#EEF1F5' },
-  { key: 'practice', label: 'Needs practice', color: '#B45309', bg: '#FEF3C7' },
-  { key: 'solid', label: 'Solid', color: '#1D4ED8', bg: '#DBEAFE' },
-  { key: 'acs', label: 'Checkride standard', color: '#0E9F6E', bg: '#E3F7EF' },
+  // An ordered 4-step scale (1 → 4).
+  { key: 'intro', label: 'Introduced', short: 'Intro', color: '#5B6B82', bg: '#EEF2F7' },
+  { key: 'practice', label: 'Needs practice', short: 'Practice', color: '#92400E', bg: '#FEF3C7' },
+  { key: 'solid', label: 'Solid', short: 'Solid', color: '#0B1F3A', bg: '#E2E8F0' },
+  { key: 'acs', label: 'Checkride standard', short: 'Checkride', color: '#0B6E4F', bg: '#DDF3E8' },
 ];
 export const gradeOf = (k) => GRADES.find((g) => g.key === k) || GRADES[0];
 

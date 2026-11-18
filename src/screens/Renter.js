@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useStore } from '../store';
-import { C, Card, Button, Chip, Field, Row, SectionTitle, Tag } from '../ui';
+import { C, Card, Button, Chip, Field, Row, SectionTitle, Tag, Icon } from '../ui';
 import { Header } from './Details';
 import { RenterInsuranceSection } from './RenterInsurance';
 import { useAuth } from '../backend/auth';
@@ -42,9 +42,11 @@ export function PilotProfile({ nav }) {
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <Header nav={nav} title="Pilot profile" />
-        <View style={{ padding: 16 }}>
-          <Text style={st.sub}>Sign in to add your pilot profile.</Text>
-          <Button title="Sign in" style={{ marginTop: 12 }} onPress={() => nav.push('SignIn')} />
+        <View style={{ padding: 24, alignItems: 'center' }}>
+          <View style={st.gateIcon}><Icon name="file" size={26} color={C.navy} /></View>
+          <Text style={{ fontSize: 18, fontWeight: '900', color: C.text, marginTop: 12 }}>Sign in to add your pilot profile</Text>
+          <Text style={[st.sub, { textAlign: 'center', marginTop: 6 }]}>Owners check your certificate, medical and flight review before you rent solo.</Text>
+          <Button title="Sign in" style={{ marginTop: 16, alignSelf: 'stretch' }} onPress={() => nav.push('SignIn')} />
         </View>
       </View>
     );
@@ -74,7 +76,13 @@ export function PilotProfile({ nav }) {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Pilot profile" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
-        <Text style={st.sub}>Owners see this when you ask to rent their plane. We check it against every solo rental: medical, flight review and the plane’s insurance minimum.</Text>
+        <Text style={st.sub}>Who sees this: owners whose plane you ask to rent, and instructors you book. We check it before every solo rental: medical, flight review and the plane’s insurance minimum.</Text>
+        {!loading && (value.medicalExpires || reviewThrough) && (
+          <Card style={{ marginTop: 12, backgroundColor: C.sky, borderColor: C.sky }}>
+            {value.medicalExpires && <Text style={{ color: value.medicalExpires < todayYmd ? C.red : C.text, fontWeight: '700' }}>Medical: {value.medicalExpires < todayYmd ? 'expired' : 'good through'} {pretty(value.medicalExpires)}</Text>}
+            {!student && reviewThrough && <Text style={{ color: reviewThrough < todayYmd ? C.red : C.text, fontWeight: '700', marginTop: 4 }}>Flight review: {reviewThrough < todayYmd ? 'due since' : 'due by'} {pretty(reviewThrough)}</Text>}
+          </Card>
+        )}
         {loading ? <Text style={[st.sub, { marginTop: 16 }]}>Loading…</Text> : (
           <>
             <SectionTitle>Certificate</SectionTitle>
@@ -152,6 +160,7 @@ export function Checkouts({ nav }) {
     try { await decideCheckout(c.id, status, soloUntil); await load(); } catch (e) { setErr(e.message); }
     setBusy(null);
   };
+  const [tab, setTab] = useState('req');
   const pending = rows.filter((r) => r.status === 'requested');
   const approved = rows.filter((r) => r.status === 'approved');
 
@@ -164,7 +173,7 @@ export function Checkouts({ nav }) {
       <Card key={c.id}>
         <View style={st.rowTop}>
           <Text style={st.title}>{c.pilotName}</Text>
-          <Tag label={c.status === 'approved' ? 'Checked out' : 'Request'} color={c.status === 'approved' ? C.green : '#B45309'} bg={c.status === 'approved' ? '#E3F7EF' : '#FEF3C7'} />
+          <Tag label={c.status === 'approved' ? 'Checked out' : 'Request'} color={c.status === 'approved' ? C.green : '#B45309'} bg={c.status === 'approved' ? '#DDF3E8' : '#FEF3C7'} />
         </View>
         <Text style={st.sub}>{plane ? `${plane.tail} · ${plane.make} ${plane.model}` : 'Your plane'}{c.status === 'approved' && c.soloUntil ? ` · solo endorsement through ${pretty(c.soloUntil)}` : ''}</Text>
         {!!c.note && <Text style={[st.sub, { marginTop: 6, fontStyle: 'italic' }]}>“{c.note}”</Text>}
@@ -175,8 +184,13 @@ export function Checkouts({ nav }) {
             {p.certificate !== 'Student' && <Row label="Flight review" value={pretty(p.flightReviewDate)} />}
             <Row label="Total time" value={`${p.totalHours} hrs`} />
             {!!p.lastFlightDate && <Row label="Last flight" value={pretty(p.lastFlightDate)} />}
-            {checks.map((x) => <Text key={x.key} style={[st.sub, { color: x.ok ? C.green : x.blocking ? '#B91C1C' : '#B45309', fontWeight: '600' }]}>{x.ok ? '✓' : x.blocking ? '✗' : '!'} {x.label}</Text>)}
-            <Text style={[st.hint, { marginTop: 6 }]}>Self-reported. Check their certificate, medical and logbook before approving.</Text>
+            {checks.map((x) => (
+              <View key={x.key} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                <Icon name={x.ok ? 'check' : 'alert'} size={16} color={x.ok ? C.green : x.blocking ? C.red : C.amberDark} strokeWidth={x.ok ? 3 : 2} />
+                <Text style={[st.sub, { marginLeft: 6, flex: 1, color: x.ok ? C.text : x.blocking ? C.red : C.amberDark }]}>{x.label}</Text>
+              </View>
+            ))}
+            <Text style={[st.hint, { marginTop: 6 }]}>From the pilot’s profile (self-reported). Look at their certificate, medical and logbook on the checkout flight before approving.</Text>
           </View>
         ) : <Text style={[st.sub, { marginTop: 6, color: '#B45309' }]}>They haven’t filled in their pilot profile yet.</Text>}
         {c.status === 'requested' && p?.certificate === 'Student' && (
@@ -202,18 +216,37 @@ export function Checkouts({ nav }) {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
         <Text style={st.sub}>Pilots can only rent your plane solo once you mark them checked out. For student pilots, record their solo endorsement too (good for 90 days).</Text>
         {!!err && <Text style={st.err}>{err}</Text>}
-        <SectionTitle>Requests</SectionTitle>
-        {!loading && pending.length === 0 && <Text style={st.sub}>No checkout requests.</Text>}
-        {pending.map(card)}
-        <SectionTitle>Checked out</SectionTitle>
-        {!loading && approved.length === 0 && <Text style={st.sub}>Nobody yet.</Text>}
-        {approved.map(card)}
+        <View style={st.seg} accessibilityRole="tablist">
+          {[['req', `Requests (${pending.length})`], ['ok', `Checked out (${approved.length})`]].map(([k, l]) => (
+            <Pressable key={k} onPress={() => setTab(k)} style={[st.segBtn, tab === k && { backgroundColor: C.navy }]} accessibilityRole="tab" accessibilityState={{ selected: tab === k }}>
+              <Text style={{ fontWeight: '800', color: tab === k ? '#fff' : C.text }}>{l}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {tab === 'req' && !loading && pending.length === 0 && (
+          <Card>
+            <Text style={st.title}>No checkout requests</Text>
+            <Text style={[st.sub, { marginTop: 4 }]}>Pilots ask for a checkout from your plane’s page. You fly with them (or an approved instructor does), then approve them here so they can rent solo.</Text>
+            {myPlaneIds[0] && <Button title="View my plane’s page" variant="outline" small style={{ marginTop: 10 }} onPress={() => nav.push('Plane', { id: myPlaneIds[0] })} />}
+          </Card>
+        )}
+        {tab === 'req' && pending.map(card)}
+        {tab === 'ok' && !loading && approved.length === 0 && (
+          <Card>
+            <Text style={st.title}>No one checked out yet</Text>
+            <Text style={[st.sub, { marginTop: 4 }]}>Pilots you approve show here with their solo endorsement dates. You can remove a checkout at any time.</Text>
+          </Card>
+        )}
+        {tab === 'ok' && approved.map(card)}
       </ScrollView>
     </View>
   );
 }
 
 const st = StyleSheet.create({
+  gateIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.amberBg, alignItems: 'center', justifyContent: 'center' },
+  seg: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: C.line, padding: 4, marginTop: 12, marginBottom: 12 },
+  segBtn: { flex: 1, minHeight: 40, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   sub: { color: C.sub, fontSize: 13, lineHeight: 18 },
   hint: { color: C.sub, fontSize: 12, lineHeight: 17, marginTop: -8, marginBottom: 6 },
   err: { color: '#B91C1C', fontWeight: '600', marginTop: 10 },

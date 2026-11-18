@@ -3,13 +3,21 @@ import { dayAt, dateLabel, timeLabel } from './logic';
 // Sample seed data (fictional people and aircraft) for the prototype.
 
 export const AIRPORTS = [
-  { code: 'KPIE', name: 'St. Pete–Clearwater Intl' },
-  { code: 'KSPG', name: 'Albert Whitted' },
-  { code: 'KCLW', name: 'Clearwater Air Park' },
-  { code: 'KVDF', name: 'Tampa Executive' },
-  { code: 'KLAL', name: 'Lakeland Linder' },
-  { code: 'KBKV', name: 'Brooksville–Tampa Bay' },
+  { code: 'KPIE', name: 'St. Pete–Clearwater Intl', city: 'Clearwater', lat: 27.9102, lon: -82.6874 },
+  { code: 'KSPG', name: 'Albert Whitted', city: 'St. Petersburg', lat: 27.7651, lon: -82.6270 },
+  { code: 'KCLW', name: 'Clearwater Air Park', city: 'Clearwater', lat: 27.9767, lon: -82.7587 },
+  { code: 'KVDF', name: 'Tampa Executive', city: 'Tampa', lat: 27.9727, lon: -82.3453 },
+  { code: 'KLAL', name: 'Lakeland Linder', city: 'Lakeland', lat: 27.9889, lon: -82.0186 },
+  { code: 'KBKV', name: 'Brooksville–Tampa Bay', city: 'Brooksville', lat: 28.4736, lon: -82.4554 },
 ];
+
+// Straight-line distance in statute miles.
+export function milesBetween(a, b) {
+  const R = 3958.8, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 
 export const OWNER_TYPES = ['Private owner', 'Flying club', 'Flight school', 'Rental fleet', 'Leaseback'];
 
@@ -63,7 +71,7 @@ export const PLANES = [
     model: '172S Skyhawk',
     category: 'Single',
     homeAirport: 'KPIE',
-    color: '#1F6FEB',
+    color: '#1D4ED8',
     wetRate: 165,
     dryRate: 125,
     blockRate: 155,
@@ -102,7 +110,7 @@ export const PLANES = [
     model: 'PA-28-161 Warrior II',
     category: 'Single',
     homeAirport: 'KCLW',
-    color: '#0E9F6E',
+    color: '#0B6E4F',
     wetRate: 139,
     dryRate: 102,
     blockRate: 129,
@@ -217,7 +225,7 @@ export const PLANES = [
     model: 'SR20 G6',
     category: 'Single',
     homeAirport: 'KVDF',
-    color: '#DC2626',
+    color: '#B91C1C',
     wetRate: 255,
     dryRate: 205,
     blockRate: 239,
@@ -291,7 +299,7 @@ export const CFIS = [
     schoolId: 's1',
     name: 'Marcus Reyes',
     initials: 'MR',
-    color: '#1F6FEB',
+    color: '#1D4ED8',
     homeAirport: 'KPIE',
     alsoTeachesAt: ['KCLW', 'KSPG'],
     certs: ['CFI', 'CFII', 'MEI'],
@@ -335,7 +343,7 @@ export const CFIS = [
     monthEarnings: 2390,
     name: 'Sarah Whitfield',
     initials: 'SW',
-    color: '#0E9F6E',
+    color: '#0B6E4F',
     homeAirport: 'KCLW',
     alsoTeachesAt: ['KPIE'],
     certs: ['CFI', 'CFII'],
@@ -418,7 +426,7 @@ export const CFIS = [
     schoolId: 's2',
     name: 'Priya Nandakumar',
     initials: 'PN',
-    color: '#DC2626',
+    color: '#B91C1C',
     homeAirport: 'KVDF',
     alsoTeachesAt: ['KPIE', 'KLAL'],
     certs: ['CFI', 'CFII', 'MEI'],
@@ -526,7 +534,7 @@ export const SCHOOLS = [
     id: 's2',
     name: 'Skyline Aviation',
     initials: 'SA',
-    color: '#DC2626',
+    color: '#B91C1C',
     homeAirport: 'KVDF',
     trainingTypes: ['Part 61'],
     founded: 2019,
@@ -629,11 +637,14 @@ export const PACKS = [
 export const PLANS = {
   cfi: [
     { id: 'free', name: 'CFI Free', price: 0, perks: ['Profile & search listing', '5% host fee on first lesson with a new student', '$0 fee on repeat students', 'Standard payouts (2 days)'] },
-    { id: 'pro', name: 'CFI Pro', price: 29, perks: ['0% host fees — keep 100% of your rate', 'Free instant payouts', 'Search boost (labeled “Pro”)', 'Student progress & endorsement tools', 'Calendar sync'] },
+    { id: 'pro', name: 'CFI Pro', price: 9.99, recommended: true, perks: ['0% host fees — keep 100% of your rate', 'Free instant payouts', 'Search boost (labeled “Pro”)', 'Student progress & endorsement tools', 'Calendar sync'] },
   ],
   school: [
     { id: 'starter', name: 'School Starter', price: 99, perks: ['Company page with CFIs + fleet', 'Fleet & CFI scheduling', 'Up to 5 aircraft'] },
-    { id: 'pro', name: 'School Pro', price: 119, perks: ['Unlimited aircraft & instructors', 'Stage checks & training records', '$5 booking fee for your students (instead of $10)', 'Maintenance tracking & squawks'] },
+    { id: 'pro', name: 'School Pro', price: 119, recommended: true, perks: ['Unlimited aircraft & instructors', 'Stage checks & training records', '$5 booking fee for your students (instead of $10)', 'Maintenance tracking & squawks'] },
+  ],
+  owner: [
+    { id: 'owner', name: 'Aircraft owner', price: 0, recommended: true, perks: ['List as many planes as you like', '8% of rental revenue, nothing up front', 'Renter checks before every booking', '100-hour, annual and squawk tracking', 'Paid by Hobbs, straight to your bank'] },
   ],
 };
 

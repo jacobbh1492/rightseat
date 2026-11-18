@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
-import { C, Card, Button, Field, Chip, SectionTitle, Tag, Toggle, Avatar } from '../ui';
+import { C, Card, Button, Field, Chip, SectionTitle, Tag, Toggle, Avatar, Steps, Icon } from '../ui';
 import { Header } from './Details';
 import { useStore } from '../store';
 import { useAuth } from '../backend/auth';
@@ -40,60 +40,92 @@ export function GetMatched({ nav, params }) {
     setBusy(false);
   };
 
+  const [step, setStep] = useState(0); // 0 preferences · 1 matches
+  const strength = (m) => (fitPercent(m, top) >= 80 ? ['Strong match', C.green, C.greenBg] : ['Good match', C.navy, C.sky]);
+  const summary = [req.goal, req.airport, req.days.length ? req.days.join(', ') : 'any day', req.times.length ? req.times.join(', ').toLowerCase() : null,
+    req.maxRate ? `up to $${req.maxRate}/hr` : null, req.needPlane ? (req.glass ? 'glass cockpit' : 'needs a plane') : 'own plane'].filter(Boolean).join(' · ');
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Header nav={nav} title="Get matched" />
+      <Header nav={step ? { pop: () => setStep(0) } : nav} title="Get matched" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 }} keyboardShouldPersistTaps="handled">
-        <Text style={ms.sub}>Tell us what you’re after. We rank instructors by fit, and you send your request to up to 3. They answer here.</Text>
-
-        <SectionTitle>Training for</SectionTitle>
-        <View style={ms.wrap}>{MATCH_GOALS.map((g) => <Chip key={g} small label={g} active={req.goal === g} onPress={() => set('goal')(g)} />)}</View>
-        <SectionTitle>Airport</SectionTitle>
-        <View style={ms.wrap}>{AIRPORTS.map((a) => <Chip key={a.code} small label={a.code} active={req.airport === a.code} onPress={() => set('airport')(a.code)} />)}</View>
-        <SectionTitle>When can you fly?</SectionTitle>
-        <View style={ms.wrap}>{DAYS.map((d) => <Chip key={d} small label={d} active={req.days.includes(d)} onPress={() => toggle('days', d)} />)}</View>
-        <View style={ms.wrap}>{TIMES.map((t) => <Chip key={t} small label={t} active={req.times.includes(t)} onPress={() => toggle('times', t)} />)}</View>
-        <SectionTitle>Budget per flight hour (instructor + plane)</SectionTitle>
-        <View style={ms.wrap}>{BUDGETS.map((b) => <Chip key={b} small label={b ? `Up to $${b}` : 'Any'} active={req.maxRate === b} onPress={() => set('maxRate')(b)} />)}</View>
-        <Toggle label="I need a plane" hint="Off if you’ll train in your own" value={req.needPlane} onValueChange={set('needPlane')} />
-        {req.needPlane && <Toggle label="Prefer a glass cockpit" value={req.glass} onValueChange={set('glass')} />}
-        <SectionTitle>Teaching style you like</SectionTitle>
-        <View style={ms.wrap}>{MATCH_STYLES.map((st) => <Chip key={st} small label={st} active={req.styles.includes(st)} onPress={() => toggle('styles', st)} />)}</View>
-        <Field label="Anything else? (optional)" value={req.note} onChangeText={(t) => setReq((r) => ({ ...r, note: t }))} multiline placeholder="Restarting after 3 years, about 25 hours logged. Want to finish by summer." />
-
-        <SectionTitle>Your best matches</SectionTitle>
-        {matches.length === 0 && <Text style={ms.sub}>No instructors teach that here yet. Try another airport or goal.</Text>}
-        {matches.map((m) => {
-          const on = picked.includes(m.cfi.id);
-          return (
-            <Card key={m.cfi.id} style={on ? { borderWidth: 2, borderColor: C.blue } : null}>
-              <Pressable onPress={() => pick(m.cfi.id)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Avatar initials={m.cfi.initials} color={m.cfi.color} size={44} photo={m.cfi.photo} />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={{ fontWeight: '900', color: C.text, fontSize: 15 }}>{m.cfi.name}</Text>
-                  <Text style={ms.sub}>{m.cfi.certs.join(', ')} · {m.cfi.homeAirport}{m.combinedRate ? ` · $${Math.round(m.combinedRate)}/hr${m.plane ? ` with ${m.plane.tail}` : ''}` : ''}</Text>
-                  <View style={ms.bar}><View style={[ms.barFill, { width: `${fitPercent(m, top)}%` }]} /></View>
-                </View>
-                <View style={[ms.check, on && { backgroundColor: C.blue, borderColor: C.blue }]}>{on && <Text style={{ color: '#fff', fontWeight: '900' }}>✓</Text>}</View>
-              </Pressable>
-              {m.reasons.map((x) => <Text key={x} style={[ms.sub, { color: C.green, marginTop: 4 }]}>✓ {x}</Text>)}
-              {m.concerns.map((x) => <Text key={x} style={[ms.sub, { color: '#B45309', marginTop: 2 }]}>! {x}</Text>)}
-              <Pressable onPress={() => nav.push('Cfi', { id: m.cfi.id })} style={{ marginTop: 6 }} accessibilityRole="button"><Text style={{ color: C.blue, fontWeight: '700' }}>View profile ›</Text></Pressable>
+        <Steps labels={['Preferences', 'Matches']} current={step} />
+        {step === 0 && (
+          <>
+            <Text style={ms.sub}>Tell us what you’re after. Next, we rank instructors by fit and you message up to 3.</Text>
+            <SectionTitle>Training for</SectionTitle>
+            <View style={ms.wrap}>{MATCH_GOALS.map((g) => <Chip key={g} small label={g} active={req.goal === g} onPress={() => set('goal')(g)} />)}</View>
+            <SectionTitle>Airport</SectionTitle>
+            <View style={ms.wrap}>{AIRPORTS.map((a) => <Chip key={a.code} small label={a.code} active={req.airport === a.code} onPress={() => set('airport')(a.code)} />)}</View>
+            <SectionTitle>When can you fly?</SectionTitle>
+            <View style={ms.days}>
+              {DAYS.map((d) => {
+                const on = req.days.includes(d);
+                return (
+                  <Pressable key={d} onPress={() => toggle('days', d)} style={[ms.day, on && ms.dayOn]} accessibilityRole="checkbox" accessibilityState={{ checked: on }}>
+                    <Text style={{ fontWeight: '700', color: on ? '#fff' : C.text, fontSize: 13 }}>{d}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={[ms.wrap, { marginTop: 8 }]}>{TIMES.filter((t) => t !== 'Weekends only').map((t) => <Chip key={t} small label={t} active={req.times.includes(t)} onPress={() => toggle('times', t)} />)}</View>
+            <SectionTitle>Budget per flight hour (instructor + plane)</SectionTitle>
+            <View style={ms.wrap}>{BUDGETS.map((b) => <Chip key={b} small label={b ? `Up to $${b}` : 'Any'} active={req.maxRate === b} onPress={() => set('maxRate')(b)} />)}</View>
+            <Toggle label="I need a plane" hint="Off if you’ll train in your own" value={req.needPlane} onValueChange={set('needPlane')} />
+            {req.needPlane && <Toggle label="Prefer a glass cockpit" value={req.glass} onValueChange={set('glass')} />}
+            <SectionTitle>Teaching style you like</SectionTitle>
+            <View style={ms.wrap}>{MATCH_STYLES.map((st) => <Chip key={st} small label={st} active={req.styles.includes(st)} onPress={() => toggle('styles', st)} />)}</View>
+            <Field label="Anything else? (optional)" value={req.note} onChangeText={(t) => setReq((r) => ({ ...r, note: t }))} multiline placeholder="e.g. Restarting after 3 years, about 25 hours logged" />
+          </>
+        )}
+        {step === 1 && (
+          <>
+            <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={ms.kicker}>Matched on</Text>
+                <Text style={{ color: C.text, fontSize: 14, lineHeight: 20 }}>{summary}</Text>
+              </View>
+              <Pressable onPress={() => setStep(0)} style={ms.link} accessibilityRole="button"><Text style={{ color: C.blue, fontWeight: '700' }}>Edit</Text></Pressable>
             </Card>
-          );
-        })}
-        {sampleOnly && <Text style={[ms.sub, { color: '#B45309' }]}>Sample instructors can’t get requests. Pick instructors listed on Positive Rate.</Text>}
-        {!!err && <Text style={ms.err}>{err}</Text>}
+            {matches.length === 0 && <Text style={ms.sub}>No instructors teach that here yet. Try another airport or goal.</Text>}
+            {matches.length > 0 && <Text style={[ms.sub, { marginBottom: 10 }]}>Pick up to 3. They’ll answer in Inbox.</Text>}
+            {matches.map((m) => {
+              const on = picked.includes(m.cfi.id);
+              const [label, fg, bg] = strength(m);
+              const reason = [...m.reasons.slice(0, 2), ...m.concerns.slice(0, 1).map((x) => x.toLowerCase())].join(' · ');
+              return (
+                <Card key={m.cfi.id} style={on ? { borderWidth: 2, borderColor: C.navy } : null}>
+                  <Pressable onPress={() => pick(m.cfi.id)} accessibilityRole="checkbox" accessibilityState={{ checked: on, disabled: !on && picked.length >= 3 }}
+                    accessibilityLabel={`${m.cfi.name}, ${label}`} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={[ms.check, on && { backgroundColor: C.navy, borderColor: C.navy }]}>{on && <Icon name="check" size={16} color="#fff" strokeWidth={3} />}</View>
+                    <Avatar initials={m.cfi.initials} color={m.cfi.color} size={44} photo={m.cfi.photo} />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={{ fontWeight: '800', color: C.text, fontSize: 15 }}>{m.cfi.name}</Text>
+                      <Text style={ms.sub}>{m.cfi.certs.join(', ')} · {m.cfi.homeAirport}{m.combinedRate ? ` · $${Math.round(m.combinedRate)}/hr` : ''}</Text>
+                    </View>
+                    <Tag label={label} color={fg} bg={bg} />
+                  </Pressable>
+                  {!!reason && <Text style={[ms.sub, { marginTop: 8 }]}>{reason}</Text>}
+                  <Pressable onPress={() => nav.push('Cfi', { id: m.cfi.id })} style={ms.link} accessibilityRole="button"><Text style={{ color: C.blue, fontWeight: '700' }}>View profile</Text></Pressable>
+                </Card>
+              );
+            })}
+            {sampleOnly && <Text style={[ms.sub, { color: C.amberDark }]}>Sample instructors can’t get requests. Pick instructors listed on Positive Rate.</Text>}
+            {!!err && <Text style={ms.err}>{err}</Text>}
+          </>
+        )}
       </ScrollView>
       <View style={ms.cta}>
-        <Button title={busy ? 'Sending…' : picked.length ? `Send to ${picked.length} instructor${picked.length > 1 ? 's' : ''}` : 'Pick up to 3 instructors'}
-          disabled={busy || !picked.length || sampleOnly} style={{ flex: 1 }} onPress={send} />
+        {step === 0
+          ? <Button title="See my matches" style={{ flex: 1 }} onPress={() => setStep(1)} />
+          : <Button title={busy ? 'Sending…' : picked.length ? `Message ${picked.length} instructor${picked.length > 1 ? 's' : ''}` : 'Pick up to 3 instructors'}
+              disabled={busy || !picked.length || sampleOnly} style={{ flex: 1 }} onPress={send} />}
       </View>
     </View>
   );
 }
 
-const ANSWER = { sent: ['Waiting', '#B45309', '#FEF3C7'], interested: ['Interested', C.green, '#E3F7EF'], declined: ['Not a fit', C.sub, '#EEF1F5'] };
+const ANSWER = { sent: ['Waiting', '#B45309', '#FEF3C7'], interested: ['Interested', C.green, '#DDF3E8'], declined: ['Not a fit', C.sub, '#EEF1F5'] };
 
 // Student: requests you sent and who answered.
 export function MyMatches({ nav, params }) {
@@ -114,7 +146,7 @@ export function MyMatches({ nav, params }) {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Your matches" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
-        {params?.sent && <Card style={{ backgroundColor: '#E3F7EF' }}><Text style={{ fontWeight: '800', color: C.green }}>Request sent ✓ We’ll notify you when an instructor answers.</Text></Card>}
+        {params?.sent && <Card style={{ backgroundColor: '#DDF3E8' }}><Text style={{ fontWeight: '800', color: C.green }}>Request sent ✓ We’ll notify you when an instructor answers.</Text></Card>}
         {!!err && <Text style={ms.err}>{err}</Text>}
         {!loading && rows.length === 0 && (
           <Card>
@@ -161,8 +193,31 @@ export function MyMatches({ nav, params }) {
 }
 
 // Instructor: students who picked you as a top match.
+// How complete an instructor profile is, and the next thing to add.
+function profileStrength(c) {
+  if (!c) return { pct: 0, next: 'Create your instructor profile' };
+  const items = [
+    [!!c.photo, 'Add a profile photo'],
+    [(c.bio || '').length >= 60, 'Write a short bio'],
+    [(c.specialties || []).length >= 2, 'Pick what you teach'],
+    [(c.availability || []).length >= 3, 'Open more days in your hours'],
+    [c.totalHours > 0, 'Add your hours'],
+    [(c.aircraftIds || []).length > 0, 'Add the planes you fly'],
+    [!!c.teachingStyle, 'Choose your teaching style'],
+    [!!c.verified, 'Get verified'],
+  ];
+  const done = items.filter((x) => x[0]).length;
+  return { pct: done / items.length, next: (items.find((x) => !x[0]) || [])[1] };
+}
+const ago = (t) => {
+  const m = Math.max(1, Math.round((Date.now() - new Date(t).getTime()) / 60000));
+  return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} d ago`;
+};
+
 export function StudentRequests({ nav }) {
   const auth = useAuth();
+  const { getCfi, myCfiId } = useStore();
+  const strength = profileStrength(getCfi(myCfiId));
   const uid = auth?.session?.user?.id;
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -187,11 +242,21 @@ export function StudentRequests({ nav }) {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />} keyboardShouldPersistTaps="handled">
         <Text style={ms.sub}>Students who used Get matched and picked you. Answer quickly: they usually pick whoever replies first.</Text>
         {!!err && <Text style={ms.err}>{err}</Text>}
-        {!loading && rows.length === 0 && <Text style={[ms.sub, { marginTop: 12 }]}>No requests yet. A complete profile with your hours, specialties and availability helps you match.</Text>}
+        {!loading && rows.length === 0 && (
+          <Card style={{ marginTop: 12 }}>
+            <Text style={{ fontWeight: '900', color: C.text, fontSize: 16 }}>No requests yet</Text>
+            <Text style={[ms.sub, { marginTop: 4 }]}>Students are matched on goals, days, budget and planes. A fuller profile matches more often.</Text>
+            <Text style={[ms.kicker, { marginTop: 12 }]}>Profile strength · {Math.round(strength.pct * 100)}%</Text>
+            <View style={[ms.bar, { height: 10 }]}><View style={[ms.barFill, { height: 10, width: `${strength.pct * 100}%`, backgroundColor: C.amber }]} /></View>
+            {strength.next && <Text style={[ms.sub, { marginTop: 6 }]}>Next: {strength.next}</Text>}
+            <Button title="Improve my profile" style={{ marginTop: 12 }} onPress={() => nav.push(strength.next === 'Get verified' ? 'GetVerified' : 'CfiForm', { id: myCfiId })} />
+          </Card>
+        )}
         {rows.map((r) => (
           <Card key={r.id}>
             <View style={ms.rowTop}>
               <Text style={{ fontWeight: '900', color: C.text, fontSize: 15, flex: 1 }}>{r.studentName.split(' ')[0]} · {r.goal}</Text>
+              {r.myStatus === 'sent' && r.createdAt && <Text style={{ color: Date.now() - new Date(r.createdAt) < 6 * 3600e3 ? C.amberDark : C.sub, fontWeight: '800', fontSize: 12, marginRight: 6 }}>{ago(r.createdAt)}</Text>}
               {r.myStatus !== 'sent' && <Tag label={ANSWER[r.myStatus][0]} color={ANSWER[r.myStatus][1]} bg={ANSWER[r.myStatus][2]} />}
             </View>
             <Text style={ms.sub}>
@@ -206,7 +271,7 @@ export function StudentRequests({ nav }) {
                 <Field value={reply[r.id] || ''} onChangeText={(t) => setReply((x) => ({ ...x, [r.id]: t }))} multiline placeholder={`Hi ${r.studentName.split(' ')[0]}! I fly ${r.days[0] || 'most days'} out of ${r.airport || 'my home field'}…`} />
                 <View style={{ flexDirection: 'row' }}>
                   <Button title={busy === r.id + false ? '…' : 'Not a fit'} variant="outline" small disabled={!!busy} style={{ flex: 0.6, marginRight: 8 }} onPress={() => answer(r, false)} />
-                  <Button title={busy === r.id + true ? 'Sending…' : 'I’m interested'} small disabled={!!busy} style={{ flex: 1 }} onPress={() => answer(r, true)} />
+                  <Button title={busy === r.id + true ? 'Sending…' : 'Reply & offer a time'} small disabled={!!busy} style={{ flex: 1 }} onPress={() => answer(r, true)} />
                 </View>
               </>
             )}
@@ -228,7 +293,12 @@ const ms = StyleSheet.create({
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   bar: { height: 6, borderRadius: 3, backgroundColor: '#E2E8F0', marginTop: 6, overflow: 'hidden' },
   barFill: { height: 6, borderRadius: 3, backgroundColor: C.green },
-  check: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: '#CBD5E1', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+  check: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: C.chevron, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  days: { flexDirection: 'row' },
+  day: { flex: 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', marginRight: 4 },
+  dayOn: { backgroundColor: C.navy, borderColor: C.navy },
+  kicker: { color: C.sub, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 2 },
+  link: { minHeight: 44, justifyContent: 'center' },
   answer: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
   cta: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', padding: 16, paddingBottom: 28, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: C.line },
 });

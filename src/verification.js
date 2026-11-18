@@ -303,11 +303,11 @@ export function decide(checks, confidence, userEdited) {
 export function statusOf(doc) {
   if (!doc) return { key: 'missing', label: 'Not started', color: '#5B6474', bg: '#EEF1F5' };
   if (doc.status === 'review') return { key: 'review', label: 'In review', color: '#B45309', bg: '#FEF3C7' };
-  if (doc.status === 'rejected') return { key: 'rejected', label: 'Needs attention', color: '#DC2626', bg: '#FEE2E2' };
+  if (doc.status === 'rejected') return { key: 'rejected', label: 'Needs attention', color: '#B91C1C', bg: '#FEE2E2' };
   const exp = doc.expires && daysUntil(doc.expires);
-  if (exp != null && exp <= 0) return { key: 'expired', label: 'Expired', color: '#DC2626', bg: '#FEE2E2' };
+  if (exp != null && exp <= 0) return { key: 'expired', label: 'Expired', color: '#B91C1C', bg: '#FEE2E2' };
   if (exp != null && exp <= 30) return { key: 'expiring', label: `Expires in ${exp}d`, color: '#B45309', bg: '#FEF3C7' };
-  return { key: 'approved', label: doc.selfReported ? 'Self-reported' : doc.by === 'auto' ? 'Verified · auto' : 'Verified', color: '#0E9F6E', bg: '#E3F7EF' };
+  return { key: 'approved', label: doc.selfReported ? 'Self-reported' : doc.by === 'auto' ? 'Verified · auto' : 'Verified', color: '#0B6E4F', bg: '#DDF3E8' };
 }
 
 export const expiryOf = (type, fields) => {

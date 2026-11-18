@@ -4,7 +4,7 @@ import { useStore } from '../store';
 import { useAuth } from '../backend/auth';
 import { proposeLesson } from '../backend/bookings';
 import { quote, money2 } from '../logic';
-import { C, Card, Button, Chip, Stepper, SectionTitle, Avatar } from '../ui';
+import { C, Card, Button, Chip, Stepper, SectionTitle, Avatar, Icon } from '../ui';
 import { Header } from './Details';
 import { PlaneImage } from '../art';
 import { MonthCalendar, TimeSheet, cmpDate, longDate } from '../calendarUi';
@@ -90,12 +90,20 @@ export function ProposeLesson({ nav, params = {} }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Header nav={nav} title="Book a lesson" />
+      <Header nav={nav} title="Propose a lesson" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 }}>
         {!uid || !me ? (
-          <Card><Text style={st.title}>Create your instructor profile first</Text><Text style={st.sub}>Then you can book lessons for your students.</Text></Card>
+          <Card style={{ alignItems: 'center', paddingVertical: 22 }}>
+            <Text style={[st.title, { textAlign: 'center' }]}>{!uid ? 'Sign in to propose lessons' : 'Create your instructor profile first'}</Text>
+            <Text style={[st.sub, { textAlign: 'center' }]}>Then you can propose lessons to your students. They accept by adding a card.</Text>
+            <Button title={!uid ? 'Sign in' : 'Create instructor profile'} style={{ marginTop: 12, alignSelf: 'stretch' }} onPress={() => nav.push(!uid ? 'SignIn' : 'CfiForm')} />
+          </Card>
         ) : students.length === 0 ? (
-          <Card><Text style={st.title}>No students yet</Text><Text style={st.sub}>Once a student books you, you can book their next lessons from here.</Text></Card>
+          <Card style={{ alignItems: 'center', paddingVertical: 22 }}>
+            <Text style={[st.title, { textAlign: 'center' }]}>No students yet</Text>
+            <Text style={[st.sub, { textAlign: 'center' }]}>Once a student books you, you can propose their next lessons from here.</Text>
+            <Button title="See student requests" variant="outline" style={{ marginTop: 12, alignSelf: 'stretch' }} onPress={() => nav.push('StudentRequests')} />
+          </Card>
         ) : (
           <>
             <Text style={st.sub}>Pick the student, time and plane. They get a notification to accept; it’s confirmed once they add their card.</Text>
@@ -138,7 +146,7 @@ export function ProposeLesson({ nav, params = {} }) {
                 </Pressable>
               ))}
               <Pressable onPress={() => setPlaneId(null)} style={[st.pick, !planeId && st.pickOn]} accessibilityRole="button" accessibilityState={{ selected: !planeId }}>
-                <View style={st.ownIcon}><Text style={{ fontSize: 20 }}>🛩️</Text></View>
+                <View style={st.ownIcon}><Icon name="plane" size={20} color={C.navy} /></View>
                 <Text style={st.pickName}>Their plane</Text>
                 <Text style={st.pickSub}>or ground only</Text>
               </Pressable>
@@ -146,9 +154,17 @@ export function ProposeLesson({ nav, params = {} }) {
 
             {q && (
               <Card style={{ marginTop: 16 }}>
-                <Text style={st.sub}>Estimate for {student?.name.split(' ')[0]}</Text>
-                <Text style={{ fontSize: 24, fontWeight: '900', color: C.navy }}>{money2(q.total)}</Text>
-                <Text style={st.sub}>Charged after the flight for actual Hobbs time, like any lesson.</Text>
+                <View style={{ flexDirection: 'row' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={st.sub}>{student?.name.split(' ')[0]} pays</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '900', color: C.text }}>{money2(q.total)}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={st.sub}>You earn</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '900', color: C.green }}>{money2(q.split?.cfi ?? 0)}</Text>
+                  </View>
+                </View>
+                <Text style={[st.sub, { marginTop: 8 }]}>{student?.name.split(' ')[0]} accepts by adding a card; that confirms it. They’re charged after the flight for actual Hobbs time, like any lesson.</Text>
               </Card>
             )}
             {!!err && <Text style={st.err}>{err}</Text>}

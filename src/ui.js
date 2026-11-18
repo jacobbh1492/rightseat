@@ -1,21 +1,107 @@
 import React from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, Switch, Image, Modal, ScrollView } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet, Switch, Image, Modal, ScrollView, PanResponder } from 'react-native';
 import { Icon } from './icons';
 export { Icon };
 import * as ImagePicker from 'expo-image-picker';
+import Svg, { Rect, Circle, Path } from 'react-native-svg';
 
+// Positive Rate brand: navy + amber, with grays that pass WCAG AA on white.
 export const C = {
   navy: '#0B1F3A',
-  blue: '#1F6FEB',
-  sky: '#EAF2FF',
+  amber: '#F59E0B',
+  amberDark: '#92400E',
+  amberBg: '#FEF3C7',
+  blue: '#1D4ED8',      // links and accents (7:1 on white)
+  sky: '#EEF2F7',       // quiet tile / selected background
   bg: '#F5F7FB',
   card: '#FFFFFF',
   text: '#0F172A',
-  sub: '#64748B',
-  line: '#E5E9F0',
-  green: '#0E9F6E',
-  amber: '#F59E0B',
+  body: '#475569',
+  sub: '#5B6B82',       // secondary text (5.4:1)
+  placeholder: '#687588', // 4.7:1
+  chevron: '#7A889C',
+  border: '#808EA3',    // input and chip borders (3.3:1, meets non-text contrast)
+  line: '#E2E8F0',
+  green: '#0B6E4F',
+  greenBg: '#DDF3E8',
+  red: '#B91C1C',
+  redBg: '#FEE2E2',
 };
+export const HIT = 44; // minimum touch target
+
+// Heading-bug mark: navy tile, white compass ring, amber bug at 12 o'clock.
+export function Logo({ size = 32 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 32 32" accessibilityRole="image" accessibilityLabel="Positive Rate">
+      <Rect width="32" height="32" rx="9" fill={C.navy} />
+      <Circle cx="16" cy="17" r="9" fill="none" stroke="#FFFFFF" strokeWidth="2" />
+      <Path d="M11.5 5.5h9v4.5l-4.5 3-4.5-3z" fill={C.amber} />
+      <Path d="M16 17l4-5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// Colored notice: tone navy | amber | green | red | gray.
+export function Banner({ title, children, tone = 'navy', icon }) {
+  const t = { navy: [C.navy, '#fff', '#C9D4E5'], amber: [C.amberBg, C.amberDark, '#78350F'], green: [C.greenBg, C.green, '#14532D'], red: [C.redBg, C.red, '#7F1D1D'], gray: [C.sky, C.text, C.body] }[tone] || [];
+  return (
+    <View style={[s.banner, { backgroundColor: t[0] }]} accessible accessibilityRole={tone === 'red' ? 'alert' : undefined}>
+      {icon ? <View style={{ marginRight: 10, marginTop: 1 }}><Icon name={icon} size={20} color={t[1]} /></View> : null}
+      <View style={{ flex: 1 }}>
+        {title ? <Text style={{ color: t[1], fontWeight: '800', fontSize: 14 }}>{title}</Text> : null}
+        {typeof children === 'string' ? <Text style={{ color: t[2], fontSize: 13, lineHeight: 18, marginTop: title ? 2 : 0 }}>{children}</Text> : children}
+      </View>
+    </View>
+  );
+}
+
+// "Step 2 of 4" progress for multi-step setups.
+export function Steps({ labels, current }) {
+  return (
+    <View style={{ flexDirection: 'row', marginBottom: 14 }} accessible accessibilityLabel={`Step ${current + 1} of ${labels.length}: ${labels[current]}`}>
+      {labels.map((l, i) => (
+        <View key={l} style={{ flex: 1, marginRight: i < labels.length - 1 ? 6 : 0 }}>
+          <View style={{ height: 5, borderRadius: 999, backgroundColor: i < current ? C.green : i === current ? C.amber : C.line }} />
+          <Text style={{ fontSize: 11, fontWeight: '700', color: i <= current ? C.navy : C.sub, marginTop: 4 }} numberOfLines={1}>{l}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// Status pill with a symbol, so meaning never relies on color alone.
+export function Pill({ label, kind = 'info' }) {
+  const m = { ok: ['✓ ', C.green, C.greenBg], pending: ['', C.amberDark, C.amberBg], warn: ['! ', C.amberDark, C.amberBg], bad: ['✕ ', C.red, C.redBg], info: ['', C.navy, C.sky] }[kind] || ['', C.navy, C.sky];
+  return <Tag label={m[0] + label} color={m[1]} bg={m[2]} />;
+}
+
+// Single-thumb slider (no native module). value in [min, max], snapped to step.
+export function Slider({ value, min, max, step = 1, onChange, label, format = (v) => String(v) }) {
+  const [w, setW] = React.useState(0);
+  const ref = React.useRef({ w: 0, x0: 0 });
+  ref.current.w = w;
+  const clamp = (v) => Math.min(max, Math.max(min, Math.round(v / step) * step));
+  const fromX = (x) => clamp(min + (x / Math.max(1, ref.current.w)) * (max - min));
+  const pan = React.useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: (e) => { ref.current.x0 = e.nativeEvent.locationX; onChange(fromX(e.nativeEvent.locationX)); },
+    onPanResponderMove: (e, g) => onChange(fromX(ref.current.x0 + g.dx)),
+  }), [min, max, step, onChange]);
+  const pct = max > min ? (value - min) / (max - min) : 0;
+  return (
+    <View accessible accessibilityRole="adjustable" accessibilityLabel={label} accessibilityValue={{ text: format(value) }}
+      onAccessibilityAction={(e) => onChange(clamp(value + (e.nativeEvent.actionName === 'increment' ? step : -step)))}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      style={{ height: 44, justifyContent: 'center' }} onLayout={(e) => setW(e.nativeEvent.layout.width)} {...pan.panHandlers}>
+      <View style={{ height: 6, borderRadius: 3, backgroundColor: C.line }}>
+        <View style={{ width: `${pct * 100}%`, height: 6, borderRadius: 3, backgroundColor: C.navy }} />
+      </View>
+      <View pointerEvents="none" style={{ position: 'absolute', left: Math.max(0, pct * w - 14), width: 28, height: 28, borderRadius: 14, backgroundColor: '#fff', borderWidth: 2, borderColor: C.navy }} />
+    </View>
+  );
+}
 
 export function Avatar({ initials, color, size = 52, photo }) {
   if (photo) return <Image source={{ uri: photo }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
@@ -48,7 +134,8 @@ export function Chip({ label, active, onPress, small }) {
   return (
     <Pressable
       onPress={onPress}
-      style={[s.chip, small && s.chipSmall, active && { backgroundColor: C.blue, borderColor: C.blue }]}
+      accessibilityRole="button" accessibilityState={{ selected: !!active }}
+      style={[s.chip, small && s.chipSmall, active && { backgroundColor: C.navy, borderColor: C.navy }]}
     >
       <Text style={[s.chipText, small && { fontSize: 12 }, active && { color: '#fff' }]}>{label}</Text>
     </Pressable>
@@ -63,10 +150,14 @@ export function Tag({ label, color = C.blue, bg = C.sky }) {
   );
 }
 
+// primary: amber with navy text (one per screen) · outline/secondary: white with a navy label ·
+// ghost: text only · navy: solid navy · danger: red outline.
 export function Button({ title, onPress, variant = 'primary', style, disabled, icon, small }) {
-  const outline = variant === 'outline';
+  const outline = variant === 'outline' || variant === 'secondary';
   const ghost = variant === 'ghost';
-  const fg = outline || ghost ? C.blue : '#fff';
+  const navy = variant === 'navy';
+  const danger = variant === 'danger';
+  const fg = disabled && !outline && !ghost ? '#5B6B82' : danger ? C.red : navy ? '#fff' : C.navy;
   return (
     <Pressable
       accessibilityRole="button"
@@ -75,10 +166,13 @@ export function Button({ title, onPress, variant = 'primary', style, disabled, i
       onPress={onPress}
       style={({ pressed }) => [
         s.btn,
-        small && { paddingVertical: 10 },
-        outline && { backgroundColor: '#fff', borderWidth: 1.5, borderColor: C.blue },
-        ghost && { backgroundColor: C.sky },
-        disabled && { opacity: 0.4 },
+        small && { paddingVertical: 10, minHeight: HIT },
+        outline && { backgroundColor: '#fff', borderWidth: 1.5, borderColor: C.chevron },
+        ghost && { backgroundColor: 'transparent' },
+        navy && { backgroundColor: C.navy },
+        danger && { backgroundColor: '#fff', borderWidth: 1.5, borderColor: C.red },
+        disabled && !outline && !ghost && { backgroundColor: '#E2E8F0' },
+        disabled && (outline || ghost) && { opacity: 0.5 },
         pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] },
         style,
       ]}
@@ -107,17 +201,17 @@ export function Badge({ count, style }) {
 }
 
 // Settings-style row with an icon tile.
-export function ListRow({ icon, iconColor = C.blue, iconBg = C.sky, title, subtitle, right, onPress, first, danger }) {
+export function ListRow({ icon, iconColor = C.navy, iconBg = C.sky, title, subtitle, right, onPress, first, danger }) {
   const Wrap = onPress ? Pressable : View; // a non-pressable row must not swallow taps meant for buttons inside it
   return (
     <Wrap onPress={onPress} accessibilityRole={onPress ? 'button' : undefined}
       style={onPress ? ({ pressed }) => [s.listRow, !first && s.listRowBorder, pressed && { backgroundColor: '#F8FAFC' }] : [s.listRow, !first && s.listRowBorder]}>
       {icon ? <View style={[s.listIcon, { backgroundColor: iconBg }]}><Icon name={icon} size={18} color={iconColor} /></View> : null}
       <View style={{ flex: 1 }}>
-        <Text style={[s.listTitle, danger && { color: '#DC2626' }]}>{title}</Text>
+        <Text style={[s.listTitle, danger && { color: C.red }]}>{title}</Text>
         {subtitle ? <Text style={s.listSub} numberOfLines={2}>{subtitle}</Text> : null}
       </View>
-      {right !== undefined ? right : onPress ? <Icon name="chevron" size={18} color="#94A3B8" /> : null}
+      {right !== undefined ? right : onPress ? <Icon name="chevron" size={18} color={C.chevron} /> : null}
     </Wrap>
   );
 }
@@ -147,9 +241,9 @@ export function Tabs({ tabs, value, onChange, dark }) {
       {tabs.map((t) => {
         const on = t.key === value;
         return (
-          <Pressable key={t.key} onPress={() => onChange(t.key)} style={[s.tab, on && { borderBottomColor: dark ? '#fff' : C.blue }]} accessibilityRole="tab" accessibilityState={{ selected: on }}>
-            {t.icon ? <Icon name={t.icon} size={16} color={on ? (dark ? '#fff' : C.blue) : dark ? '#9FB3D1' : C.sub} /> : null}
-            <Text numberOfLines={1} style={[s.tabText, { color: on ? (dark ? '#fff' : C.blue) : dark ? '#9FB3D1' : C.sub }]}>{t.label}</Text>
+          <Pressable key={t.key} onPress={() => onChange(t.key)} style={[s.tab, on && { borderBottomColor: dark ? C.amber : C.navy }]} accessibilityRole="tab" accessibilityState={{ selected: on }}>
+            {t.icon ? <Icon name={t.icon} size={16} color={on ? (dark ? '#fff' : C.navy) : dark ? '#C9D4E5' : C.sub} /> : null}
+            <Text numberOfLines={1} style={[s.tabText, { color: on ? (dark ? '#fff' : C.navy) : dark ? '#C9D4E5' : C.sub }]}>{t.label}</Text>
           </Pressable>
         );
       })}
@@ -185,7 +279,7 @@ export function Row({ label, value, bold }) {
 }
 
 export function Stars({ rating, count }) {
-  if (count === 0) return <Text style={{ color: C.blue, fontWeight: '700' }}>New</Text>;
+  if (count === 0) return <Text style={{ color: C.amberDark, fontWeight: '700' }}>New</Text>;
   return (
     <Text style={{ color: C.text, fontWeight: '600' }}>
       <Text style={{ color: C.amber }}>★ </Text>
@@ -195,21 +289,23 @@ export function Stars({ rating, count }) {
   );
 }
 
-export function Field({ label, value, onChangeText, placeholder, keyboardType, multiline, prefix, autoCapitalize, autoCorrect }) {
+export function Field({ label, value, onChangeText, placeholder, keyboardType, multiline, prefix, autoCapitalize, autoCorrect, editable = true }) {
   return (
     <View style={{ marginBottom: 14 }}>
       {label ? <Text style={s.label}>{label}</Text> : null}
-      <View style={[s.inputWrap, multiline && { alignItems: 'flex-start' }]}>
+      <View style={[s.inputWrap, multiline && { alignItems: 'flex-start' }, !editable && { backgroundColor: '#EEF1F5' }]}>
         {prefix ? <Text style={s.prefix}>{prefix}</Text> : null}
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="#9AA3B2"
+          placeholderTextColor={C.placeholder}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           autoCorrect={autoCorrect}
           multiline={multiline}
+          editable={editable}
+          accessibilityLabel={label || placeholder}
           style={[s.input, multiline && { minHeight: 80, textAlignVertical: 'top' }]}
         />
       </View>
@@ -236,12 +332,12 @@ export function MultiSelect({ label, options, selected, onChange, single }) {
 
 export function Toggle({ label, value, onValueChange, hint }) {
   return (
-    <Pressable onPress={() => onValueChange(!value)} style={s.toggle}>
+    <Pressable onPress={() => onValueChange(!value)} style={s.toggle} accessibilityRole="switch" accessibilityState={{ checked: !!value }} accessibilityLabel={label}>
       <View style={{ flex: 1, paddingRight: 12 }}>
         <Text style={{ color: C.text, fontWeight: '600' }}>{label}</Text>
         {hint ? <Text style={{ color: C.sub, fontSize: 12, marginTop: 2 }}>{hint}</Text> : null}
       </View>
-      <Switch value={value} onValueChange={onValueChange} trackColor={{ true: C.blue }} />
+      <Switch value={value} onValueChange={onValueChange} trackColor={{ true: C.navy, false: '#CBD5E1' }} ios_backgroundColor="#CBD5E1" importantForAccessibility="no" />
     </Pressable>
   );
 }
@@ -250,13 +346,13 @@ export function Stepper({ label, value, onChange, step = 0.5, min = 0, unit = 'h
   return (
     <View style={s.stepper}>
       <Text style={{ flex: 1, color: C.text, fontWeight: '600' }}>{label}</Text>
-      <Pressable style={s.stepBtn} onPress={() => onChange(Math.max(min, +(value - step).toFixed(1)))}>
+      <Pressable style={s.stepBtn} accessibilityRole="button" accessibilityLabel={`Less ${label || ''}`} hitSlop={4} onPress={() => onChange(Math.max(min, +(value - step).toFixed(1)))}>
         <Text style={s.stepBtnText}>−</Text>
       </Pressable>
       <Text style={s.stepValue}>
         {value} {unit}
       </Text>
-      <Pressable style={s.stepBtn} onPress={() => onChange(+(value + step).toFixed(1))}>
+      <Pressable style={s.stepBtn} accessibilityRole="button" accessibilityLabel={`More ${label || ''}`} hitSlop={4} onPress={() => onChange(+(value + step).toFixed(1))}>
         <Text style={s.stepBtnText}>+</Text>
       </Pressable>
     </View>
@@ -275,19 +371,19 @@ export async function pickImages(multiple = true) {
 
 const OWNER_COLORS = {
   'Private owner': ['#7C3AED', '#F3E8FF'],
-  'Flying club': ['#0E9F6E', '#E3F7EF'],
-  'Flight school': ['#1F6FEB', '#E8F1FF'],
+  'Flying club': ['#0B6E4F', '#DDF3E8'],
+  'Flight school': ['#1D4ED8', '#E8F1FF'],
   'Rental fleet': ['#B45309', '#FEF3C7'],
   Leaseback: ['#0891B2', '#E0F7FA'],
 };
 export function OwnerBadge({ type }) {
-  const [fg, bg] = OWNER_COLORS[type] || [C.sub, '#EEF1F5'];
-  return <Tag label={type} color={fg} bg={bg} />;
+  // One neutral tag style: color is reserved for status (green good, amber attention, red blocked).
+  return <Tag label={type} color={C.text} bg={C.sky} />;
 }
 
 export function VerifiedBadge({ role }) {
   return (
-    <View style={[s.tag, { backgroundColor: '#E3F7EF', flexDirection: 'row', alignItems: 'center', marginBottom: 0 }]}>
+    <View style={[s.tag, { backgroundColor: C.greenBg, flexDirection: 'row', alignItems: 'center', marginBottom: 0 }]}>
       <Text style={[s.tagText, { color: C.green }]}>✓ Verified {role ? role.toLowerCase() : 'customer'}</Text>
     </View>
   );
@@ -319,8 +415,8 @@ export function StarPicker({ value, onChange, size = 34 }) {
   return (
     <View style={{ flexDirection: 'row' }}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <Pressable key={n} onPress={() => onChange(n)} hitSlop={6} style={{ marginRight: 6 }}>
-          <Text style={{ fontSize: size, color: n <= value ? C.amber : C.line }}>★</Text>
+        <Pressable key={n} onPress={() => onChange(n)} hitSlop={6} style={{ marginRight: 6 }} accessibilityRole="button" accessibilityLabel={`${n} star${n > 1 ? 's' : ''}`} accessibilityState={{ selected: n <= value }}>
+          <Icon name="star" size={size} color={n <= value ? C.amberDark : C.chevron} fill={n <= value ? C.amber : '#fff'} strokeWidth={1.5} />
         </Pressable>
       ))}
     </View>
@@ -328,14 +424,15 @@ export function StarPicker({ value, onChange, size = 34 }) {
 }
 
 export const s = StyleSheet.create({
-  iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  banner: { flexDirection: 'row', alignItems: 'flex-start', borderRadius: 14, padding: 14, marginBottom: 12 },
+  iconBtn: { width: HIT, height: HIT, borderRadius: HIT / 2, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: -2, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: '#fff' },
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   listRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, minHeight: 56 },
-  listRowBorder: { borderTopWidth: 1, borderTopColor: '#F1F4F8' },
-  listIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  listRowBorder: { borderTopWidth: 1, borderTopColor: C.line },
+  listIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   listTitle: { fontSize: 15, fontWeight: '700', color: C.text },
-  listSub: { fontSize: 12, color: C.sub, marginTop: 2 },
+  listSub: { fontSize: 13, color: C.sub, marginTop: 2, lineHeight: 17 },
   scrim: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)' },
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 24, maxWidth: 480, alignSelf: 'center', width: '100%' },
   grabber: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#D7DEE8', alignSelf: 'center', marginTop: 8 },
@@ -343,63 +440,61 @@ export const s = StyleSheet.create({
   sheetTitle: { fontSize: 20, fontWeight: '900', color: C.text },
   sheetFoot: { paddingHorizontal: 18, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.line, flexDirection: 'row' },
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderBottomWidth: 2.5, borderBottomColor: 'transparent' },
-  tabText: { fontWeight: '800', fontSize: 13, marginLeft: 5 },
+  tabText: { fontWeight: '800', fontSize: 14, marginLeft: 5 },
   avatar: { alignItems: 'center', justifyContent: 'center' },
   thumb: { borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   thumbLabel: { color: '#fff', fontSize: 10, fontWeight: '700', marginTop: -2 },
   card: {
     backgroundColor: C.card,
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#EDF1F6',
-    shadowColor: '#0B1F3A',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 1,
+    borderColor: C.line,
   },
   chip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 9,
+    minHeight: 40,
+    justifyContent: 'center',
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: C.line,
+    borderColor: C.border,
     backgroundColor: '#fff',
     marginRight: 8,
     marginBottom: 8,
   },
-  chipSmall: { paddingHorizontal: 12, paddingVertical: 8 },
-  chipText: { color: C.text, fontWeight: '600', fontSize: 13 },
-  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 6, marginBottom: 6 },
-  tagText: { fontSize: 11, fontWeight: '700' },
-  btn: { backgroundColor: C.blue, borderRadius: 14, paddingVertical: 15, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
-  btnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  chipSmall: { paddingHorizontal: 13, paddingVertical: 8 },
+  chipText: { color: C.text, fontWeight: '600', fontSize: 14 },
+  tag: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, marginRight: 6, marginBottom: 6 },
+  tagText: { fontSize: 12, fontWeight: '700' },
+  btn: { backgroundColor: C.amber, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', minHeight: 52 },
+  btnText: { color: C.navy, fontWeight: '800', fontSize: 16 },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 10 },
   section: { fontSize: 19, fontWeight: '800', color: C.text, letterSpacing: -0.2 },
   stat: { flex: 1, alignItems: 'center', paddingVertical: 10 },
   statValue: { fontSize: 18, fontWeight: '800', color: C.navy },
-  statLabel: { fontSize: 11, color: C.sub, marginTop: 2, textAlign: 'center' },
+  statLabel: { fontSize: 12, color: C.sub, marginTop: 2, textAlign: 'center' },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7 },
   rowLabel: { color: C.sub, flex: 1, paddingRight: 8 },
   rowValue: { color: C.text, fontWeight: '600', textAlign: 'right' },
-  label: { fontSize: 13, fontWeight: '700', color: C.sub, marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 6 },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: C.line,
+    borderColor: C.border,
     borderRadius: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    minHeight: 48,
   },
   prefix: { color: C.sub, fontWeight: '700', marginRight: 4 },
   input: { flex: 1, paddingVertical: 12, fontSize: 15, color: C.text },
   wrap: { flexDirection: 'row', flexWrap: 'wrap' },
-  toggle: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, marginBottom: 6 },
+  toggle: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, marginBottom: 6, minHeight: 48 },
   stepper: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
-  stepBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center' },
-  stepBtnText: { color: C.blue, fontSize: 20, fontWeight: '800' },
+  stepBtn: { width: HIT, height: HIT, borderRadius: HIT / 2, backgroundColor: '#fff', borderWidth: 1.5, borderColor: C.chevron, alignItems: 'center', justifyContent: 'center' },
+  stepBtnText: { color: C.navy, fontSize: 22, fontWeight: '800' },
   stepValue: { width: 70, textAlign: 'center', fontWeight: '700', color: C.text },
 });

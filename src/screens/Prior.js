@@ -5,7 +5,7 @@ import { useAuth } from '../backend/auth';
 import { SYLLABUS } from '../data';
 import { PPL_MINIMUMS, r2 } from '../logic';
 import { PROGRAMS, WHERE, LAST_FLIGHT, PRIOR_ENDORSEMENTS, DEMO_IMPORT, emptyPrior, HOUR_KEYS, lessonState } from '../progress';
-import { C, Card, SectionTitle, Button, Tag, Chip, Toggle, Field, MultiSelect, Avatar, pickImages } from '../ui';
+import { C, Card, SectionTitle, Button, Tag, Chip, Toggle, Field, MultiSelect, Avatar, pickImages , Icon } from '../ui';
 import { Header } from './Details';
 
 const STEPS = ['Background', 'Hours', 'Lessons', 'Endorsements', 'Review'];
@@ -103,18 +103,18 @@ export function PriorExperience({ nav, params }) {
               </ScrollView>
             )}
             {reading && <Text style={[s.tip, { backgroundColor: C.sky, color: C.navy }]}>Reading your logbook…</Text>}
-            {!reading && p.source !== 'manual' && <Text style={[s.tip, { backgroundColor: '#E3F7EF', color: '#065F46' }]}>✓ Filled in from your {p.source === 'foreflight' ? 'CSV export' : 'logbook photo'}. Check the numbers and fix anything that’s off.</Text>}
+            {!reading && p.source !== 'manual' && <Text style={[s.tip, { backgroundColor: '#DDF3E8', color: '#065F46' }]}>✓ Filled in from your {p.source === 'foreflight' ? 'CSV export' : 'logbook photo'}. Check the numbers and fix anything that’s off.</Text>}
             <SectionTitle>Totals (hours)</SectionTitle>
             <View style={s.grid}>
               {PPL_MINIMUMS.map((m) => (
                 <View key={m.key} style={s.cell}>
                   <Text style={s.fieldLabel}>{m.label}</Text>
-                  <TextInput value={p.hours[m.key]} onChangeText={(v) => setHour(m.key, v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0.0" placeholderTextColor="#9AA3B2" style={s.input} />
+                  <TextInput value={p.hours[m.key]} onChangeText={(v) => setHour(m.key, v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0.0" placeholderTextColor="#687588" style={s.input} />
                 </View>
               ))}
               <View style={s.cell}>
                 <Text style={s.fieldLabel}>Landings</Text>
-                <TextInput value={p.landings} onChangeText={(v) => set('landings')(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" placeholder="0" placeholderTextColor="#9AA3B2" style={s.input} />
+                <TextInput value={p.landings} onChangeText={(v) => set('landings')(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" placeholder="0" placeholderTextColor="#687588" style={s.input} />
               </View>
             </View>
             {warnings.map((w) => <Text key={w} style={s.warn}>{w}</Text>)}
@@ -172,8 +172,8 @@ export function PriorExperience({ nav, params }) {
                     </Pressable>
                     {on && !already && (
                       <View style={{ flexDirection: 'row', marginTop: 8, marginLeft: 32 }}>
-                        <TextInput value={on.date} onChangeText={(v) => setEnd(e.name, 'date', v)} placeholder="Date signed" placeholderTextColor="#9AA3B2" style={[s.input, { flex: 1, marginRight: 6 }]} />
-                        <TextInput value={on.by} onChangeText={(v) => setEnd(e.name, 'by', v)} placeholder="Signed by (CFI)" placeholderTextColor="#9AA3B2" style={[s.input, { flex: 1.3 }]} />
+                        <TextInput value={on.date} onChangeText={(v) => setEnd(e.name, 'date', v)} placeholder="Date signed" placeholderTextColor="#687588" style={[s.input, { flex: 1, marginRight: 6 }]} />
+                        <TextInput value={on.by} onChangeText={(v) => setEnd(e.name, 'by', v)} placeholder="Signed by (CFI)" placeholderTextColor="#687588" style={[s.input, { flex: 1.3 }]} />
                       </View>
                     )}
                   </View>
@@ -184,7 +184,7 @@ export function PriorExperience({ nav, params }) {
             {!signedIn && <SectionTitle>Medical & student certificate</SectionTitle>}
             {!signedIn && <Card style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => nav.push('Verification')}>
               <Text style={{ flex: 1, color: C.text }}>Verified in your Verification center</Text>
-              <Tag label={`${pilot.medical} ✓`} color={C.green} bg="#E3F7EF" />
+              <Tag label={`${pilot.medical} ✓`} color={C.green} bg="#DDF3E8" />
             </Card>}
           </>
         )}
@@ -238,7 +238,19 @@ export function PriorReview({ nav, params }) {
   Object.entries(p?.lessons || {}).forEach(([l, v]) => (init[l] = v === 'rusty' ? 'needs' : 'confirmed'));
   const [notes, setNotes] = useState(init);
   const [logbookSeen, setLogbookSeen] = useState(false);
-  if (!p) return null;
+  if (!p) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Header nav={nav} title="Review previous experience" />
+        <View style={{ alignItems: 'center', padding: 28 }}>
+          <View style={{ width: 60, height: 60, borderRadius: 18, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center' }}><Icon name="book" size={28} color={C.navy} /></View>
+          <Text style={{ fontWeight: '800', color: C.text, fontSize: 17, marginTop: 12 }}>Nothing to review yet</Text>
+          <Text style={{ color: C.sub, textAlign: 'center', marginTop: 4, lineHeight: 20 }}>When {pilot?.name?.split(' ')[0] || 'your student'} adds hours, lessons and endorsements from earlier training, they’ll appear here for you to confirm or mark rusty.</Text>
+          <Button title={`Message ${pilot?.name?.split(' ')[0] || 'student'}`} variant="outline" style={{ marginTop: 14, alignSelf: 'stretch' }} onPress={() => nav.push('Chat', { key: params?.studentId || 'student', draft: 'Hi! Before our first lesson, could you add your previous training in Positive Rate (Training → Trained somewhere before)?' })} />
+        </View>
+      </View>
+    );
+  }
   const H = p.hours;
 
   return (

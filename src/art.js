@@ -4,7 +4,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect, Path, Ellipse, Line, Circle, G, 
 
 // Side-profile illustration used when a listing has no uploaded photos yet.
 // kind: highwing | lowwing | twin | cub | cirrus
-export function AircraftArt({ kind = 'highwing', color = '#1F6FEB', tail = '', height = 200, scene = 'ramp' }) {
+export function AircraftArt({ kind = 'highwing', color = '#1D4ED8', tail = '', height = 200, scene = 'ramp' }) {
   const tailDragger = kind === 'cub';
   const low = kind === 'lowwing' || kind === 'twin' || kind === 'cirrus';
   const body = kind === 'cub' ? '#F5C518' : '#FFFFFF';

@@ -8,15 +8,18 @@ import Welcome from './src/screens/Welcome';
 import SignIn from './src/screens/SignIn';
 import { AuthProvider, useAuth, appRolesFrom } from './src/backend/auth';
 import { PaymentsProvider } from './src/backend/payments';
-import { registerForPush, onNotificationTap } from './src/backend/push';
+import { registerForPush, onNotificationTap, pushStatus } from './src/backend/push';
+import NotifPrompt from './src/screens/NotifPrompt';
 import { Icon } from './src/icons';
 import { C } from './src/ui';
-import Explore from './src/screens/Explore';
+import Explore, { Saved } from './src/screens/Explore';
 import { CfiDetail, PlaneDetail, SchoolDetail } from './src/screens/Details';
-import { RequestLesson, Lessons, LeaveReview, CancelLesson, CloseOut, Receipt, SplitInvite } from './src/screens/Booking';
+import { RequestLesson, Lessons, LessonDetail, LeaveReview, CancelLesson, CloseOut, Receipt, SplitInvite } from './src/screens/Booking';
 import Training from './src/screens/Training';
 import { Inbox, Chat, Wallet } from './src/screens/Inbox';
 import { CfiDashboard, OwnerDashboard, Plans, Credentials, Insights } from './src/screens/Dashboards';
+import { OwnerBookings, OwnerEarnings } from './src/screens/Owner';
+import { EditProfile, NotificationSettings, Help } from './src/screens/Settings';
 import { PromoCode } from './src/screens/Promo';
 import { PriorExperience, PriorReview } from './src/screens/Prior';
 import { SchoolDashboard, AffiliationReview, JoinSchool } from './src/screens/School';
@@ -52,12 +55,29 @@ const TEACH_TABS = [
   { key: 'Earnings', icon: 'dollar', label: 'Earnings' },
   { key: 'Me', icon: 'user', label: 'Account' },
 ];
-const TAB_SCREENS = { Explore, Lessons, Training, Inbox, Me, Schedule, Students, Earnings };
+// Owners who don't teach get tabs for what they manage.
+const OWN_TABS = [
+  { key: 'Aircraft', icon: 'plane', label: 'Aircraft' },
+  { key: 'Bookings', icon: 'calendar', label: 'Bookings' },
+  { key: 'Inbox', icon: 'chat', label: 'Inbox' },
+  { key: 'OwnerEarnings', icon: 'dollar', label: 'Earnings' },
+  { key: 'Me', icon: 'user', label: 'Account' },
+];
+const Aircraft = (props) => <OwnerDashboard {...props} asTab />;
+const TAB_SCREENS = { Explore, Lessons, Training, Inbox, Me, Schedule, Students, Earnings, Aircraft, Bookings: OwnerBookings, OwnerEarnings };
 const TEACH_ONLY = ['Schedule', 'Students', 'Earnings', 'Teaching'];
 const LEARN_ONLY = ['Explore', 'Lessons', 'Training'];
 const MODE_KEY = 'rightseat.mode';
-const SignInScreen = ({ nav, params }) => <SignIn askName={false} title="Sign in" subtitle={params?.reason || 'We’ll email you a 6-digit code. No password needed.'} onCancel={nav.pop} onDone={() => nav.pop()} />;
-const STACK_SCREENS = { SignIn: SignInScreen, Cfi: CfiDetail, Plane: PlaneDetail, School: SchoolDetail, Review: LeaveReview, Request: RequestLesson, CfiForm, PlaneForm, SchoolForm, Cancel: CancelLesson, CloseOut, Receipt, Chat, Wallet, CfiDashboard, OwnerDashboard, Plans, Credentials, Insights, Verification: VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, Automation: AutomationMonitor, PriorExperience, PriorReview, Debrief: DebriefView, Debriefs: DebriefList, EditDebrief, StudentFile, AmendDebrief, SchoolDashboard, AffiliationReview, JoinSchool, Teaching, LiveCloseOut, GetVerified, StaffReview, DeleteAccount, PaymentMethods, StudentDetail, Library, LessonView, PreflightReview, AssignReview, Availability, BlockTime, CfiCalendar, SplitInvite, WriteDebrief, PilotProfile, Checkouts, ProposeLesson, PromoCode, Maintenance, ReportSquawk, MechanicHome, PlanePeople, AddPlanePerson, PlaneAccess, Preflight, GetMatched, MyMatches, StudentRequests };
+const PUSH_ASKED_KEY = 'rightseat.pushAsked';
+function SignInScreen({ nav, params }) {
+  const auth = useAuth();
+  const [mode, setMode] = useState('existing');
+  return (
+    <SignIn mode={mode} subtitle={mode === 'existing' ? params?.reason : undefined} onSwitch={() => setMode(mode === 'new' ? 'existing' : 'new')} onCancel={nav.pop}
+      onDone={async ({ name }) => { if (mode === 'new' && name) { try { await auth.saveProfile({ name }); } catch {} } nav.pop(); }} />
+  );
+}
+const STACK_SCREENS = { EditProfile, NotificationSettings, Help, SignIn: SignInScreen, Saved, LessonDetail, Cfi: CfiDetail, Plane: PlaneDetail, School: SchoolDetail, Review: LeaveReview, Request: RequestLesson, CfiForm, PlaneForm, SchoolForm, Cancel: CancelLesson, CloseOut, Receipt, Chat, Wallet, CfiDashboard, OwnerDashboard, Plans, Credentials, Insights, Verification: VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, Automation: AutomationMonitor, PriorExperience, PriorReview, Debrief: DebriefView, Debriefs: DebriefList, EditDebrief, StudentFile, AmendDebrief, SchoolDashboard, AffiliationReview, JoinSchool, Teaching, LiveCloseOut, GetVerified, StaffReview, DeleteAccount, PaymentMethods, StudentDetail, Library, LessonView, PreflightReview, AssignReview, Availability, BlockTime, CfiCalendar, SplitInvite, WriteDebrief, PilotProfile, Checkouts, ProposeLesson, PromoCode, Maintenance, ReportSquawk, MechanicHome, PlanePeople, AddPlanePerson, PlaneAccess, Preflight, GetMatched, MyMatches, StudentRequests };
 
 function Shell() {
   const { profile, setProfile, training, requests, teaching } = useStore();
@@ -78,8 +98,10 @@ function Shell() {
   const roles = profile.roles || [];
   const canTeach = roles.includes('teach') || roles.includes('own') || teaching.length > 0;
   const [mode, setModeState] = useState('learn');
+  const ownerOnly = roles.includes('own') && !roles.includes('teach') && !teaching.some((r) => r.role === 'cfi');
+  const homeTab = ownerOnly ? 'Aircraft' : 'Schedule';
   const switchMode = (m) => {
-    setModeState(m); setStack([]); setTab(m === 'teach' ? 'Schedule' : 'Explore');
+    setModeState(m); setStack([]); setTab(m === 'teach' ? homeTab : 'Explore');
     AsyncStorage.setItem(MODE_KEY, m).catch(() => {});
   };
   // Start in the mode used last; a teach-only account starts in teaching.
@@ -87,14 +109,28 @@ function Shell() {
     if (!profile.onboarded) return;
     AsyncStorage.getItem(MODE_KEY).then((m) => {
       const want = m || (roles.includes('teach') && !roles.includes('learn') && !roles.includes('rent') ? 'teach' : 'learn');
-      if (want === 'teach' && canTeach) { setModeState('teach'); setTab('Schedule'); }
+      if (want === 'teach' && canTeach) { setModeState('teach'); setTab(homeTab); }
     }).catch(() => {});
   }, [profile.onboarded, canTeach]);
   // Lost access to teaching (signed out, role removed): back to learning.
   useEffect(() => { if (mode === 'teach' && !canTeach) { setModeState('learn'); setTab('Explore'); } }, [canTeach]);
-  const TABS = mode === 'teach' ? TEACH_TABS : LEARN_TABS;
+  const TABS = mode === 'teach' ? (ownerOnly ? OWN_TABS : TEACH_TABS) : LEARN_TABS;
   // Push notifications: register this phone once signed in; taps open the right screen.
-  useEffect(() => { if (auth.session?.user?.id) registerForPush(auth.session.user.id).catch(() => {}); }, [auth.session?.user?.id]);
+  // Ask once with our own explanation first (iOS only shows its prompt once).
+  const [askPush, setAskPush] = useState(false);
+  useEffect(() => {
+    const uid = auth.session?.user?.id;
+    if (!uid) return;
+    pushStatus().then(async (st) => {
+      if (st === 'granted') registerForPush(uid).catch(() => {});
+      else if (st === 'undetermined' && !(await AsyncStorage.getItem(PUSH_ASKED_KEY).catch(() => null))) setAskPush(true);
+    }).catch(() => {});
+  }, [auth.session?.user?.id]);
+  const answerPush = async (yes) => {
+    setAskPush(false);
+    AsyncStorage.setItem(PUSH_ASKED_KEY, '1').catch(() => {});
+    if (yes && auth.session?.user?.id) registerForPush(auth.session.user.id).catch(() => {});
+  };
   useEffect(() => onNotificationTap((screen, params) => {
     // A lesson request opens teaching mode; a student notification opens learning mode.
     if (TEACH_ONLY.includes(screen)) { setModeState('teach'); setStack([]); setTab(screen === 'Teaching' ? 'Schedule' : screen); return; }
@@ -116,7 +152,7 @@ function Shell() {
     pop: () => setStack((s) => s.slice(0, -1)),
     replace: (name, params = {}) => setStack((s) => [...s.slice(0, -1), { name, params, key: name + Date.now() }]),
     goTab: (t) => { setStack([]); setTab(t); },
-    mode, canTeach, switchMode,
+    mode, canTeach, switchMode, ownerOnly,
   };
 
   useEffect(() => {
@@ -137,6 +173,14 @@ function Shell() {
       </SafeAreaView>
     );
   }
+  if (askPush) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
+        <StatusBar style="dark" />
+        <NotifPrompt onAnswer={answerPush} />
+      </SafeAreaView>
+    );
+  }
   const TabScreen = TAB_SCREENS[tab] || TAB_SCREENS[TABS[0].key];
   const StackScreen = top ? STACK_SCREENS[top.name] : null;
 
@@ -154,11 +198,11 @@ function Shell() {
                 const on = t.key === tab;
                 return (
                   <Pressable key={t.key} onPress={() => setTab(t.key)} style={st.tab} accessibilityRole="tab" accessibilityLabel={t.label} accessibilityState={{ selected: on }}>
-                    <View style={[st.iconWrap, on && { backgroundColor: C.sky }]}>
-                      <Icon name={t.icon} size={22} color={on ? C.blue : '#7A8699'} strokeWidth={on ? 2.4 : 2} />
+                    <View style={[st.iconWrap, on && { backgroundColor: C.amberBg }]}>
+                      <Icon name={t.icon} size={22} color={on ? C.navy : '#5B6B82'} strokeWidth={on ? 2.4 : 2} />
                       {badges[t.key] ? <View style={st.badge}><Text style={st.badgeText}>{badges[t.key]}</Text></View> : null}
                     </View>
-                    <Text style={[st.label, on && { color: C.blue }]}>{t.label}</Text>
+                    <Text style={[st.label, on && { color: C.navy }]}>{t.label}</Text>
                   </Pressable>
                 );
               })}
@@ -195,5 +239,5 @@ const st = StyleSheet.create({
   iconWrap: { width: 52, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: -2, right: 6, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: '#fff' },
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  label: { fontSize: 11, color: '#7A8699', fontWeight: '700', marginTop: 2 },
+  label: { fontSize: 12, color: '#5B6B82', fontWeight: '700', marginTop: 2 },
 });

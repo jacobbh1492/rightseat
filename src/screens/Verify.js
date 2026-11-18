@@ -7,7 +7,7 @@ import { PlaneImage } from '../art';
 import { Header } from './Details';
 import { allHours, hasPrior } from '../progress';
 
-const LEVEL = { pass: ['✓', '#0E9F6E'], warn: ['!', '#B45309'], fail: ['✕', '#DC2626'] };
+const LEVEL = { pass: ['✓', '#0B6E4F'], warn: ['!', '#B45309'], fail: ['✕', '#B91C1C'] };
 
 function StatusTag({ doc }) {
   const st = statusOf(doc);
@@ -295,8 +295,8 @@ export function DocUpload({ nav, params }) {
         )}
 
         {stage === 'result' && result && (
-          <View style={[v.result, { backgroundColor: result.decision === 'approved' ? '#E3F7EF' : result.decision === 'review' ? '#FEF3C7' : '#FEE2E2' }]}>
-            <Text style={{ fontWeight: '900', fontSize: 18, color: result.decision === 'approved' ? C.green : result.decision === 'review' ? '#B45309' : '#DC2626' }}>
+          <View style={[v.result, { backgroundColor: result.decision === 'approved' ? '#DDF3E8' : result.decision === 'review' ? '#FEF3C7' : '#FEE2E2' }]}>
+            <Text style={{ fontWeight: '900', fontSize: 18, color: result.decision === 'approved' ? C.green : result.decision === 'review' ? '#B45309' : '#B91C1C' }}>
               {result.decision === 'approved' ? (type === 'logbook' ? '✓ Imported (self-reported)' : '✓ Verified automatically') : result.decision === 'review' ? 'Sent to a reviewer' : 'We couldn’t verify this'}
             </Text>
             <Text style={{ color: C.text, marginTop: 6, lineHeight: 19 }}>
@@ -356,7 +356,7 @@ export function ReviewQueue({ nav }) {
               <Text style={{ fontWeight: '800', color: C.text, flex: 1 }}>{q.who}</Text>
               {q.state === 'pending'
                 ? <Tag label={`${Math.round(q.confidence * 100)}% read`} color={q.confidence < 0.8 ? '#B45309' : C.sub} bg={q.confidence < 0.8 ? '#FEF3C7' : '#EEF1F5'} />
-                : <Tag label={q.state === 'approved' ? 'Approved' : q.state === 'reupload' ? 'Re-upload requested' : 'Rejected'} color={q.state === 'approved' ? C.green : '#DC2626'} bg={q.state === 'approved' ? '#E3F7EF' : '#FEE2E2'} />}
+                : <Tag label={q.state === 'approved' ? 'Approved' : q.state === 'reupload' ? 'Re-upload requested' : 'Rejected'} color={q.state === 'approved' ? C.green : '#B91C1C'} bg={q.state === 'approved' ? '#DDF3E8' : '#FEE2E2'} />}
             </View>
             <Text style={{ color: C.sub, marginTop: 2 }}>{DOC_TYPES[q.type].title} · {q.role} · {q.submitted}</Text>
             {q.reasons[0] && <Text style={[v.reason, { marginTop: 8 }]} numberOfLines={2}>{q.reasons[0]}</Text>}
@@ -408,7 +408,7 @@ export function ReviewDetail({ nav, params }) {
       {q.state === 'pending' && (
         <View style={v.cta}>
           <Button title="Re-upload" variant="outline" style={{ flex: 1, marginRight: 8, paddingVertical: 13 }} onPress={() => act('reupload')} />
-          <Button title="Reject" variant="outline" style={{ flex: 0.8, marginRight: 8, paddingVertical: 13, borderColor: '#DC2626' }} onPress={() => act('rejected')} />
+          <Button title="Reject" variant="outline" style={{ flex: 0.8, marginRight: 8, paddingVertical: 13, borderColor: '#B91C1C' }} onPress={() => act('rejected')} />
           <Button title="Approve" style={{ flex: 1, paddingVertical: 13, backgroundColor: C.green }} onPress={() => act('approved')} />
         </View>
       )}
@@ -456,7 +456,7 @@ export function AutomationMonitor({ nav }) {
           <Card key={j.k}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={{ fontWeight: '800', color: C.text, flex: 1 }}>{j.name}</Text>
-              <Tag label="Healthy" color={C.green} bg="#E3F7EF" />
+              <Tag label="Healthy" color={C.green} bg="#DDF3E8" />
             </View>
             <Text style={{ color: C.sub, fontSize: 12, marginTop: 2 }}>{j.when} · last run {runs[j.k] || j.last}</Text>
             <Text style={{ color: C.text, marginTop: 6, fontSize: 13 }}>{j.result}</Text>

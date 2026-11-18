@@ -50,7 +50,12 @@ export function PromoCode({ nav }) {
         )}
 
         <SectionTitle>Your promos</SectionTitle>
-        {promos.length === 0 && <Text style={{ color: C.sub }}>Codes you redeem show up here with their end date.</Text>}
+        {promos.length === 0 && (
+          <Card style={{ alignItems: 'center', paddingVertical: 20 }}>
+            <Icon name="tag" size={24} color={C.sub} />
+            <Text style={{ color: C.sub, marginTop: 6, textAlign: 'center' }}>Codes you redeem show up here with what they unlock and when they end.</Text>
+          </Card>
+        )}
         {promos.map((p) => {
           const info = byLabel(p.code) || {};
           const on = isActive(p.endsAt);
@@ -66,7 +71,7 @@ export function PromoCode({ nav }) {
         })}
 
         <Text style={{ color: C.sub, fontSize: 12, marginTop: 14, lineHeight: 17 }}>
-          Each code can be used once per account (Hold Short once per school). When the free period ends your plan returns to the standard one; nothing is charged automatically.
+          Each code can be used once per account; school codes once per school. When the free period ends your plan returns to the standard one; nothing is charged automatically.
         </Text>
       </ScrollView>
     </View>
@@ -75,6 +80,6 @@ export function PromoCode({ nav }) {
 
 const ps = StyleSheet.create({
   err: { color: '#B91C1C', fontWeight: '700', marginBottom: 8 },
-  win: { backgroundColor: '#E3F7EF', borderWidth: 1, borderColor: '#A7F3D0' },
+  win: { backgroundColor: '#DDF3E8', borderWidth: 1, borderColor: '#A7F3D0' },
   check: { width: 26, height: 26, borderRadius: 13, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
 });

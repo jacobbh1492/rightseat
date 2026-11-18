@@ -12,6 +12,13 @@ Notifications.setNotificationHandler({
 });
 
 let lastToken = null;
+// 'granted' | 'denied' | 'undetermined' (web and simulators report 'denied').
+export async function pushStatus() {
+  if (Platform.OS === 'web' || !Device.isDevice) return 'denied';
+  const { status } = await Notifications.getPermissionsAsync();
+  return status;
+}
+
 export async function registerForPush(uid) {
   if (Platform.OS === 'web' || !Device.isDevice || !uid) return null;
   if (Platform.OS === 'android') {

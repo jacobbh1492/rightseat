@@ -3,7 +3,7 @@ import { fetchOpenSquawks } from './maintenance';
 
 // Map database rows to the shapes the app's screens use. Fields the database
 // doesn't track yet get neutral defaults, so a new listing renders cleanly.
-const COLORS = ['#1F6FEB', '#0891B2', '#7C3AED', '#059669', '#DB2777', '#EA580C'];
+const COLORS = ['#1D4ED8', '#0891B2', '#7C3AED', '#059669', '#DB2777', '#EA580C'];
 const colorFor = (id) => COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 
 export function cfiFromRow(row, names, planeIds, avatars = {}) {
@@ -35,6 +35,7 @@ export function planeFromRow(row, photos = []) {
     engineSMOH: d.engineSMOH || 0, tbo: d.tbo || 2000, last100hr: d.last100hr || '',
     hobbsTotal: Number(row.hobbs_total || 0), next100At: Number(row.next_100_at || 0), squawks: [], annualDate: row.annual_date || null,
     recentFlightDays: Number(d.recentFlightDays || 0),
+    panel: d.panel || null, lessons: d.lessons !== false, approvedCfiIds: d.approvedCfiIds || [], minTypeHours: Number(d.minTypeHours || 0), overnight: !!d.overnight,
     ownerName: d.ownerName || 'Private owner', ownerType: row.owner_type, insuranceMinHours: d.insuranceMinHours || 0,
     checkoutRequired: d.checkoutRequired || 'Checkout with a listed CFI', soloRental: d.soloRental !== false, checkoutBy: ['owner', 'either'].includes(d.checkoutBy) ? d.checkoutBy : 'cfi',
     rating: 0, reviewCount: 0, reviews: [], notes: d.notes || '', monthEarnings: 0, schoolId: row.school_id || null,

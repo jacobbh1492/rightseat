@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+const FAV_KEY = 'rightseat.saved';
 import { fetchMyBookings } from './backend/bookings';
 import { fetchLiveListings } from './backend/listings';
 import { fetchMyPlaneRoles } from './backend/planePeople';
@@ -91,6 +93,8 @@ export function StoreProvider({ children }) {
   const [planeRoles, setPlaneRoles] = useState({});
   const [mySchoolId, setMySchoolId] = useState(null);
   const [favorites, setFavorites] = useState([]);
+  // Saved instructors and planes survive restarts on this phone.
+  useEffect(() => { AsyncStorage.getItem(FAV_KEY).then((v) => { if (v) setFavorites(JSON.parse(v)); }).catch(() => {}); }, []);
   const [pilot] = useState(PILOT);
   const [training, setTraining] = useState(() => ({ ...TRAINING, appDone: SYLLABUS.flatMap((x) => x.lessons).slice(0, TRAINING.completed), prior: null, debriefs: SEED_DEBRIEFS.map(withLabels), sharing: { cfiIds: ['c1'], includeDebriefs: true } }));
   const [wallet, setWallet] = useState(WALLET);
@@ -263,7 +267,11 @@ export function StoreProvider({ children }) {
       setPlanes((prev) => prev.map((p) => (planeIds.includes(p.id) ? { ...p, schoolId: school.id, ownerType: 'Flight school', ownerName: school.name } : p.schoolId === school.id ? { ...p, schoolId: null } : p)));
       setMySchoolId(school.id);
     },
-    toggleFavorite: (id) => setFavorites((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])),
+    toggleFavorite: (id) => setFavorites((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      AsyncStorage.setItem(FAV_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    }),
 
     // ---- bookings
     addRequest: (r) => setRequests((prev) => [r, ...prev]),

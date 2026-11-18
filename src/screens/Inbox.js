@@ -5,7 +5,7 @@ import { useAuth } from '../backend/auth';
 import { fetchThreads, threadWith, fetchMessages, sendMessage as sendLive, markRead, subscribe } from '../backend/messages';
 import { PACKS } from '../data';
 import { money2, scanMessage } from '../logic';
-import { C, Card, Avatar, SectionTitle, Button, Tag } from '../ui';
+import { C, Card, Avatar, SectionTitle, Button, Tag, Icon, Sheet } from '../ui';
 import { PlaneImage } from '../art';
 import { Header } from './Details';
 
@@ -29,57 +29,95 @@ export function Inbox({ nav }) {
 
 function LiveInbox({ nav, uid }) {
   const [threads, setThreads] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
   const load = async () => { try { setThreads(await fetchThreads(uid)); } catch { setThreads((t) => t || []); } };
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, [uid]);
-  return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
-      <Text style={s.h1}>Inbox</Text>
-      {threads && threads.length === 0 && (
-        <Card><Text style={{ color: C.sub, lineHeight: 20 }}>No messages yet. Open an instructor’s profile and tap the message button to ask a question before you book.</Text></Card>
-      )}
-      {(threads || []).map((t) => (
-        <Card key={t.id} onPress={() => nav.push('Chat', { key: t.other, other: t.other, name: t.name, photo: t.photo })} style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Avatar initials={initials(t.name)} color={C.blue} photo={t.photo} size={44} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontWeight: '800', color: C.text }}>{t.name}</Text>
-              <Text style={{ color: C.sub, fontSize: 12 }}>{t.last?.at}</Text>
-            </View>
-            <Text style={{ color: t.unread ? C.text : C.sub, fontWeight: t.unread ? '800' : '400', marginTop: 2 }} numberOfLines={1}>{t.last?.mine ? 'You: ' : ''}{t.last?.text}</Text>
-          </View>
-          {t.unread && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.blue, marginLeft: 8 }} />}
-        </Card>
-      ))}
-      <Text style={s.policy}>Messages stay in Positive Rate so bookings, payments and your training record stay protected. Phone numbers and emails are shared after your first booking together.</Text>
-    </ScrollView>
-  );
+  const rows = (threads || []).map((t) => ({
+    key: t.id, name: t.name, at: t.last?.at, text: `${t.last?.mine ? 'You: ' : ''}${t.last?.text || ''}`, unread: !!t.unread,
+    avatar: <Avatar initials={initials(t.name)} color={C.navy} photo={t.photo} size={48} />,
+    open: () => nav.push('Chat', { key: t.other, other: t.other, name: t.name, photo: t.photo }),
+  }));
+  return <InboxList nav={nav} rows={rows} loading={!threads} onRefresh={load} />;
 }
 
 function DemoInbox({ nav }) {
   const store = useStore();
+  const rows = store.threads.map((t) => {
+    const w = who(store, t.key);
+    const last = t.messages[t.messages.length - 1];
+    return { key: t.key, name: w.name, at: last.at, text: `${last.from === 'me' ? 'You: ' : ''}${last.text}`, unread: !!t.unread || last.from !== 'me', avatar: w.avatar, open: () => nav.push('Chat', { key: t.key }) };
+  });
+  return <InboxList nav={nav} rows={rows} />;
+}
+
+// Full-width rows; unread threads are bold with an amber dot. Search and a new-message button on top.
+function InboxList({ nav, rows, loading, onRefresh }) {
+  const store = useStore();
+  const [q, setQ] = useState('');
+  const [picker, setPicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const t = q.trim().toLowerCase();
+  const shown = rows.filter((r) => !t || `${r.name} ${r.text}`.toLowerCase().includes(t));
+  const unread = rows.filter((r) => r.unread).length;
+  // People you can message: instructors and owners from your bookings, then saved instructors.
+  const contacts = [...new Set([...store.requests.flatMap((r) => [r.cfiId, r.planeId]), ...store.favorites].filter(Boolean))]
+    .map((id) => ({ id, ...who(store, id) })).filter((x) => x.name !== 'Unknown');
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
-      <Text style={s.h1}>Inbox</Text>
-      {store.threads.map((t) => {
-        const w = who(store, t.key);
-        const last = t.messages[t.messages.length - 1];
-        return (
-          <Card key={t.key} onPress={() => nav.push('Chat', { key: t.key })} style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {w.avatar}
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontWeight: '800', color: C.text }}>{w.name}</Text>
-                <Text style={{ color: C.sub, fontSize: 12 }}>{last.at}</Text>
+    <View style={{ flex: 1, backgroundColor: '#fff' }}>
+      <View style={s.top}>
+        <Text style={s.h1} accessibilityRole="header">Inbox{unread ? <Text style={s.count}>  {unread} unread</Text> : null}</Text>
+        <Pressable onPress={() => setPicker(true)} style={s.newBtn} accessibilityRole="button" accessibilityLabel="New message">
+          <Icon name="edit" size={20} color={C.navy} />
+        </Pressable>
+      </View>
+      <View style={s.searchWrap}>
+        <View style={s.search}>
+          <Icon name="search" size={18} color={C.sub} />
+          <TextInput value={q} onChangeText={setQ} placeholder="Search messages" placeholderTextColor={C.placeholder} style={s.searchInput} accessibilityLabel="Search messages" />
+        </View>
+      </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 110 }}
+        refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await onRefresh(); setRefreshing(false); }} /> : undefined}>
+        {!loading && rows.length === 0 && (
+          <View style={{ alignItems: 'center', padding: 28 }}>
+            <View style={s.emptyIcon}><Icon name="chat" size={28} color={C.navy} /></View>
+            <Text style={{ fontWeight: '800', color: C.text, fontSize: 17, marginTop: 12 }}>No messages yet</Text>
+            <Text style={{ color: C.sub, textAlign: 'center', marginTop: 4, lineHeight: 20 }}>Ask an instructor a question before you book. Tap the message button on their profile.</Text>
+          </View>
+        )}
+        {shown.map((r, i) => (
+          <Pressable key={r.key} onPress={r.open} style={({ pressed }) => [s.row, pressed && { backgroundColor: C.bg }]} accessibilityRole="button"
+            accessibilityLabel={`${r.unread ? 'Unread. ' : ''}${r.name}. ${r.text}. ${r.at || ''}`}>
+            {r.avatar}
+            <View style={[s.rowBody, i > 0 && s.rowBorder]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[s.name, r.unread && { fontWeight: '800' }]} numberOfLines={1}>{r.name}</Text>
+                <Text style={[s.at, r.unread && { color: C.amberDark, fontWeight: '700' }]}>{r.at}</Text>
               </View>
-              <Text style={{ color: C.sub, marginTop: 2 }} numberOfLines={1}>{last.from === 'me' ? 'You: ' : ''}{last.text}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                <Text style={[s.snippet, r.unread && { color: C.text, fontWeight: '700' }]} numberOfLines={1}>{r.text}</Text>
+                {r.unread && <View style={s.dot} />}
+              </View>
             </View>
-          </Card>
-        );
-      })}
-      <Text style={s.policy}>Messages stay in Positive Rate so bookings, payments and your training record stay protected. Phone numbers and emails are shared automatically after your first booking.</Text>
-    </ScrollView>
+          </Pressable>
+        ))}
+        {t && shown.length === 0 && rows.length > 0 && <Text style={{ color: C.sub, padding: 16 }}>No messages match “{q.trim()}”.</Text>}
+        <Text style={s.policy}>Messages stay in Positive Rate so bookings, payments and your training record stay protected. Phone numbers and emails are shared after your first booking together.</Text>
+      </ScrollView>
+      <Sheet visible={picker} onClose={() => setPicker(false)} title="New message">
+        {contacts.length === 0 && <Text style={{ color: C.sub, lineHeight: 20, paddingBottom: 12 }}>Instructors and owners you book with, or save, show up here. To ask someone new a question, open their profile from Explore.</Text>}
+        {contacts.map((x) => (
+          <Pressable key={x.id} onPress={() => { setPicker(false); nav.push('Chat', { key: x.id }); }} style={s.contact} accessibilityRole="button">
+            {x.avatar}
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={{ fontWeight: '800', color: C.text }}>{x.name}</Text>
+              <Text style={{ color: C.sub, fontSize: 13 }}>{x.sub}</Text>
+            </View>
+            <Icon name="chevron" size={18} color={C.chevron} />
+          </Pressable>
+        ))}
+        {contacts.length === 0 && <Button title="Browse instructors" variant="outline" onPress={() => { setPicker(false); nav.goTab('Explore'); }} />}
+      </Sheet>
+    </View>
   );
 }
 
@@ -99,7 +137,7 @@ function LiveChat({ nav, params, uid, other, cfi, plane }) {
   const { requests, teaching } = useStore();
   const [thread, setThread] = useState(null);
   const [msgs, setMsgs] = useState([]);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(params?.draft || '');
   const [notice, setNotice] = useState(null);
   const [err, setErr] = useState('');
   const [sending, setSending] = useState(false);
@@ -149,7 +187,7 @@ function LiveChat({ nav, params, uid, other, cfi, plane }) {
         </Text>
         {(cfi?.live || plane?.live) && (
           <Pressable onPress={() => nav.push('Request', { cfiId: cfi?.id || null, planeId: cfi ? cfi.aircraftIds[0] || null : plane?.id })} style={s.bookBtn}>
-            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>Book</Text>
+            <Text style={{ color: C.navy, fontWeight: '800', fontSize: 14 }}>Book</Text>
           </Pressable>
         )}
       </View>
@@ -178,8 +216,8 @@ function LiveChat({ nav, params, uid, other, cfi, plane }) {
           <Text style={s.preview}>{preview.masked ? 'Phone/email will be hidden until your first booking.' : 'Keep payments in the app to stay protected.'}</Text>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TextInput value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor="#9AA3B2" style={s.input} onSubmitEditing={send} editable={!!thread} />
-          <Pressable onPress={send} style={[s.send, (!thread || sending) && { opacity: 0.5 }]} accessibilityLabel="Send"><Text style={{ color: '#fff', fontWeight: '900' }}>↑</Text></Pressable>
+          <TextInput value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor="#687588" style={s.input} onSubmitEditing={send} editable={!!thread} />
+          <Pressable onPress={send} style={[s.send, (!thread || sending) && { opacity: 0.5 }]} accessibilityRole="button" accessibilityLabel="Send"><Icon name="send" size={20} color={C.navy} strokeWidth={2.6} /></Pressable>
         </View>
       </View>
     </View>
@@ -189,7 +227,7 @@ function LiveChat({ nav, params, uid, other, cfi, plane }) {
 function DemoChat({ nav, params }) {
   const store = useStore();
   const { threads, sendMessage, hasBookingWith, getCfi, getPlane } = store;
-  const [text, setText] = useState('');
+  const [text, setText] = useState(params?.draft || '');
   const [notice, setNotice] = useState(null);
   const ref = useRef(null);
   const key = params.key;
@@ -216,7 +254,7 @@ function DemoChat({ nav, params }) {
           {booked ? '✓ You’ve booked together — contact info is unlocked.' : 'Contact info unlocks after your first booking.'}
         </Text>
         <Pressable onPress={() => nav.push('Request', { cfiId: cfi?.id || null, planeId: cfi ? cfi.aircraftIds[0] || null : plane?.id })} style={s.bookBtn}>
-          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>Book</Text>
+          <Text style={{ color: C.navy, fontWeight: '800', fontSize: 14 }}>Book</Text>
         </Pressable>
       </View>
       <ScrollView ref={ref} contentContainerStyle={{ padding: 16, paddingBottom: 140 }} onContentSizeChange={() => ref.current?.scrollToEnd?.({ animated: false })}>
@@ -240,76 +278,48 @@ function DemoChat({ nav, params }) {
           <Text style={s.preview}>{preview.masked ? 'Phone/email will be hidden until your first booking.' : 'Keep payments in the app to stay protected.'}</Text>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TextInput value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor="#9AA3B2" style={s.input} onSubmitEditing={send} />
-          <Pressable onPress={send} style={s.send}><Text style={{ color: '#fff', fontWeight: '900' }}>↑</Text></Pressable>
+          <TextInput value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor="#687588" style={s.input} onSubmitEditing={send} />
+          <Pressable onPress={send} style={s.send} accessibilityRole="button" accessibilityLabel="Send"><Icon name="send" size={20} color={C.navy} strokeWidth={2.6} /></Pressable>
         </View>
       </View>
     </View>
   );
 }
 
-export function Wallet({ nav }) {
-  const { wallet, held, available, topUp } = useStore();
-  const [added, setAdded] = useState(null);
-  return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Header nav={nav} title="Wallet" />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
-        <View style={s.walletHero}>
-          <Text style={{ color: '#AFC3E0', fontWeight: '700' }}>Available to fly</Text>
-          <Text style={{ color: '#fff', fontSize: 36, fontWeight: '900', marginTop: 2 }}>{money2(available)}</Text>
-          <Text style={{ color: '#AFC3E0', marginTop: 4 }}>Balance {money2(wallet.balance)} · {money2(held)} held for upcoming lessons</Text>
-        </View>
-        {added && <Text style={s.added}>✓ Added {money2(added.amount)}{added.bonus ? ` + ${money2(added.bonus)} bonus` : ''}</Text>}
-
-        <SectionTitle>Prepay & save</SectionTitle>
-        <Text style={{ color: C.sub, fontSize: 13, marginBottom: 10, lineHeight: 18 }}>
-          Prepaid training accounts get aircraft block rates on every flight, plus bonus credit. No card fees on wallet bookings.
-        </Text>
-        {PACKS.map((p) => (
-          <Card key={p.amount} onPress={() => { topUp(p); setAdded(p); }} style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ fontWeight: '900', fontSize: 18, color: C.text }}>Add {money2(p.amount).replace('.00', '')}</Text>
-                {p.popular && <View style={{ marginLeft: 8 }}><Tag label="Most popular" /></View>}
-              </View>
-              <Text style={{ color: C.green, fontWeight: '700', marginTop: 2 }}>+ {money2(p.bonus).replace('.00', '')} bonus credit · block rates</Text>
-            </View>
-            <Text style={{ color: C.blue, fontWeight: '900', fontSize: 20 }}>+</Text>
-          </Card>
-        ))}
-
-        <SectionTitle>Activity</SectionTitle>
-        <Card>
-          {wallet.transactions.map((t) => (
-            <View key={t.id} style={s.tx}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: C.text, fontWeight: '600' }}>{t.label}</Text>
-                <Text style={{ color: C.sub, fontSize: 12 }}>{t.date}</Text>
-              </View>
-              <Text style={{ fontWeight: '800', color: t.amount > 0 ? C.green : C.text }}>{t.amount > 0 ? '+' : ''}{money2(t.amount)}</Text>
-            </View>
-          ))}
-        </Card>
-        <Text style={s.policy}>Unused balance is refundable to your card at any time. Bonus credit is non-cash and used last.</Text>
-      </ScrollView>
-    </View>
-  );
+// The prepaid wallet is a V2 feature; until then this route shows payment methods.
+export function Wallet({ nav, params }) {
+  const { PaymentMethods } = require('./PaymentMethods');
+  return <PaymentMethods nav={nav} params={params} />;
 }
 
 const s = StyleSheet.create({
-  h1: { fontSize: 28, fontWeight: '900', color: C.text, marginTop: 6, marginBottom: 14 },
-  policy: { color: C.sub, fontSize: 12, marginTop: 10, lineHeight: 17 },
+  h1: { fontSize: 28, fontWeight: '900', color: C.text },
+  count: { fontSize: 14, fontWeight: '700', color: C.amberDark },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14, backgroundColor: '#fff' },
+  newBtn: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, borderColor: C.chevron, alignItems: 'center', justifyContent: 'center' },
+  searchWrap: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.line },
+  search: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.bg, borderRadius: 12, paddingHorizontal: 12, minHeight: 44 },
+  searchInput: { flex: 1, marginLeft: 8, fontSize: 15, color: C.text, paddingVertical: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, minHeight: 72, backgroundColor: '#fff' },
+  rowBody: { flex: 1, marginLeft: 12, paddingVertical: 12, paddingRight: 16 },
+  rowBorder: { borderTopWidth: 1, borderTopColor: C.line },
+  name: { flex: 1, fontSize: 16, fontWeight: '600', color: C.text },
+  at: { fontSize: 12, color: C.sub, marginLeft: 8 },
+  snippet: { flex: 1, color: C.sub, fontSize: 14 },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.amber, marginLeft: 8 },
+  emptyIcon: { width: 60, height: 60, borderRadius: 18, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center' },
+  contact: { flexDirection: 'row', alignItems: 'center', minHeight: 60, borderBottomWidth: 1, borderBottomColor: C.line },
+  policy: { color: C.sub, fontSize: 12, marginTop: 14, lineHeight: 17, paddingHorizontal: 16 },
   bookBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.sky, paddingHorizontal: 14, paddingVertical: 10 },
-  bookBtn: { backgroundColor: C.blue, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, marginLeft: 10 },
+  bookBtn: { backgroundColor: C.amber, borderRadius: 10, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center', marginLeft: 10 },
   bubble: { maxWidth: '82%', borderRadius: 16, padding: 11, marginBottom: 8 },
-  me: { alignSelf: 'flex-end', backgroundColor: C.blue, borderBottomRightRadius: 4 },
-  them: { alignSelf: 'flex-start', backgroundColor: '#fff', borderBottomLeftRadius: 4 },
+  me: { alignSelf: 'flex-end', backgroundColor: C.navy, borderBottomRightRadius: 4 },
+  them: { alignSelf: 'flex-start', backgroundColor: '#fff', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: C.line },
   nudge: { backgroundColor: '#FEF3C7', borderRadius: 12, padding: 12, marginTop: 6 },
   composer: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#fff', padding: 10, paddingBottom: 22, borderTopWidth: 1, borderTopColor: C.line },
   preview: { color: '#B45309', fontSize: 12, fontWeight: '600', marginBottom: 6, marginLeft: 4 },
   input: { flex: 1, backgroundColor: C.bg, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: C.text },
-  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.blue, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+  send: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.amber, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   walletHero: { backgroundColor: C.navy, borderRadius: 18, padding: 18 },
   added: { color: C.green, fontWeight: '800', marginTop: 10 },
   tx: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F1F3F7' },

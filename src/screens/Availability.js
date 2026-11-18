@@ -86,7 +86,7 @@ export function WeeklyHours({ weekly, onChange }) {
           return (
             <View key={k} style={a.dayRow}>
               <Pressable onPress={() => toggleDay(k)} style={a.dayToggle} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={DAY_NAMES[k]}>
-                <View style={[a.box, on && { backgroundColor: C.blue, borderColor: C.blue }]}>{on && <Icon name="check" size={14} color="#fff" strokeWidth={3} />}</View>
+                <View style={[a.box, on && { backgroundColor: C.navy, borderColor: C.navy }]}>{on && <Icon name="check" size={14} color="#fff" strokeWidth={3} />}</View>
                 <Text style={[a.dayName, !on && { color: C.sub }]}>{DAY_NAMES[k].slice(0, 3)}</Text>
               </Pressable>
               <View style={{ flex: 1 }}>
@@ -280,7 +280,7 @@ export function BlockTime({ nav, params }) {
               <Toggle label="All day" value={allDay} onValueChange={(v) => { setAllDay(v); setTo(from); setPickEnd(false); }} hint={allDay ? 'Tap a start day, then an end day for several days.' : 'Pick the day, then the times.'} />
             </Card>
             <MonthCalendar month={month} onMonth={setMonth} selected={allDay && pickEnd ? from : to} onSelect={tap}
-              enabled={(dt) => cmpDate(dt, today) >= 0} inRange={(dt) => cmpDate(dt, from) >= 0 && cmpDate(dt, to) <= 0}
+              enabled={(dt) => cmpDate(dt, today) >= 0} inRange={(dt) => cmpDate(dt, from) >= 0 && cmpDate(dt, to) <= 0} edge={(dt) => sameDate(dt, from) || sameDate(dt, to)}
               minMonth={{ y: today.y, m: today.m }} />
             {!allDay && (
               <View style={[a.rangeRow, { marginTop: 12 }]}>
@@ -296,14 +296,14 @@ export function BlockTime({ nav, params }) {
             </Card>
             <Field label="Note to yourself (optional)" value={label} onChangeText={(t) => setLabel(t.slice(0, 80))} placeholder="e.g. CFII checkride, vacation, annual" />
             {clashes.length > 0 && (
-              <Card style={{ backgroundColor: '#FEF3C7' }}>
+              <Card style={{ backgroundColor: C.amberBg, borderColor: C.amber }}>
                 <Text style={{ fontWeight: '800', color: '#92400E' }}>{clashes.length} lesson{clashes.length > 1 ? 's' : ''} already booked in this time</Text>
                 {clashes.map((r) => <Text key={r.id} style={{ color: '#92400E', marginTop: 4 }}>{r.date} · {r.time} · {r.studentName}</Text>)}
                 <Text style={{ color: '#92400E', marginTop: 6, fontSize: 13 }}>Blocking time doesn’t cancel them. Message the student or cancel from Schedule if you need to.</Text>
               </Card>
             )}
             {!!err && <Text style={[a.msg, { color: '#B91C1C' }]}>{err}</Text>}
-            <Button title={busy ? 'Saving…' : 'Block this time'} disabled={busy || !valid} onPress={save} />
+            <Button title={busy ? 'Saving…' : !valid ? 'Block this time' : allDay ? (() => { const n = Math.round((end - start) / 86400e3); return `Block ${n} day${n === 1 ? '' : 's'}`; })() : `Block ${Math.round(((end - start) / 3600e3) * 10) / 10} hr`} disabled={busy || !valid} onPress={save} />
             {!valid && <Text style={[a.sub, { textAlign: 'center' }]}>Pick an end after the start, in the future.</Text>}
           </>
         )}
@@ -323,7 +323,7 @@ export function BlockTime({ nav, params }) {
 // timeline of lessons, requests and blocked time against working hours, and change it in
 // place: tap an open hour to block it, take the day off, or edit hours.
 const HOUR_H = 46;
-const LESSON_COLORS = { Proposed: ['#F1E8FF', '#7C3AED'], Pending: ['#FEF3C7', '#B45309'], Confirmed: ['#DCE8FF', C.blue], Completed: ['#E3F7EF', C.green] };
+const LESSON_COLORS = { Proposed: ['#F1E8FF', '#7C3AED'], Pending: ['#FEF3C7', '#B45309'], Confirmed: ['#DCE8FF', C.blue], Completed: ['#DDF3E8', C.green] };
 
 export function ScheduleCalendar({ nav, embedded }) {
   const cal = useMyCalendar();
@@ -549,8 +549,8 @@ const a = StyleSheet.create({
   block: { position: 'absolute', left: 54, right: 8, borderRadius: 8, borderLeftWidth: 4, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden' },
   blockTitle: { fontWeight: '800', fontSize: 13 },
   blockSub: { color: '#475569', fontSize: 12, marginTop: 1 },
-  offBlock: { backgroundColor: '#E2E8F0', borderLeftColor: '#94A3B8' },
+  offBlock: { backgroundColor: '#E2E8F0', borderLeftColor: '#7A889C' },
   offActions: { position: 'absolute', right: 6, top: 4 },
-  unblockBtn: { backgroundColor: '#DC2626', borderRadius: 8, paddingHorizontal: 10, minHeight: 30, justifyContent: 'center' },
-  nowLine: { position: 'absolute', left: 50, right: 0, height: 2, backgroundColor: '#DC2626' },
+  unblockBtn: { backgroundColor: '#B91C1C', borderRadius: 8, paddingHorizontal: 10, minHeight: 30, justifyContent: 'center' },
+  nowLine: { position: 'absolute', left: 50, right: 0, height: 2, backgroundColor: '#B91C1C' },
 });

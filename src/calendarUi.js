@@ -15,7 +15,7 @@ export const longDate = (dt) => new Date(Date.UTC(dt.y, dt.m - 1, dt.d)).toLocal
 
 // Month grid. `enabled(date)` decides which days can be tapped; `dot(date)` marks days
 // (e.g. lessons booked); `inRange(date)` shades a selected span (time off).
-export function MonthCalendar({ month, onMonth, selected, onSelect, enabled = () => true, dot, inRange, minMonth, maxMonth }) {
+export function MonthCalendar({ month, onMonth, selected, onSelect, enabled = () => true, dot, inRange, edge, minMonth, maxMonth }) {
   const first = { y: month.y, m: month.m, d: 1 };
   const lead = dayOfWeek(first);
   const daysIn = new Date(Date.UTC(month.y, month.m, 0)).getUTCDate();
@@ -23,17 +23,18 @@ export function MonthCalendar({ month, onMonth, selected, onSelect, enabled = ()
   while (cells.length % 7) cells.push(null);
   const step = (n) => { const t = new Date(Date.UTC(month.y, month.m - 1 + n, 1)); onMonth({ y: t.getUTCFullYear(), m: t.getUTCMonth() + 1 }); };
   const mk = (x) => x.y * 12 + x.m;
+  const now = new Date();
   const canBack = !minMonth || mk(month) > mk(minMonth);
   const canNext = !maxMonth || mk(month) < mk(maxMonth);
   return (
     <View style={cs.cal}>
       <View style={cs.calHead}>
         <Pressable onPress={() => canBack && step(-1)} disabled={!canBack} style={[cs.navBtn, !canBack && { opacity: 0.3 }]} accessibilityRole="button" accessibilityLabel="Previous month">
-          <Icon name="back" size={20} color={C.blue} />
+          <Icon name="back" size={20} color={C.navy} />
         </Pressable>
         <Text style={cs.calTitle}>{monthName(month.m)} {month.y}</Text>
         <Pressable onPress={() => canNext && step(1)} disabled={!canNext} style={[cs.navBtn, !canNext && { opacity: 0.3 }]} accessibilityRole="button" accessibilityLabel="Next month">
-          <Icon name="chevron" size={20} color={C.blue} />
+          <Icon name="chevron" size={20} color={C.navy} />
         </Pressable>
       </View>
       <View style={cs.row}>
@@ -44,20 +45,28 @@ export function MonthCalendar({ month, onMonth, selected, onSelect, enabled = ()
           {cells.slice(w * 7, w * 7 + 7).map((dt, i) => {
             if (!dt) return <View key={i} style={cs.cell} />;
             const on = enabled(dt);
-            const sel = sameDate(dt, selected);
+            const sel = sameDate(dt, selected) || !!(edge && edge(dt));
             const span = inRange && inRange(dt);
+            const isToday = dt.y === now.getFullYear() && dt.m === now.getMonth() + 1 && dt.d === now.getDate();
             return (
               <Pressable key={i} disabled={!on} onPress={() => onSelect(dt)} style={cs.cell}
-                accessibilityRole="button" accessibilityLabel={`${longDate(dt)}${on ? '' : ', unavailable'}`} accessibilityState={{ selected: sel, disabled: !on }}>
+                accessibilityRole="button" accessibilityLabel={`${isToday ? 'Today, ' : ''}${longDate(dt)}${on ? ', open' : ', unavailable'}`} accessibilityState={{ selected: sel, disabled: !on }}>
                 <View style={[cs.day, on && cs.dayOn, span && cs.daySpan, sel && cs.daySel]}>
-                  <Text style={[cs.dayText, on && { color: C.blue, fontWeight: '800' }, span && { color: C.navy }, sel && { color: '#fff' }]}>{dt.d}</Text>
+                  <Text style={[cs.dayText, on && { color: C.text, fontWeight: '800' }, span && { color: C.navy }, sel && { color: '#fff' }]}>{dt.d}</Text>
                 </View>
-                {dot && dot(dt) ? <View style={[cs.dot, sel && { backgroundColor: '#fff' }]} /> : null}
+                {(dot ? dot(dt) : isToday) ? <View style={cs.dot} /> : <View style={{ height: 7 }} />}
               </Pressable>
             );
           })}
         </View>
       ))}
+      {!dot && (
+        <View style={cs.legend} accessible accessibilityLabel="Outlined days are open. Navy is your selection. An amber dot marks today.">
+          <View style={[cs.legDay, cs.dayOn]} /><Text style={cs.legText}>Open</Text>
+          <View style={[cs.legDay, cs.daySel]} /><Text style={cs.legText}>Selected</Text>
+          <View style={[cs.dot, { marginTop: 0, marginRight: 6 }]} /><Text style={cs.legText}>Today</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -71,7 +80,7 @@ export function TimeSheet({ visible, title, value, min = 0, max = 1440, step = 1
       <ScrollView style={{ maxHeight: 380 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {times.map((t) => (
-            <Pressable key={t} onPress={() => { onPick(t); onClose(); }} style={[cs.timeBtn, value === t && { backgroundColor: C.blue, borderColor: C.blue }]} accessibilityRole="button">
+            <Pressable key={t} onPress={() => { onPick(t); onClose(); }} style={[cs.timeBtn, value === t && { backgroundColor: C.navy, borderColor: C.navy }]} accessibilityRole="button">
               <Text style={{ fontWeight: '700', color: value === t ? '#fff' : C.text }}>{t === 1440 ? '12:00 AM (midnight)' : minutesLabel(t)}</Text>
             </Pressable>
           ))}
@@ -89,7 +98,7 @@ export function WeekStrip({ start, selected, onSelect, dot }) {
         const sel = sameDate(dt, selected);
         const label = new Date(Date.UTC(dt.y, dt.m - 1, dt.d)).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
         return (
-          <Pressable key={dateKey(dt)} onPress={() => onSelect(dt)} style={[cs.weekDay, sel && { backgroundColor: C.blue, borderColor: C.blue }]}
+          <Pressable key={dateKey(dt)} onPress={() => onSelect(dt)} style={[cs.weekDay, sel && { backgroundColor: C.navy, borderColor: C.navy }]}
             accessibilityRole="button" accessibilityLabel={longDate(dt)} accessibilityState={{ selected: sel }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: sel ? '#DCE8FF' : C.sub }}>{label}</Text>
             <Text style={{ fontSize: 17, fontWeight: '900', color: sel ? '#fff' : C.text, marginTop: 2 }}>{dt.d}</Text>
@@ -110,11 +119,14 @@ export const cs = StyleSheet.create({
   dow: { flex: 1, textAlign: 'center', color: C.sub, fontSize: 12, fontWeight: '700', paddingVertical: 6 },
   cell: { flex: 1, alignItems: 'center', paddingVertical: 3, minHeight: 48 },
   day: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  dayOn: { backgroundColor: C.sky },
+  dayOn: { backgroundColor: '#fff', borderWidth: 1.5, borderColor: C.border },
   daySpan: { backgroundColor: '#FDE7B8' },
-  daySel: { backgroundColor: C.blue },
-  dayText: { fontSize: 15, color: '#A3ACBA', fontWeight: '600' },
-  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.amber, marginTop: 2 },
+  daySel: { backgroundColor: C.navy, borderColor: C.navy },
+  dayText: { fontSize: 15, color: C.chevron, fontWeight: '600' },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.amber, marginTop: 1 },
+  legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  legDay: { width: 16, height: 16, borderRadius: 8, marginRight: 6 },
+  legText: { fontSize: 12, color: C.sub, marginRight: 14 },
   timeBtn: { minWidth: '30%', flexGrow: 1, minHeight: 44, borderRadius: 10, borderWidth: 1.5, borderColor: C.line, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: '#fff' },
   weekDay: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, borderWidth: 1.5, borderColor: C.line, backgroundColor: '#fff', minHeight: 64 },
 });

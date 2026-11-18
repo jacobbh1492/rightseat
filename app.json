@@ -42,7 +42,7 @@
       [
         "expo-notifications",
         {
-          "color": "#1F6FEB"
+          "color": "#0B1F3A"
         }
       ],
       [
@@ -59,6 +59,12 @@
           "ios": {
             "useFrameworks": "dynamic"
           }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Positive Rate uses your location to show the airports, instructors and planes nearest you."
         }
       ]
     ],
