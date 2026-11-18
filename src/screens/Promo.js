@@ -75,6 +75,6 @@ export function PromoCode({ nav }) {
 
 const ps = StyleSheet.create({
   err: { color: '#B91C1C', fontWeight: '700', marginBottom: 8 },
-  win: { backgroundColor: '#E3F7EF', borderWidth: 1, borderColor: '#A7F3D0' },
+  win: { backgroundColor: '#DDF3E8', borderWidth: 1, borderColor: '#A7F3D0' },
   check: { width: 26, height: 26, borderRadius: 13, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
 });

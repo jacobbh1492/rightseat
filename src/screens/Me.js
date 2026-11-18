@@ -16,7 +16,7 @@ import { fetchSchedule, saveSchedule } from '../backend/schedule';
 import { normalizeSchedule, workingDays, DAY_KEYS } from '../schedule';
 import { PlaneImage, PhotoStrip } from '../art';
 
-const PALETTE = ['#1F6FEB', '#0E9F6E', '#9333EA', '#F59E0B', '#DC2626', '#0891B2', '#DB2777'];
+const PALETTE = ['#1D4ED8', '#0B6E4F', '#9333EA', '#F59E0B', '#B91C1C', '#0891B2', '#DB2777'];
 const num = (v) => (v === '' || isNaN(+v) ? 0 : +v);
 
 export function Me({ nav }) {
@@ -138,7 +138,7 @@ export function Me({ nav }) {
             </Text>
           </View>
           {!teachingMode && pendingTeach > 0 && <View style={ms.count}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>{pendingTeach}</Text></View>}
-          <Icon name="chevron" size={18} color="#94A3B8" />
+          <Icon name="chevron" size={18} color="#7A889C" />
         </Pressable>
       )}
 
@@ -188,7 +188,7 @@ export function Me({ nav }) {
 
       {!auth?.session && <Text style={ms.groupTitle}>Positive Rate team (demo)</Text>}
       {!auth?.session && <Card style={{ paddingVertical: 2 }}>
-        <ListRow first icon="file" iconColor="#7C3AED" iconBg="#F3E8FF" title="Document review queue" subtitle="Only what automation couldn’t approve" right={<View style={{ flexDirection: 'row', alignItems: 'center' }}>{pendingQueue ? <View style={ms.count}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>{pendingQueue}</Text></View> : null}<Icon name="chevron" size={18} color="#94A3B8" /></View>} onPress={() => nav.push('ReviewQueue')} />
+        <ListRow first icon="file" iconColor="#7C3AED" iconBg="#F3E8FF" title="Document review queue" subtitle="Only what automation couldn’t approve" right={<View style={{ flexDirection: 'row', alignItems: 'center' }}>{pendingQueue ? <View style={ms.count}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>{pendingQueue}</Text></View> : null}<Icon name="chevron" size={18} color="#7A889C" /></View>} onPress={() => nav.push('ReviewQueue')} />
         <ListRow icon="zap" iconColor="#7C3AED" iconBg="#F3E8FF" title="Automation monitor" subtitle="FAA syncs, expirations, auto-pauses" onPress={() => nav.push('Automation')} />
         <ListRow icon="chart" iconColor="#7C3AED" iconBg="#F3E8FF" title="Founder metrics" subtitle="Rebooking rate & leakage watchlist" onPress={() => nav.push('Insights')} />
       </Card>}
@@ -716,7 +716,7 @@ export function SchoolForm({ nav, params }) {
 
 const ms = StyleSheet.create({
   profile: { flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: 16 },
-  verifiedPill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#E3F7EF', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, marginTop: 6 },
+  verifiedPill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#DDF3E8', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, marginTop: 6 },
   walletIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   addFunds: { backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   groupTitle: { fontSize: 13, fontWeight: '800', color: C.sub, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 18, marginBottom: 8, marginLeft: 4 },

@@ -344,7 +344,7 @@ export function JoinSchool({ nav, params }) {
               <>
                 <SplitExample cfi={c} model={model} schoolPct={s.terms.schoolPct} />
                 <Text style={sc.label}>Message to the school</Text>
-                <TextInput multiline value={msg} onChangeText={setMsg} placeholder="Experience, availability, what you’d like to teach…" placeholderTextColor="#9AA3B2" style={sc.area} />
+                <TextInput multiline value={msg} onChangeText={setMsg} placeholder="Experience, availability, what you’d like to teach…" placeholderTextColor="#687588" style={sc.area} />
               </>
             )}
           </>

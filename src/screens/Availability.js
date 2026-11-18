@@ -323,7 +323,7 @@ export function BlockTime({ nav, params }) {
 // timeline of lessons, requests and blocked time against working hours, and change it in
 // place: tap an open hour to block it, take the day off, or edit hours.
 const HOUR_H = 46;
-const LESSON_COLORS = { Proposed: ['#F1E8FF', '#7C3AED'], Pending: ['#FEF3C7', '#B45309'], Confirmed: ['#DCE8FF', C.blue], Completed: ['#E3F7EF', C.green] };
+const LESSON_COLORS = { Proposed: ['#F1E8FF', '#7C3AED'], Pending: ['#FEF3C7', '#B45309'], Confirmed: ['#DCE8FF', C.blue], Completed: ['#DDF3E8', C.green] };
 
 export function ScheduleCalendar({ nav, embedded }) {
   const cal = useMyCalendar();
@@ -549,8 +549,8 @@ const a = StyleSheet.create({
   block: { position: 'absolute', left: 54, right: 8, borderRadius: 8, borderLeftWidth: 4, paddingHorizontal: 8, paddingVertical: 3, overflow: 'hidden' },
   blockTitle: { fontWeight: '800', fontSize: 13 },
   blockSub: { color: '#475569', fontSize: 12, marginTop: 1 },
-  offBlock: { backgroundColor: '#E2E8F0', borderLeftColor: '#94A3B8' },
+  offBlock: { backgroundColor: '#E2E8F0', borderLeftColor: '#7A889C' },
   offActions: { position: 'absolute', right: 6, top: 4 },
-  unblockBtn: { backgroundColor: '#DC2626', borderRadius: 8, paddingHorizontal: 10, minHeight: 30, justifyContent: 'center' },
-  nowLine: { position: 'absolute', left: 50, right: 0, height: 2, backgroundColor: '#DC2626' },
+  unblockBtn: { backgroundColor: '#B91C1C', borderRadius: 8, paddingHorizontal: 10, minHeight: 30, justifyContent: 'center' },
+  nowLine: { position: 'absolute', left: 50, right: 0, height: 2, backgroundColor: '#B91C1C' },
 });

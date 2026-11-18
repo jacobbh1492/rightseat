@@ -17,7 +17,7 @@ export function WeekCalendar({ cfi, plane }) {
   const { requests } = useStore();
   const d0 = new Date();
   const days = Array.from({ length: 7 }, (_, i) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + i));
-  const colors = { free: '#E3F7EF', cfi: '#DBEAFE', plane: '#DBEAFE', off: '#F1F3F7' };
+  const colors = { free: '#DDF3E8', cfi: '#DBEAFE', plane: '#DBEAFE', off: '#F1F3F7' };
   return (
     <Card>
       <View style={{ flexDirection: 'row', marginLeft: 44 }}>
@@ -34,7 +34,7 @@ export function WeekCalendar({ cfi, plane }) {
         </View>
       ))}
       <View style={{ flexDirection: 'row', marginTop: 10, flexWrap: 'wrap' }}>
-        {[['Open', '#E3F7EF'], ['Booked', '#DBEAFE'], ['Your booking', C.blue], ['Off', '#F1F3F7']].map(([l, c]) => (
+        {[['Open', '#DDF3E8'], ['Booked', '#DBEAFE'], ['Your booking', C.blue], ['Off', '#F1F3F7']].map(([l, c]) => (
           <View key={l} style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
             <View style={[k.legend, { backgroundColor: c }]} /><Text style={{ color: C.sub, fontSize: 11 }}>{l}</Text>
           </View>
@@ -183,7 +183,7 @@ export function OwnerDashboard({ nav, params }) {
             <Text style={{ fontWeight: '900', color: C.text, fontSize: 16 }}>{p.tail} · {p.make} {p.model}</Text>
             <Text style={{ color: C.sub, marginTop: 2 }}>Hobbs {p.hobbsTotal} · {money(p.wetRate)}/hr wet</Text>
             <View style={{ flexDirection: 'row', marginTop: 6 }}>
-              <Tag label={grounded ? 'Grounded — bookings paused' : 'Airworthy — accepting bookings'} color={grounded ? '#DC2626' : C.green} bg={grounded ? '#FEE2E2' : '#E3F7EF'} />
+              <Tag label={grounded ? 'Grounded — bookings paused' : 'Airworthy — accepting bookings'} color={grounded ? '#B91C1C' : C.green} bg={grounded ? '#FEE2E2' : '#DDF3E8'} />
             </View>
           </View>
         </Card>
@@ -201,7 +201,7 @@ export function OwnerDashboard({ nav, params }) {
         <Card>
           <Row label="Due at Hobbs" value={p.next100At} />
           <Row label="Hours remaining" value={left > 0 ? `${left} hrs` : 'OVERDUE'} />
-          <View style={k.bar}><View style={[k.barFill, { width: `${Math.max(0, Math.min(1, 1 - left / 100)) * 100}%`, backgroundColor: left < 10 ? '#DC2626' : C.blue }]} /></View>
+          <View style={k.bar}><View style={[k.barFill, { width: `${Math.max(0, Math.min(1, 1 - left / 100)) * 100}%`, backgroundColor: left < 10 ? '#B91C1C' : C.blue }]} /></View>
           <Text style={{ color: C.sub, fontSize: 12, marginTop: 6 }}>Positive Rate blocks any booking that would run past the 100-hr. Hobbs updates automatically when each flight is closed out.</Text>
           {left < 10 && <Button title="Mark 100-hr complete (signed off)" variant="outline" style={{ marginTop: 10, paddingVertical: 10 }} onPress={() => complete100hr(p.id)} />}
         </Card>
@@ -376,7 +376,7 @@ export function Insights({ nav }) {
 }
 
 const k = StyleSheet.create({
-  promo: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E3F7EF', borderWidth: 1, borderColor: '#A7F3D0', borderRadius: 12, padding: 14, marginTop: 4 },
+  promo: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#DDF3E8', borderWidth: 1, borderColor: '#A7F3D0', borderRadius: 12, padding: 14, marginTop: 4 },
   demo: { color: C.sub, fontSize: 12, fontWeight: '700', marginBottom: 8 },
   roleNote: { color: '#475569', fontSize: 13, lineHeight: 18, marginBottom: 10 },
   hero: { backgroundColor: C.navy, borderRadius: 18, padding: 18 },

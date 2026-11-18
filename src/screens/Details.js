@@ -12,12 +12,11 @@ import { VerifiedCard } from './Verify';
 export function Header({ nav, title, right }) {
   return (
     <View style={hs.bar}>
-      <Pressable onPress={nav.pop} hitSlop={12} style={hs.back} accessibilityRole="button" accessibilityLabel="Back">
-        <Icon name="back" size={22} color={C.blue} />
-        <Text style={{ color: C.blue, fontWeight: '700', marginLeft: 2, fontSize: 15 }}>Back</Text>
+      <Pressable onPress={nav.pop} hitSlop={8} style={hs.back} accessibilityRole="button" accessibilityLabel="Back">
+        <Icon name="back" size={24} color={C.navy} />
       </Pressable>
-      <Text style={hs.title} numberOfLines={1}>{title}</Text>
-      <View style={{ width: 70, alignItems: 'flex-end' }}>{right}</View>
+      <Text style={hs.title} numberOfLines={1} accessibilityRole="header">{title}</Text>
+      <View style={{ minWidth: 44, alignItems: 'flex-end' }}>{right}</View>
     </View>
   );
 }
@@ -204,7 +203,7 @@ export function PlaneDetail({ nav, params }) {
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
             {grounded && <Tag label="Grounded · not bookable" color="#DC2626" bg="#FEE2E2" />}
-            {p.next100At > 0 && <Tag label={`100-hr in ${Math.max(0, Math.round((p.next100At - p.hobbsTotal) * 10) / 10)} hrs`} color={p.next100At - p.hobbsTotal < 10 ? '#B45309' : C.green} bg={p.next100At - p.hobbsTotal < 10 ? '#FEF3C7' : '#E3F7EF'} />}
+            {p.next100At > 0 && <Tag label={`100-hr in ${Math.max(0, Math.round((p.next100At - p.hobbsTotal) * 10) / 10)} hrs`} color={p.next100At - p.hobbsTotal < 10 ? '#B45309' : C.green} bg={p.next100At - p.hobbsTotal < 10 ? '#FEF3C7' : '#DDF3E8'} />}
             <Tag label={`${(p.squawks || []).filter((q) => q.status === 'open').length} open squawks`} color={C.sub} bg="#EEF1F5" />
           </View>
           {p.live && auth?.session && (
@@ -298,9 +297,9 @@ export function PlaneDetail({ nav, params }) {
 }
 
 const hs = StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, minHeight: 52, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.line },
-  back: { flexDirection: 'row', alignItems: 'center', width: 70 },
-  title: { flex: 1, textAlign: 'center', fontWeight: '800', fontSize: 16, color: C.text },
+  bar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, height: 56, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.line },
+  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  title: { flex: 1, textAlign: 'center', fontWeight: '800', fontSize: 17, color: C.text },
 });
 
 const ds = StyleSheet.create({

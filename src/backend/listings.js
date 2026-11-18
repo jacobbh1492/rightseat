@@ -3,7 +3,7 @@ import { fetchOpenSquawks } from './maintenance';
 
 // Map database rows to the shapes the app's screens use. Fields the database
 // doesn't track yet get neutral defaults, so a new listing renders cleanly.
-const COLORS = ['#1F6FEB', '#0891B2', '#7C3AED', '#059669', '#DB2777', '#EA580C'];
+const COLORS = ['#1D4ED8', '#0891B2', '#7C3AED', '#059669', '#DB2777', '#EA580C'];
 const colorFor = (id) => COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 
 export function cfiFromRow(row, names, planeIds, avatars = {}) {

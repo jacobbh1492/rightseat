@@ -58,18 +58,18 @@ export function DebriefEditor({ value, onChange, suggested = [], carryOver = [] 
       )}
 
       <Text style={s.label}>What went well</Text>
-      <TextInput multiline value={v.wentWell} onChangeText={(x) => set('wentWell', x)} placeholder="Specific wins. Students remember these." placeholderTextColor="#9AA3B2" style={s.area} />
+      <TextInput multiline value={v.wentWell} onChangeText={(x) => set('wentWell', x)} placeholder="Specific wins. Students remember these." placeholderTextColor="#687588" style={s.area} />
       <Text style={s.label}>What needs work</Text>
-      <TextInput multiline value={v.needsWork} onChangeText={(x) => set('needsWork', x)} placeholder="What to fix and how to fix it" placeholderTextColor="#9AA3B2" style={s.area} />
+      <TextInput multiline value={v.needsWork} onChangeText={(x) => set('needsWork', x)} placeholder="What to fix and how to fix it" placeholderTextColor="#687588" style={s.area} />
       <Text style={s.label}>Plan for next lesson</Text>
-      <TextInput multiline value={v.nextPlan} onChangeText={(x) => set('nextPlan', x)} placeholder="So the next lesson (or a new CFI) knows where to start" placeholderTextColor="#9AA3B2" style={s.area} />
+      <TextInput multiline value={v.nextPlan} onChangeText={(x) => set('nextPlan', x)} placeholder="So the next lesson (or a new CFI) knows where to start" placeholderTextColor="#687588" style={s.area} />
 
       <Text style={s.label}>Homework</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {[...HOMEWORK, ...v.homework.filter((x) => !HOMEWORK.includes(x))].map((h) => <Chip key={h} small label={h} active={v.homework.includes(h)} onPress={() => toggleHw(h)} />)}
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <TextInput value={hw} onChangeText={setHw} placeholder="Custom assignment…" placeholderTextColor="#9AA3B2" style={[s.input, { flex: 1 }]} />
+        <TextInput value={hw} onChangeText={setHw} placeholder="Custom assignment…" placeholderTextColor="#687588" style={[s.input, { flex: 1 }]} />
         <Pressable onPress={() => { if (hw.trim()) { set('homework', [...v.homework, hw.trim()]); setHw(''); } }} style={s.addBtn}><Text style={{ color: '#fff', fontWeight: '900' }}>+</Text></Pressable>
       </View>
     </View>
@@ -223,7 +223,7 @@ export function DebriefView({ nav, params }) {
             {!readOnly ? (
               <>
                 <SectionTitle>Your notes</SectionTitle>
-                <TextInput multiline value={note} onChangeText={setNote} placeholder="Questions or reflections (visible to your CFI)" placeholderTextColor="#9AA3B2" style={s.area} />
+                <TextInput multiline value={note} onChangeText={setNote} placeholder="Questions or reflections (visible to your CFI)" placeholderTextColor="#687588" style={s.area} />
                 {cfi && <Pressable onPress={() => nav.push('Chat', { key: cfi.id })}><Text style={{ color: C.blue, fontWeight: '800', marginTop: 4 }}>Ask {cfi.name.split(' ')[0]} a question ›</Text></Pressable>}
               </>
             ) : db.studentNote ? (
@@ -412,7 +412,7 @@ export function AmendDebrief({ nav, params }) {
           {AMEND_TYPES.map((t) => <Chip key={t} small label={t} active={type === t} onPress={() => setType(t)} />)}
         </View>
         <Text style={s.label}>Amendment</Text>
-        <TextInput multiline value={text} onChangeText={setText} placeholder="What’s being corrected or added, and why" placeholderTextColor="#9AA3B2" style={[s.area, { minHeight: 110 }]} />
+        <TextInput multiline value={text} onChangeText={setText} placeholder="What’s being corrected or added, and why" placeholderTextColor="#687588" style={[s.area, { minHeight: 110 }]} />
         {grades.length > 0 && (
           <>
             <Text style={s.label}>Change a grade (optional)</Text>

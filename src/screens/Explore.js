@@ -104,7 +104,7 @@ export default function Explore({ nav }) {
           <View style={st.searchRow}>
             <View style={st.search}>
               <Icon name="search" size={18} color={C.sub} />
-              <TextInput value={q} onChangeText={setQ} placeholder="Name, airport or aircraft" placeholderTextColor="#94A3B8" style={st.searchInput} accessibilityLabel="Search" />
+              <TextInput value={q} onChangeText={setQ} placeholder="Name, airport or aircraft" placeholderTextColor="#7A889C" style={st.searchInput} accessibilityLabel="Search" />
               {q ? <Pressable onPress={() => setQ('')} hitSlop={8}><Icon name="x" size={16} color={C.sub} /></Pressable> : null}
             </View>
             <IconButton name="filter" label="Filters" onPress={() => { setDraft(f); setSheet(true); }} bg={active.length ? C.blue : '#fff'} color={active.length ? '#fff' : C.text} badge={active.length || null} style={st.filterBtn} />
@@ -121,7 +121,7 @@ export default function Explore({ nav }) {
                 <Text style={{ fontWeight: '800', color: C.text, marginTop: 1 }}>{upcoming.goal}</Text>
                 <Text style={{ color: C.sub, fontSize: 13 }}>{upcoming.date} · {upcoming.time}{upCfi ? ` · ${upCfi.name.split(' ')[0]}` : ''}{upPlane ? ` · ${upPlane.tail}` : ''}</Text>
               </View>
-              <Icon name="chevron" size={18} color="#94A3B8" />
+              <Icon name="chevron" size={18} color="#7A889C" />
             </Pressable>
           )}
 

@@ -15,7 +15,7 @@ export function Schedule({ nav }) {
 }
 
 const initials = (n = '') => n.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-const COLORS = ['#1F6FEB', '#0E9F6E', '#9333EA', '#F59E0B', '#DC2626', '#0891B2', '#DB2777'];
+const COLORS = ['#1D4ED8', '#0B6E4F', '#9333EA', '#F59E0B', '#B91C1C', '#0891B2', '#DB2777'];
 const colorFor = (id = '') => COLORS[[...id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % COLORS.length];
 
 function useRefresh() {
@@ -64,7 +64,7 @@ export function Students({ nav }) {
             <Text style={s.title}>Learning Library</Text>
             <Text style={s.sub}>Browse the lessons you can assign. To assign a pre-flight review, open a lesson on your Schedule.</Text>
           </View>
-          <Text style={{ color: '#94A3B8', fontSize: 22 }}>›</Text>
+          <Text style={{ color: '#7A889C', fontSize: 22 }}>›</Text>
         </Card>
       </Pressable>
       {!auth?.session ? <SignedOut nav={nav} what="your students" /> : list.length === 0 ? (
@@ -81,7 +81,7 @@ export function Students({ nav }) {
                   {st.next ? `Next: ${st.next.date} · ${st.next.time}${st.next.status === 'Pending' ? ' (request)' : st.next.status === 'Proposed' ? ' (waiting on them)' : ''}` : st.last ? `Last flew ${st.last.date}` : ''}
                 </Text>
               </View>
-              <Text style={{ color: '#94A3B8', fontSize: 22 }}>›</Text>
+              <Text style={{ color: '#7A889C', fontSize: 22 }}>›</Text>
             </View>
           </Card>
         </Pressable>
@@ -102,7 +102,7 @@ export function StudentDetail({ nav, params }) {
   if (!st) return null;
   const h = hoursFromFlights(st.lessons.filter((r) => r.status === 'Completed'));
   const lessons = [...st.lessons].sort((a, b) => b.when.localeCompare(a.when));
-  const tag = { Completed: [C.green, '#E3F7EF'], Confirmed: [C.green, '#E3F7EF'], Proposed: ['#7C3AED', '#F1E8FF'], Pending: ['#B45309', '#FEF3C7'], Cancelled: [C.sub, '#EEF1F5'] };
+  const tag = { Completed: [C.green, '#DDF3E8'], Confirmed: [C.green, '#DDF3E8'], Proposed: ['#7C3AED', '#F1E8FF'], Pending: ['#B45309', '#FEF3C7'], Cancelled: [C.sub, '#EEF1F5'] };
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title={st.name} />
@@ -129,7 +129,7 @@ export function StudentDetail({ nav, params }) {
           <Card key={d.id}>
             <View style={s.rowTop}>
               <Text style={s.title}>{new Date(d.flown_on + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
-              <Tag label={d.acknowledged ? 'Read' : 'Unread'} color={d.acknowledged ? C.green : '#B45309'} bg={d.acknowledged ? '#E3F7EF' : '#FEF3C7'} />
+              <Tag label={d.acknowledged ? 'Read' : 'Unread'} color={d.acknowledged ? C.green : '#B45309'} bg={d.acknowledged ? '#DDF3E8' : '#FEF3C7'} />
             </View>
             {!!d.went_well && <Text style={s.body}><Text style={s.label}>Went well: </Text>{d.went_well}</Text>}
             {!!d.needs_work && <Text style={s.body}><Text style={s.label}>Needs work: </Text>{d.needs_work}</Text>}

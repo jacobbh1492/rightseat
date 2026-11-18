@@ -154,11 +154,11 @@ function Shell() {
                 const on = t.key === tab;
                 return (
                   <Pressable key={t.key} onPress={() => setTab(t.key)} style={st.tab} accessibilityRole="tab" accessibilityLabel={t.label} accessibilityState={{ selected: on }}>
-                    <View style={[st.iconWrap, on && { backgroundColor: C.sky }]}>
-                      <Icon name={t.icon} size={22} color={on ? C.blue : '#7A8699'} strokeWidth={on ? 2.4 : 2} />
+                    <View style={[st.iconWrap, on && { backgroundColor: C.amberBg }]}>
+                      <Icon name={t.icon} size={22} color={on ? C.navy : '#5B6B82'} strokeWidth={on ? 2.4 : 2} />
                       {badges[t.key] ? <View style={st.badge}><Text style={st.badgeText}>{badges[t.key]}</Text></View> : null}
                     </View>
-                    <Text style={[st.label, on && { color: C.blue }]}>{t.label}</Text>
+                    <Text style={[st.label, on && { color: C.navy }]}>{t.label}</Text>
                   </Pressable>
                 );
               })}
@@ -195,5 +195,5 @@ const st = StyleSheet.create({
   iconWrap: { width: 52, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: -2, right: 6, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: '#fff' },
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  label: { fontSize: 11, color: '#7A8699', fontWeight: '700', marginTop: 2 },
+  label: { fontSize: 12, color: '#5B6B82', fontWeight: '700', marginTop: 2 },
 });

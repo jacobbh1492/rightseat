@@ -16,10 +16,10 @@ const pretty = (ymd) => (ymd ? new Date(ymd + 'T00:00:00Z').toLocaleDateString('
 const today = () => ymdIn(new Date());
 
 const STATUS = {
-  grounding: ['Grounding', '#DC2626', '#FEE2E2'],
+  grounding: ['Grounding', '#B91C1C', '#FEE2E2'],
   open: ['Open', '#B45309', '#FEF3C7'],
-  deferred: ['Deferred', '#1F6FEB', C.sky],
-  fixed: ['Fixed', C.green, '#E3F7EF'],
+  deferred: ['Deferred', '#1D4ED8', C.sky],
+  fixed: ['Fixed', C.green, '#DDF3E8'],
 };
 
 // One squawk, with fix / defer / ground actions for the owner and mechanic.
@@ -54,7 +54,7 @@ export function SquawkCard({ q, canManage, onChanged }) {
           {q.status === 'open' && <Pressable onPress={() => setMode('defer')} style={ms.action} accessibilityRole="button"><Text style={ms.actionText}>Defer</Text></Pressable>}
           {q.status === 'open' && (
             <Pressable disabled={busy} onPress={() => act('open', null, !q.grounding)} style={ms.action} accessibilityRole="button">
-              <Text style={[ms.actionText, { color: q.grounding ? C.blue : '#DC2626' }]}>{q.grounding ? 'Not grounding' : 'Ground plane'}</Text>
+              <Text style={[ms.actionText, { color: q.grounding ? C.blue : '#B91C1C' }]}>{q.grounding ? 'Not grounding' : 'Ground plane'}</Text>
             </Pressable>
           )}
           {q.status === 'deferred' && <Pressable disabled={busy} onPress={() => act('open')} style={ms.action} accessibilityRole="button"><Text style={ms.actionText}>Reopen</Text></Pressable>}
@@ -142,7 +142,7 @@ export function MaintenancePanel({ planeId, nav, owner }) {
   return (
     <View>
       <Card style={{ borderWidth: 1.5, borderColor: bad.length ? '#FCA5A5' : '#A7F3D0' }}>
-        <Text style={{ fontWeight: '900', fontSize: 16, color: bad.length ? '#DC2626' : C.green }}>{bad.length ? 'Grounded · bookings paused' : 'Airworthy · accepting bookings'}</Text>
+        <Text style={{ fontWeight: '900', fontSize: 16, color: bad.length ? '#B91C1C' : C.green }}>{bad.length ? 'Grounded · bookings paused' : 'Airworthy · accepting bookings'}</Text>
         {bad.map((c) => <Text key={c.key} style={[ms.sub, { color: '#B91C1C', marginTop: 4 }]}>✕ {c.label}</Text>)}
         {!bad.length && <Text style={[ms.sub, { marginTop: 4 }]}>New bookings and confirmations pause automatically for a grounding squawk, an overdue 100-hour or an expired annual.</Text>}
       </Card>
@@ -190,7 +190,7 @@ export function MaintenancePanel({ planeId, nav, owner }) {
                   <Text style={ms.sub}>{m.name ? m.email + ' · ' : ''}{m.status === 'active' ? 'Has access' : 'Invited'}</Text>
                 </View>
                 <Pressable onPress={async () => { try { await removeMechanic(m.id); load(); } catch (e) { setInviteMsg(e.message); } }} accessibilityRole="button" hitSlop={8}>
-                  <Text style={{ color: '#DC2626', fontWeight: '700' }}>Remove</Text>
+                  <Text style={{ color: '#B91C1C', fontWeight: '700' }}>Remove</Text>
                 </Pressable>
               </View>
             ))}

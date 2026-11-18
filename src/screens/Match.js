@@ -93,7 +93,7 @@ export function GetMatched({ nav, params }) {
   );
 }
 
-const ANSWER = { sent: ['Waiting', '#B45309', '#FEF3C7'], interested: ['Interested', C.green, '#E3F7EF'], declined: ['Not a fit', C.sub, '#EEF1F5'] };
+const ANSWER = { sent: ['Waiting', '#B45309', '#FEF3C7'], interested: ['Interested', C.green, '#DDF3E8'], declined: ['Not a fit', C.sub, '#EEF1F5'] };
 
 // Student: requests you sent and who answered.
 export function MyMatches({ nav, params }) {
@@ -114,7 +114,7 @@ export function MyMatches({ nav, params }) {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header nav={nav} title="Your matches" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
-        {params?.sent && <Card style={{ backgroundColor: '#E3F7EF' }}><Text style={{ fontWeight: '800', color: C.green }}>Request sent ✓ We’ll notify you when an instructor answers.</Text></Card>}
+        {params?.sent && <Card style={{ backgroundColor: '#DDF3E8' }}><Text style={{ fontWeight: '800', color: C.green }}>Request sent ✓ We’ll notify you when an instructor answers.</Text></Card>}
         {!!err && <Text style={ms.err}>{err}</Text>}
         {!loading && rows.length === 0 && (
           <Card>

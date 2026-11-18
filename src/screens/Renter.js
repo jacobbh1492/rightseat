@@ -164,7 +164,7 @@ export function Checkouts({ nav }) {
       <Card key={c.id}>
         <View style={st.rowTop}>
           <Text style={st.title}>{c.pilotName}</Text>
-          <Tag label={c.status === 'approved' ? 'Checked out' : 'Request'} color={c.status === 'approved' ? C.green : '#B45309'} bg={c.status === 'approved' ? '#E3F7EF' : '#FEF3C7'} />
+          <Tag label={c.status === 'approved' ? 'Checked out' : 'Request'} color={c.status === 'approved' ? C.green : '#B45309'} bg={c.status === 'approved' ? '#DDF3E8' : '#FEF3C7'} />
         </View>
         <Text style={st.sub}>{plane ? `${plane.tail} · ${plane.make} ${plane.model}` : 'Your plane'}{c.status === 'approved' && c.soloUntil ? ` · solo endorsement through ${pretty(c.soloUntil)}` : ''}</Text>
         {!!c.note && <Text style={[st.sub, { marginTop: 6, fontStyle: 'italic' }]}>“{c.note}”</Text>}

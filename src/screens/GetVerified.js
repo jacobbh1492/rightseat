@@ -7,7 +7,7 @@ import { C, Card, Button, SectionTitle, Field, pickImages } from '../ui';
 import { Header } from './Details';
 
 // What each status means to the person being verified.
-const LABEL = { passed: ['Verified', C.green, '#E3F7EF'], pending: ['In progress', '#B45309', '#FEF3C7'], review: ['Being reviewed', '#B45309', '#FEF3C7'], failed: ['Needs attention', '#B91C1C', '#FEE2E2'], none: ['Not started', C.sub, '#EEF1F5'] };
+const LABEL = { passed: ['Verified', C.green, '#DDF3E8'], pending: ['In progress', '#B45309', '#FEF3C7'], review: ['Being reviewed', '#B45309', '#FEF3C7'], failed: ['Needs attention', '#B91C1C', '#FEE2E2'], none: ['Not started', C.sub, '#EEF1F5'] };
 function Status({ s }) {
   const [t, color, bg] = LABEL[s] || LABEL.none;
   return <View style={{ backgroundColor: bg, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}><Text style={{ color, fontWeight: '800', fontSize: 12 }}>{t}</Text></View>;

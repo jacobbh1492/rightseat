@@ -79,7 +79,7 @@ function DemoTraining({ nav }) {
           <Card style={{ borderLeftWidth: 4, borderLeftColor: prior.status === 'confirmed' ? C.green : '#60A5FA' }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontWeight: '900', color: C.text, fontSize: 16 }}>Previous experience</Text>
-              <Tag label={prior.status === 'confirmed' ? `Confirmed by ${confirmedBy?.name.split(' ')[0] || 'CFI'}` : 'Self-reported'} color={prior.status === 'confirmed' ? C.green : '#1D4ED8'} bg={prior.status === 'confirmed' ? '#E3F7EF' : '#EFF6FF'} />
+              <Tag label={prior.status === 'confirmed' ? `Confirmed by ${confirmedBy?.name.split(' ')[0] || 'CFI'}` : 'Self-reported'} color={prior.status === 'confirmed' ? C.green : '#1D4ED8'} bg={prior.status === 'confirmed' ? '#DDF3E8' : '#EFF6FF'} />
             </View>
             <Text style={{ color: C.sub, marginTop: 4, fontSize: 13 }}>
               {r2(P.total || 0)} hrs · {Object.values(prior.lessons).filter((v) => v === 'done').length} lessons covered · {prior.endorsements.length} endorsements{prior.where ? ` · ${prior.where}` : ''}
@@ -216,7 +216,7 @@ function DemoTraining({ nav }) {
                   <Text style={{ color: C.sub, fontSize: 12 }}>{e.ref} · {e.date || 'date not entered'}{e.by ? ` · ${e.by}` : ''}</Text>
                 </View>
                 {e.prior ? <Tag label={e.confirmed ? 'Prior · confirmed' : 'Self-reported'} color="#1D4ED8" bg="#EFF6FF" />
-                  : days != null ? <Tag label={days > 0 ? `${days} days left` : 'Expired'} color={days < 14 ? '#B45309' : C.green} bg={days < 14 ? '#FEF3C7' : '#E3F7EF'} /> : null}
+                  : days != null ? <Tag label={days > 0 ? `${days} days left` : 'Expired'} color={days < 14 ? '#B45309' : C.green} bg={days < 14 ? '#FEF3C7' : '#DDF3E8'} /> : null}
               </View>
             );
           })}

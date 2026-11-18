@@ -27,9 +27,9 @@ export function flightCategory(ceilingFt, visSm) {
 }
 
 export const CATEGORY_INFO = {
-  VFR: { label: 'VFR', color: '#059669', bg: '#E3F7EF' },
-  MVFR: { label: 'Marginal VFR', color: '#1F6FEB', bg: '#E6F0FF' },
-  IFR: { label: 'IFR', color: '#DC2626', bg: '#FEE2E2' },
+  VFR: { label: 'VFR', color: '#059669', bg: '#DDF3E8' },
+  MVFR: { label: 'Marginal VFR', color: '#1D4ED8', bg: '#E6F0FF' },
+  IFR: { label: 'IFR', color: '#B91C1C', bg: '#FEE2E2' },
   LIFR: { label: 'Low IFR', color: '#C026D3', bg: '#FAE8FF' },
 };
 

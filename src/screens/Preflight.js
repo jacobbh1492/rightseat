@@ -10,9 +10,9 @@ import { renterChecks, ymdIn } from '../renterChecks';
 import { fetchWeather, weatherChecks, verdict, windText, IMSAFE, CATEGORY_INFO } from '../preflight';
 
 const VERDICT = {
-  go: ['GO', 'Everything checks out. You’re the pilot in command: make the final call.', C.green, '#E3F7EF', '#A7F3D0'],
+  go: ['GO', 'Everything checks out. You’re the pilot in command: make the final call.', C.green, '#DDF3E8', '#A7F3D0'],
   caution: ['CAUTION', 'Nothing blocks the flight, but review the items marked ! before you go.', '#B45309', '#FEF3C7', '#FCD34D'],
-  'no-go': ['NO-GO', 'Something has to be fixed before this flight.', '#DC2626', '#FEE2E2', '#FCA5A5'],
+  'no-go': ['NO-GO', 'Something has to be fixed before this flight.', '#B91C1C', '#FEE2E2', '#FCA5A5'],
 };
 const ago = (d) => {
   if (!d) return '';

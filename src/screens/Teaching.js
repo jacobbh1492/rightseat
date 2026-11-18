@@ -220,7 +220,7 @@ export function Teaching({ nav, asTab }) {
           <Card key={r.id}>
             <View style={ts.rowTop}>
               <Text style={ts.title}>{r.goal}</Text>
-              <Tag label={r.status} color={r.status === 'Completed' ? C.green : C.sub} bg={r.status === 'Completed' ? '#E3F7EF' : '#EEF1F5'} />
+              <Tag label={r.status} color={r.status === 'Completed' ? C.green : C.sub} bg={r.status === 'Completed' ? '#DDF3E8' : '#EEF1F5'} />
             </View>
             <Text style={ts.sub}>{r.date} · {who(r)}{r.actualHobbs ? ` · ${r.actualHobbs} hr Hobbs` : ''}</Text>
             {r.status === 'Completed' && (

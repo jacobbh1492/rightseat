@@ -178,7 +178,7 @@ function LiveChat({ nav, params, uid, other, cfi, plane }) {
           <Text style={s.preview}>{preview.masked ? 'Phone/email will be hidden until your first booking.' : 'Keep payments in the app to stay protected.'}</Text>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TextInput value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor="#9AA3B2" style={s.input} onSubmitEditing={send} editable={!!thread} />
+          <TextInput value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor="#687588" style={s.input} onSubmitEditing={send} editable={!!thread} />
           <Pressable onPress={send} style={[s.send, (!thread || sending) && { opacity: 0.5 }]} accessibilityLabel="Send"><Text style={{ color: '#fff', fontWeight: '900' }}>↑</Text></Pressable>
         </View>
       </View>
@@ -240,7 +240,7 @@ function DemoChat({ nav, params }) {
           <Text style={s.preview}>{preview.masked ? 'Phone/email will be hidden until your first booking.' : 'Keep payments in the app to stay protected.'}</Text>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TextInput value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor="#9AA3B2" style={s.input} onSubmitEditing={send} />
+          <TextInput value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor="#687588" style={s.input} onSubmitEditing={send} />
           <Pressable onPress={send} style={s.send}><Text style={{ color: '#fff', fontWeight: '900' }}>↑</Text></Pressable>
         </View>
       </View>

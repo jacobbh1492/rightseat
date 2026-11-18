@@ -48,7 +48,7 @@ function LessonRow({ id, studied, onPress, right }) {
           <Text style={lb.rowMeta}>{L.min} min</Text>
         </View>
       </View>
-      {right || (studied ? <Check on /> : <Icon name="chevron" size={18} color="#94A3B8" />)}
+      {right || (studied ? <Check on /> : <Icon name="chevron" size={18} color="#7A889C" />)}
     </Pressable>
   );
 }
@@ -101,7 +101,7 @@ export function Library({ nav }) {
 
           <View style={lb.search}>
             <Icon name="search" size={18} color={C.sub} />
-            <TextInput value={q} onChangeText={setQ} placeholder="Search maneuvers or ACS codes" placeholderTextColor="#9AA3B2" style={lb.searchInput} accessibilityLabel="Search lessons" />
+            <TextInput value={q} onChangeText={setQ} placeholder="Search maneuvers or ACS codes" placeholderTextColor="#687588" style={lb.searchInput} accessibilityLabel="Search lessons" />
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }} contentContainerStyle={{ gap: 6 }}>
             {FILTERS.map((f) => <Chip key={f.key} label={f.label} active={filter === f.key} onPress={() => setFilter(f.key)} />)}
@@ -365,7 +365,7 @@ export function AssignReview({ nav, params }) {
         <Text style={[lb.group, { marginTop: 22 }]}>Add lessons</Text>
         <View style={lb.search}>
           <Icon name="search" size={18} color={C.sub} />
-          <TextInput value={q} onChangeText={setQ} placeholder="Search maneuvers or ACS codes" placeholderTextColor="#9AA3B2" style={lb.searchInput} accessibilityLabel="Search lessons" />
+          <TextInput value={q} onChangeText={setQ} placeholder="Search maneuvers or ACS codes" placeholderTextColor="#687588" style={lb.searchInput} accessibilityLabel="Search lessons" />
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }} contentContainerStyle={{ gap: 6 }}>
           {FILTERS.map((f) => <Chip key={f.key} label={f.label} active={filter === f.key} onPress={() => setFilter(f.key)} />)}
@@ -435,7 +435,7 @@ export function ReviewChip({ review, studied, onPress }) {
   const done = studied ? p.total > 0 && p.done === p.total : !!review.completedAt;
   const status = done ? 'done ✓' : studied ? `${p.done}/${p.total} studied` : `${review.lessonIds.length} lesson${review.lessonIds.length === 1 ? '' : 's'} · not finished yet`;
   return (
-    <Pressable onPress={onPress} style={[lb.chip, done && { backgroundColor: '#E3F7EF', borderColor: '#A7E3C6' }]} accessibilityRole="button">
+    <Pressable onPress={onPress} style={[lb.chip, done && { backgroundColor: '#DDF3E8', borderColor: '#A7E3C6' }]} accessibilityRole="button">
       <Icon name="book" size={16} color={done ? C.green : '#B45309'} />
       <Text style={[lb.chipText, { color: done ? C.green : '#92400E' }]}>Pre-flight review · {status}</Text>
       <Text style={{ color: done ? C.green : '#92400E', fontWeight: '800' }}>›</Text>

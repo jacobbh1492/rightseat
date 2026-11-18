@@ -43,8 +43,8 @@ export function CheckList({ checks }) {
     <Card>
       {checks.map((c) => (
         <View key={c.label} style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 5 }}>
-          <Text style={{ width: 22, fontWeight: '900', color: c.ok ? C.green : c.blocking ? '#DC2626' : '#B45309' }}>{c.ok ? '✓' : c.blocking ? '✕' : '!'}</Text>
-          <Text style={{ flex: 1, color: c.ok ? C.text : c.blocking ? '#DC2626' : '#B45309', fontWeight: c.ok ? '500' : '700' }}>{c.label}</Text>
+          <Text style={{ width: 22, fontWeight: '900', color: c.ok ? C.green : c.blocking ? '#B91C1C' : '#B45309' }}>{c.ok ? '✓' : c.blocking ? '✕' : '!'}</Text>
+          <Text style={{ flex: 1, color: c.ok ? C.text : c.blocking ? '#B91C1C' : '#B45309', fontWeight: c.ok ? '500' : '700' }}>{c.label}</Text>
         </View>
       ))}
     </Card>
@@ -406,11 +406,11 @@ export function RequestLesson({ nav, params }) {
         )}
 
         <Pressable onPress={() => setShowChecks(!showChecks)} style={[bs.summary, blocked && { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' }]} accessibilityRole="button" accessibilityLabel="Safety and insurance checks">
-          <Icon name={blocked ? 'info' : 'shieldCheck'} size={20} color={blocked ? '#DC2626' : C.green} />
-          <Text style={{ flex: 1, marginLeft: 10, fontWeight: '700', color: blocked ? '#DC2626' : C.text }}>
+          <Icon name={blocked ? 'info' : 'shieldCheck'} size={20} color={blocked ? '#B91C1C' : C.green} />
+          <Text style={{ flex: 1, marginLeft: 10, fontWeight: '700', color: blocked ? '#B91C1C' : C.text }}>
             {blocked ? `${checks.filter((c) => c.blocking && !c.ok).length} check${checks.filter((c) => c.blocking && !c.ok).length > 1 ? 's' : ''} not met` : `All ${checks.length} safety & insurance checks passed`}
           </Text>
-          <Icon name={showChecks || blocked ? 'down' : 'chevron'} size={18} color="#94A3B8" />
+          <Icon name={showChecks || blocked ? 'down' : 'chevron'} size={18} color="#7A889C" />
         </Pressable>
         {(showChecks || blocked) && <CheckList checks={blocked && !showChecks ? checks.filter((c) => !c.ok) : checks} />}
         {!cfi && !!plane && <RenterInsuranceCard />}
@@ -574,7 +574,7 @@ export function Lessons({ nav }) {
   const card = (r) => {
     const c = getCfi(r.cfiId);
     const p = getPlane(r.planeId);
-    const colors = { Proposed: ['#7C3AED', '#F1E8FF'], Confirmed: [C.green, '#E3F7EF'], Completed: [C.green, '#E3F7EF'], Pending: ['#B45309', '#FEF3C7'], Cancelled: [C.sub, '#EEF1F5'] }[r.status] || [C.sub, '#EEF1F5'];
+    const colors = { Proposed: ['#7C3AED', '#F1E8FF'], Confirmed: [C.green, '#DDF3E8'], Completed: [C.green, '#DDF3E8'], Pending: ['#B45309', '#FEF3C7'], Cancelled: [C.sub, '#EEF1F5'] }[r.status] || [C.sub, '#EEF1F5'];
     return (
       <Card key={r.id}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -611,7 +611,7 @@ export function Lessons({ nav }) {
             <Pressable onPress={() => nav.push('Preflight', { bookingId: r.id })} style={bs.action} accessibilityRole="button"><Text style={bs.actionText}>Preflight</Text></Pressable>
           )}
           {['Pending', 'Confirmed'].includes(r.status) && r.role !== 'partner' && (
-            <Pressable onPress={() => nav.push('Cancel', { id: r.id })} style={bs.action}><Text style={[bs.actionText, { color: '#DC2626' }]}>Cancel</Text></Pressable>
+            <Pressable onPress={() => nav.push('Cancel', { id: r.id })} style={bs.action}><Text style={[bs.actionText, { color: '#B91C1C' }]}>Cancel</Text></Pressable>
           )}
           {debriefForRequest(r.id) && (
             <Pressable onPress={() => nav.push('Debrief', { id: debriefForRequest(r.id).id })} style={[bs.action, !debriefForRequest(r.id).acknowledged && !debriefForRequest(r.id).pending && { backgroundColor: C.sky }]}>
@@ -849,7 +849,7 @@ export function CancelLesson({ nav, params }) {
       {done === null && (
         <View style={bs.cta}>
           {!!err && <Text style={{ color: '#B91C1C', fontWeight: '600', position: 'absolute', top: -24, left: 16 }}>{err}</Text>}
-          <Button title={busy ? 'Cancelling…' : fee ? `Cancel & pay ${money2(fee)}` : 'Cancel lesson — no charge'} style={{ flex: 1, backgroundColor: '#DC2626' }} disabled={busy} onPress={cancel} />
+          <Button title={busy ? 'Cancelling…' : fee ? `Cancel & pay ${money2(fee)}` : 'Cancel lesson — no charge'} style={{ flex: 1, backgroundColor: '#B91C1C' }} disabled={busy} onPress={cancel} />
         </View>
       )}
     </View>
@@ -971,7 +971,7 @@ export function Receipt({ nav, params }) {
       <Header nav={nav} title="Receipt" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
         {params.fresh && (
-          <View style={[bs.covered, { backgroundColor: '#E3F7EF', marginTop: 0 }]}>
+          <View style={[bs.covered, { backgroundColor: '#DDF3E8', marginTop: 0 }]}>
             <Text style={{ color: C.green, fontWeight: '900' }}>✓ Flight closed out</Text>
             <Text style={{ color: C.text, marginTop: 4, fontSize: 13 }}>Billed from Hobbs, training record updated{plane ? ', aircraft logs updated' : ''}, payouts queued.</Text>
           </View>
@@ -1134,7 +1134,7 @@ const bs = StyleSheet.create({
   slot: { width: '31.5%', backgroundColor: '#fff', borderRadius: 12, paddingVertical: 10, alignItems: 'center', marginBottom: 8, borderWidth: 1.5, borderColor: C.line },
   slotBusy: { backgroundColor: '#F1F3F7', borderColor: '#F1F3F7' },
   pay: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 2, borderColor: 'transparent' },
-  repeat: { flexDirection: 'row', backgroundColor: '#E3F7EF', borderRadius: 8, padding: 8, marginVertical: 4 },
+  repeat: { flexDirection: 'row', backgroundColor: '#DDF3E8', borderRadius: 8, padding: 8, marginVertical: 4 },
   covered: { backgroundColor: C.sky, borderRadius: 14, padding: 14, marginTop: 16 },
   coveredLine: { color: C.navy, fontSize: 13, marginTop: 3 },
   warn: { color: '#B45309', backgroundColor: '#FEF3C7', padding: 10, borderRadius: 10, marginBottom: 8, fontSize: 12, fontWeight: '600' },

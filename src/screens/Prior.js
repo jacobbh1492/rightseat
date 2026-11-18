@@ -103,18 +103,18 @@ export function PriorExperience({ nav, params }) {
               </ScrollView>
             )}
             {reading && <Text style={[s.tip, { backgroundColor: C.sky, color: C.navy }]}>Reading your logbook…</Text>}
-            {!reading && p.source !== 'manual' && <Text style={[s.tip, { backgroundColor: '#E3F7EF', color: '#065F46' }]}>✓ Filled in from your {p.source === 'foreflight' ? 'CSV export' : 'logbook photo'}. Check the numbers and fix anything that’s off.</Text>}
+            {!reading && p.source !== 'manual' && <Text style={[s.tip, { backgroundColor: '#DDF3E8', color: '#065F46' }]}>✓ Filled in from your {p.source === 'foreflight' ? 'CSV export' : 'logbook photo'}. Check the numbers and fix anything that’s off.</Text>}
             <SectionTitle>Totals (hours)</SectionTitle>
             <View style={s.grid}>
               {PPL_MINIMUMS.map((m) => (
                 <View key={m.key} style={s.cell}>
                   <Text style={s.fieldLabel}>{m.label}</Text>
-                  <TextInput value={p.hours[m.key]} onChangeText={(v) => setHour(m.key, v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0.0" placeholderTextColor="#9AA3B2" style={s.input} />
+                  <TextInput value={p.hours[m.key]} onChangeText={(v) => setHour(m.key, v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0.0" placeholderTextColor="#687588" style={s.input} />
                 </View>
               ))}
               <View style={s.cell}>
                 <Text style={s.fieldLabel}>Landings</Text>
-                <TextInput value={p.landings} onChangeText={(v) => set('landings')(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" placeholder="0" placeholderTextColor="#9AA3B2" style={s.input} />
+                <TextInput value={p.landings} onChangeText={(v) => set('landings')(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" placeholder="0" placeholderTextColor="#687588" style={s.input} />
               </View>
             </View>
             {warnings.map((w) => <Text key={w} style={s.warn}>{w}</Text>)}
@@ -172,8 +172,8 @@ export function PriorExperience({ nav, params }) {
                     </Pressable>
                     {on && !already && (
                       <View style={{ flexDirection: 'row', marginTop: 8, marginLeft: 32 }}>
-                        <TextInput value={on.date} onChangeText={(v) => setEnd(e.name, 'date', v)} placeholder="Date signed" placeholderTextColor="#9AA3B2" style={[s.input, { flex: 1, marginRight: 6 }]} />
-                        <TextInput value={on.by} onChangeText={(v) => setEnd(e.name, 'by', v)} placeholder="Signed by (CFI)" placeholderTextColor="#9AA3B2" style={[s.input, { flex: 1.3 }]} />
+                        <TextInput value={on.date} onChangeText={(v) => setEnd(e.name, 'date', v)} placeholder="Date signed" placeholderTextColor="#687588" style={[s.input, { flex: 1, marginRight: 6 }]} />
+                        <TextInput value={on.by} onChangeText={(v) => setEnd(e.name, 'by', v)} placeholder="Signed by (CFI)" placeholderTextColor="#687588" style={[s.input, { flex: 1.3 }]} />
                       </View>
                     )}
                   </View>
