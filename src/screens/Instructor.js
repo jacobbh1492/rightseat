@@ -207,72 +207,114 @@ export function Earnings({ nav }) {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
-      <Text style={s.h1}>Earnings</Text>
+      <Text style={s.h1} accessibilityRole="header">Earnings</Text>
       {!auth?.session ? <SignedOut nav={nav} what="your earnings" /> : (
         <>
-          <View style={s.hero}>
-            <Text style={{ color: '#9FB3D1', fontWeight: '700', fontSize: 12 }}>THIS MONTH</Text>
-            <Text style={{ color: '#fff', fontWeight: '900', fontSize: 32, marginTop: 2 }}>{money2(month)}</Text>
-            <View style={{ flexDirection: 'row', marginTop: 10 }}>
-              <View style={{ flex: 1 }}><Text style={s.heroK}>This year</Text><Text style={s.heroV}>{money2(year)}</Text></View>
-              <View style={{ flex: 1 }}><Text style={s.heroK}>Booked ahead</Text><Text style={s.heroV}>~{money2(upcoming)}</Text></View>
-            </View>
-          </View>
-
           {debriefDue.length > 0 && (
             <Pressable onPress={() => nav.push('WriteDebrief', { id: debriefDue[0].id })} accessibilityRole="button">
-              <Card style={{ borderWidth: 1.5, borderColor: '#F59E0B', backgroundColor: '#FFFBEB' }}>
-                <Text style={s.title}>{money2(waiting)} waiting on {debriefDue.length > 1 ? `${debriefDue.length} debriefs` : 'a debrief'} ›</Text>
-                <Text style={s.sub}>Lesson pay is released once the debrief is written. We’ll remind you 1, 3 and 7 days after each flight.</Text>
+              <Card style={{ borderWidth: 1.5, borderColor: C.amber, backgroundColor: C.amberBg }}>
+                <Text style={s.title}>{money2(waiting)} waiting on {debriefDue.length > 1 ? `${debriefDue.length} debriefs` : 'a debrief'}</Text>
+                <Text style={s.sub}>Lesson pay is released once the debrief is written. We remind you 1, 3 and 7 days after each flight.</Text>
+                <Text style={{ color: C.blue, fontWeight: '800', marginTop: 8 }}>Write {debriefDue.length > 1 ? 'the next one' : 'it'} now</Text>
               </Card>
             </Pressable>
           )}
-          <Card style={ready ? null : { borderWidth: 1.5, borderColor: C.blue }}>
-            <Text style={s.kicker}>PAYOUTS</Text>
-            {ready ? (
-              <>
-                <Text style={s.title}>Payouts are on ✓</Text>
-                <Text style={s.sub}>Your share goes to your bank automatically once the lesson’s debrief is written (rentals: at close-out), usually within 2 business days.</Text>
-              </>
-            ) : (
-              <>
-                <Text style={s.title}>Set up payouts to get paid</Text>
-                <Text style={s.sub}>Stripe handles this securely: your name, date of birth, last 4 of your SSN and a bank account. Takes about 5 minutes.{held > 0 ? ` ${money2(held)} is waiting for you.` : ''}</Text>
-                <Button title={busy ? 'Opening Stripe…' : 'Set up payouts'} disabled={busy} style={{ marginTop: 12 }} onPress={payouts} />
-                <Pressable onPress={recheck} style={{ marginTop: 10, alignSelf: 'center' }} accessibilityRole="button">
-                  <Text style={{ color: C.blue, fontWeight: '700' }}>Already finished? Check again</Text>
-                </Pressable>
-              </>
-            )}
-            {!!err && <Text style={s.err}>{err}</Text>}
-          </Card>
 
-          <SectionTitle>Completed lessons</SectionTitle>
-          {done.length === 0 && <Text style={s.empty}>Each lesson you close out shows here with your share.</Text>}
-          {done.map((r) => (
-            <Card key={r.id}>
-              <View style={s.rowTop}>
-                <Text style={s.title}>{r.studentName}</Text>
-                <Text style={{ fontWeight: '900', color: C.navy, fontSize: 16 }}>{money2(r.share || 0)}</Text>
-              </View>
-              <Text style={s.sub}>{r.date} · {r.goal}{r.actualHobbs ? ` · ${r.actualHobbs} hr` : ''}{r.role === 'owner' ? ' · plane rental' : ''}</Text>
-              <Row label={r.split?.status === 'accepted' ? 'Pilots paid' : 'Student paid'} value={money2(r.total)} />
-              {r.payout === 'debrief' ? (
-                <Pressable onPress={() => nav.push('WriteDebrief', { id: r.id })} accessibilityRole="button">
-                  <Text style={[s.sub, { color: C.blue, fontWeight: '800' }]}>Write the debrief to get paid ›</Text>
-                </Pressable>
-              ) : (
-                <Text style={[s.sub, { color: r.payout === 'paid' ? C.green : '#B45309', fontWeight: '700' }]}>{r.payout === 'paid' ? 'Sent to your bank' : 'Held until payouts are set up'}</Text>
-              )}
+          {!ready && (
+            <Card style={{ borderWidth: 2, borderColor: C.navy }}>
+              <Text style={s.kicker}>{done.length ? 'PAYOUTS' : 'BEFORE YOUR FIRST LESSON'}</Text>
+              <Text style={[s.title, { fontSize: 18 }]}>Set up payouts</Text>
+              <Text style={s.sub}>Stripe needs your name, date of birth, last 4 of your SSN and a bank account. About 5 minutes; you’ll come back here when you’re done.{held > 0 ? ` ${money2(held)} is waiting for you.` : ''}</Text>
+              <Button title={busy ? 'Opening Stripe…' : 'Set up payouts'} disabled={busy} style={{ marginTop: 12 }} onPress={payouts} />
+              <Pressable onPress={recheck} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'center' }} accessibilityRole="button">
+                <Text style={{ color: C.blue, fontWeight: '700' }}>Already finished? Check again</Text>
+              </Pressable>
+              {!!err && <Text style={s.err}>{err}</Text>}
             </Card>
-          ))}
+          )}
+
+          {done.length === 0 ? (
+            <>
+              <SectionTitle>How you get paid</SectionTitle>
+              <Card style={{ paddingVertical: 6 }}>
+                {[
+                  ['dollar', 'You see your take-home before you accept', 'Every request shows exactly what you’ll earn.'],
+                  ['clock', 'Paid about 2 business days after the debrief', 'Straight to your bank through Stripe.'],
+                  ['shield', 'Late cancellations still pay', 'Inside 24 hours, half the instruction is yours.'],
+                ].map(([ic, t, d], i) => (
+                  <View key={t} style={[s.how, i > 0 && { borderTopWidth: 1, borderTopColor: C.line }]}>
+                    <View style={s.howIcon}><Icon name={ic} size={18} color={C.navy} /></View>
+                    <View style={{ flex: 1 }}><Text style={{ fontWeight: '800', color: C.text }}>{t}</Text><Text style={s.sub}>{d}</Text></View>
+                  </View>
+                ))}
+              </Card>
+              <Text style={s.empty}>Your totals appear here after your first lesson.</Text>
+            </>
+          ) : (
+            <>
+              <View style={s.hero}>
+                <Text style={{ color: '#C9D4E5', fontWeight: '700', fontSize: 12 }}>THIS MONTH</Text>
+                <Text style={{ color: '#fff', fontWeight: '900', fontSize: 32, marginTop: 2 }}>{money2(month)}</Text>
+                <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                  <View style={{ flex: 1 }}><Text style={s.heroK}>This year</Text><Text style={s.heroV}>{money2(year)}</Text></View>
+                  <View style={{ flex: 1 }}><Text style={s.heroK}>Booked ahead</Text><Text style={s.heroV}>~{money2(upcoming)}</Text></View>
+                </View>
+                <WeekBars rows={done} />
+              </View>
+              {ready && (
+                <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={s.howIcon}><Icon name="send" size={18} color={C.navy} /></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: '800', color: C.text }}>Payouts are on</Text>
+                    <Text style={s.sub}>Each lesson’s share goes to your bank about 2 business days after its debrief.</Text>
+                  </View>
+                </Card>
+              )}
+              <SectionTitle>Lessons</SectionTitle>
+              {done.map((r) => {
+                const [label, fg, bg] = r.payout === 'debrief' ? ['Debrief due', C.amberDark, C.amberBg] : r.payout === 'paid' ? ['✓ Paid', C.green, C.greenBg] : ['Held · set up payouts', C.amberDark, C.amberBg];
+                return (
+                  <Pressable key={r.id} onPress={r.payout === 'debrief' ? () => nav.push('WriteDebrief', { id: r.id }) : undefined} accessibilityRole={r.payout === 'debrief' ? 'button' : undefined}>
+                    <Card>
+                      <View style={s.rowTop}>
+                        <Text style={s.title}>{r.studentName}</Text>
+                        <Text style={{ fontWeight: '900', color: C.text, fontSize: 16 }}>{money2(r.share || 0)}</Text>
+                      </View>
+                      <View style={[s.rowTop, { marginTop: 4 }]}>
+                        <Text style={[s.sub, { flex: 1 }]}>{r.date} · {r.goal}{r.actualHobbs ? ` · ${r.actualHobbs} hr` : ''}</Text>
+                        <Tag label={label} color={fg} bg={bg} />
+                      </View>
+                    </Card>
+                  </Pressable>
+                );
+              })}
+              <Text style={s.empty}>Your share is your rate × Hobbs time, minus a school’s share if you teach for one. The student pays the booking fee.</Text>
+            </>
+          )}
         </>
       )}
     </ScrollView>
   );
 }
 
+// Weekly earnings for the last 8 weeks.
+function WeekBars({ rows }) {
+  const now = Date.now();
+  const weeks = Array.from({ length: 8 }, (_, i) => rows.filter((r) => { const age = (now - new Date(r.when).getTime()) / (7 * 86400e3); return age >= 7 - i && age < 8 - i; }).reduce((a, r) => a + (r.share || 0), 0));
+  const max = Math.max(1, ...weeks);
+  return (
+    <View style={{ marginTop: 14 }} accessible accessibilityLabel={`Last 8 weeks: ${weeks.map((w) => money2(w)).join(', ')}`}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 56 }}>
+        {weeks.map((w, i) => <View key={i} style={{ flex: 1, marginHorizontal: 3, height: Math.max(3, (w / max) * 56), borderRadius: 4, backgroundColor: i === 7 ? C.amber : '#3B5A85' }} />)}
+      </View>
+      <Text style={{ color: '#C9D4E5', fontSize: 12, marginTop: 6 }}>Last 8 weeks</Text>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
+  how: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
+  howIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   h1: { fontSize: 28, fontWeight: '900', color: C.text, marginTop: 6, marginBottom: 8 },
   emptyIcon: { width: 60, height: 60, borderRadius: 18, backgroundColor: C.sky, alignItems: 'center', justifyContent: 'center' },
   pbar: { height: 6, borderRadius: 3, backgroundColor: '#D7DEE8', marginTop: 6, overflow: 'hidden' },
