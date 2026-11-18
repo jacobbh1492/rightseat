@@ -3,13 +3,21 @@ import { dayAt, dateLabel, timeLabel } from './logic';
 // Sample seed data (fictional people and aircraft) for the prototype.
 
 export const AIRPORTS = [
-  { code: 'KPIE', name: 'St. Pete–Clearwater Intl' },
-  { code: 'KSPG', name: 'Albert Whitted' },
-  { code: 'KCLW', name: 'Clearwater Air Park' },
-  { code: 'KVDF', name: 'Tampa Executive' },
-  { code: 'KLAL', name: 'Lakeland Linder' },
-  { code: 'KBKV', name: 'Brooksville–Tampa Bay' },
+  { code: 'KPIE', name: 'St. Pete–Clearwater Intl', city: 'Clearwater', lat: 27.9102, lon: -82.6874 },
+  { code: 'KSPG', name: 'Albert Whitted', city: 'St. Petersburg', lat: 27.7651, lon: -82.6270 },
+  { code: 'KCLW', name: 'Clearwater Air Park', city: 'Clearwater', lat: 27.9767, lon: -82.7587 },
+  { code: 'KVDF', name: 'Tampa Executive', city: 'Tampa', lat: 27.9727, lon: -82.3453 },
+  { code: 'KLAL', name: 'Lakeland Linder', city: 'Lakeland', lat: 27.9889, lon: -82.0186 },
+  { code: 'KBKV', name: 'Brooksville–Tampa Bay', city: 'Brooksville', lat: 28.4736, lon: -82.4554 },
 ];
+
+// Straight-line distance in statute miles.
+export function milesBetween(a, b) {
+  const R = 3958.8, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 
 export const OWNER_TYPES = ['Private owner', 'Flying club', 'Flight school', 'Rental fleet', 'Leaseback'];
 

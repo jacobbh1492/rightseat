@@ -8,7 +8,8 @@ import Welcome from './src/screens/Welcome';
 import SignIn from './src/screens/SignIn';
 import { AuthProvider, useAuth, appRolesFrom } from './src/backend/auth';
 import { PaymentsProvider } from './src/backend/payments';
-import { registerForPush, onNotificationTap } from './src/backend/push';
+import { registerForPush, onNotificationTap, pushStatus } from './src/backend/push';
+import NotifPrompt from './src/screens/NotifPrompt';
 import { Icon } from './src/icons';
 import { C } from './src/ui';
 import Explore from './src/screens/Explore';
@@ -56,7 +57,15 @@ const TAB_SCREENS = { Explore, Lessons, Training, Inbox, Me, Schedule, Students,
 const TEACH_ONLY = ['Schedule', 'Students', 'Earnings', 'Teaching'];
 const LEARN_ONLY = ['Explore', 'Lessons', 'Training'];
 const MODE_KEY = 'rightseat.mode';
-const SignInScreen = ({ nav, params }) => <SignIn askName={false} title="Sign in" subtitle={params?.reason || 'We’ll email you a 6-digit code. No password needed.'} onCancel={nav.pop} onDone={() => nav.pop()} />;
+const PUSH_ASKED_KEY = 'rightseat.pushAsked';
+function SignInScreen({ nav, params }) {
+  const auth = useAuth();
+  const [mode, setMode] = useState('existing');
+  return (
+    <SignIn mode={mode} subtitle={mode === 'existing' ? params?.reason : undefined} onSwitch={() => setMode(mode === 'new' ? 'existing' : 'new')} onCancel={nav.pop}
+      onDone={async ({ name }) => { if (mode === 'new' && name) { try { await auth.saveProfile({ name }); } catch {} } nav.pop(); }} />
+  );
+}
 const STACK_SCREENS = { SignIn: SignInScreen, Cfi: CfiDetail, Plane: PlaneDetail, School: SchoolDetail, Review: LeaveReview, Request: RequestLesson, CfiForm, PlaneForm, SchoolForm, Cancel: CancelLesson, CloseOut, Receipt, Chat, Wallet, CfiDashboard, OwnerDashboard, Plans, Credentials, Insights, Verification: VerificationCenter, DocUpload, ReviewQueue, ReviewDetail, Automation: AutomationMonitor, PriorExperience, PriorReview, Debrief: DebriefView, Debriefs: DebriefList, EditDebrief, StudentFile, AmendDebrief, SchoolDashboard, AffiliationReview, JoinSchool, Teaching, LiveCloseOut, GetVerified, StaffReview, DeleteAccount, PaymentMethods, StudentDetail, Library, LessonView, PreflightReview, AssignReview, Availability, BlockTime, CfiCalendar, SplitInvite, WriteDebrief, PilotProfile, Checkouts, ProposeLesson, PromoCode, Maintenance, ReportSquawk, MechanicHome, PlanePeople, AddPlanePerson, PlaneAccess, Preflight, GetMatched, MyMatches, StudentRequests };
 
 function Shell() {
@@ -94,7 +103,21 @@ function Shell() {
   useEffect(() => { if (mode === 'teach' && !canTeach) { setModeState('learn'); setTab('Explore'); } }, [canTeach]);
   const TABS = mode === 'teach' ? TEACH_TABS : LEARN_TABS;
   // Push notifications: register this phone once signed in; taps open the right screen.
-  useEffect(() => { if (auth.session?.user?.id) registerForPush(auth.session.user.id).catch(() => {}); }, [auth.session?.user?.id]);
+  // Ask once with our own explanation first (iOS only shows its prompt once).
+  const [askPush, setAskPush] = useState(false);
+  useEffect(() => {
+    const uid = auth.session?.user?.id;
+    if (!uid) return;
+    pushStatus().then(async (st) => {
+      if (st === 'granted') registerForPush(uid).catch(() => {});
+      else if (st === 'undetermined' && !(await AsyncStorage.getItem(PUSH_ASKED_KEY).catch(() => null))) setAskPush(true);
+    }).catch(() => {});
+  }, [auth.session?.user?.id]);
+  const answerPush = async (yes) => {
+    setAskPush(false);
+    AsyncStorage.setItem(PUSH_ASKED_KEY, '1').catch(() => {});
+    if (yes && auth.session?.user?.id) registerForPush(auth.session.user.id).catch(() => {});
+  };
   useEffect(() => onNotificationTap((screen, params) => {
     // A lesson request opens teaching mode; a student notification opens learning mode.
     if (TEACH_ONLY.includes(screen)) { setModeState('teach'); setStack([]); setTab(screen === 'Teaching' ? 'Schedule' : screen); return; }
@@ -134,6 +157,14 @@ function Shell() {
       <SafeAreaView style={{ flex: 1, backgroundColor: C.navy }} edges={['top']}>
         <StatusBar style="light" />
         <Welcome />
+      </SafeAreaView>
+    );
+  }
+  if (askPush) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
+        <StatusBar style="dark" />
+        <NotifPrompt onAnswer={answerPush} />
       </SafeAreaView>
     );
   }

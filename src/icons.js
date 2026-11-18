@@ -43,12 +43,33 @@ const P = {
   sparkle: [<Path key="a" d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />, <Path key="b" d="M19 17l.7 1.8 1.8.7-1.8.7L19 22l-.7-1.8-1.8-.7 1.8-.7z" />],
   grad: [<Path key="a" d="M22 10L12 5 2 10l10 5 10-5z" />, <Path key="b" d="M6 12v5c3 2 9 2 12 0v-5" />],
   key: [<Circle key="a" cx="7.5" cy="15.5" r="4.5" />, <Path key="b" d="M10.7 12.3L21 2M17 6l3 3M14 9l2 2" />],
+  sliders: [<Path key="a" d="M4 6h9 M17 6h3 M4 12h3 M11 12h9 M4 18h11 M19 18h1 M15 4v4 M9 10v4 M17 16v4" />],
+  alert: [<Path key="a" d="M12 3l10 18H2z M12 10v4 M12 17h.01" />],
+  wrench: [<Path key="a" d="M14 7a4 4 0 0 0 5 5l-8 8a2 2 0 0 1-3-3l8-8a4 4 0 0 0-2-2z" />],
+  card: [<Path key="a" d="M3 6h18v12H3z M3 10h18 M7 15h4" />],
+  camera: [<Path key="a" d="M4 7h4l2-3h4l2 3h4v12H4z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />],
+  help: [<Path key="a" d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18z M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.7 M12 17h.01" />],
+  trash: [<Path key="a" d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13" />],
+  minus: [<Path key="a" d="M5 12h14" />],
+  list: [<Path key="a" d="M8 6h12 M8 12h12 M8 18h12 M4 6h.01 M4 12h.01 M4 18h.01" />],
+  cloud: [<Path key="a" d="M7 18a5 5 0 1 1 1-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 8z" />],
+  eye: [<Path key="a" d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />],
+  flag: [<Path key="a" d="M5 21V4 M5 4h12l-2 4 2 4H5" />],
+  share: [<Path key="a" d="M12 3v12 M7 8l5-5 5 5 M5 14v6h14v-6" />],
+  upload: [<Path key="a" d="M12 16V4 M7 9l5-5 5 5 M4 20h16" />],
+  scan: [<Path key="a" d="M4 8V4h4 M16 4h4v4 M20 16v4h-4 M8 20H4v-4 M7 12h10" />],
+  home: [<Path key="a" d="M3 11l9-7 9 7 M5 10v10h14V10" />],
+  pen: [<Path key="a" d="M4 20h4L19 9l-4-4L4 16v4z M13 7l4 4" />],
+  refresh: [<Path key="a" d="M20 11a8 8 0 1 0-2.3 5.7 M20 4v7h-7" />],
+  mic: [<Path key="a" d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z M5 11a7 7 0 0 0 14 0 M12 18v3" />],
+  gauge: [<Path key="a" d="M12 14l4-4 M4 18a9 9 0 1 1 16 0z" />],
+  sun: [<Path key="a" d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z M12 2v2 M12 20v2 M2 12h2 M20 12h2 M5 5l1.5 1.5 M17.5 17.5L19 19 M5 19l1.5-1.5 M17.5 6.5L19 5" />],
 };
 
 export function Icon({ name, size = 22, color = '#0F172A', fill = 'none', strokeWidth = 2 }) {
   const shapes = P[name] || P.info;
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Svg accessibilityElementsHidden importantForAccessibility="no-hide-descendants" width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
       {shapes}
     </Svg>
   );
